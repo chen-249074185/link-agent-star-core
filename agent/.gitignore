@@ -37,3 +37,4 @@ build/
 *.key
 *.jks
 *.p12
+sessions/
