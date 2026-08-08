@@ -31,3 +31,9 @@ build/
 
 ### VS Code ###
 .vscode/
+
+.env
+*.pem
+*.key
+*.jks
+*.p12
