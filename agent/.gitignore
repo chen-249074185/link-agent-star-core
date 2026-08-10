@@ -38,3 +38,6 @@ build/
 *.jks
 *.p12
 sessions/
+
+# 反编译的 SDK 源码，仅供阅读参考
+sdk-src/

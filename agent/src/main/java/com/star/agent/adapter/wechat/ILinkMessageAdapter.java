@@ -7,7 +7,7 @@ import com.star.agent.message.MessageSource;
 
 import java.time.Instant;
 
-//
+//把微信的消息格式翻译成系统内部的统一格式
 public class ILinkMessageAdapter {
 
     public AgentMessage convert(WeixinMessage msg){
