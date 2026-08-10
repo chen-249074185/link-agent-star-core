@@ -9,7 +9,7 @@ public class ILinkLoginVerifier {
                 .config(ILinkConfigFactory.create())
                 .build();
 
-        BotWorker worker = new BotWorker(null, client);
+        BotWorker worker = new BotWorker(null, client,new ILinkMessageAdapter());
         Thread thread = new Thread(worker, "bot-new");
         thread.setDaemon(true);
         thread.start();

@@ -4,6 +4,7 @@ import com.github.wechat.ilink.sdk.ILinkClient;
 import com.github.wechat.ilink.sdk.core.context.ResumeContext;
 import com.github.wechat.ilink.sdk.core.login.LoginContext;
 import com.github.wechat.ilink.sdk.core.model.WeixinMessage;
+import com.star.agent.message.AgentMessage;
 
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
@@ -12,12 +13,14 @@ import java.util.List;
 public class BotWorker implements Runnable {
 
     private final String botId;
-    private final ILinkClient client;
+    private ILinkClient client;
     private volatile boolean running = true;
+    private final ILinkMessageAdapter adapter;
 
-    public BotWorker(String botId, ILinkClient client) {
+    public BotWorker(String botId, ILinkClient client, ILinkMessageAdapter adapter) {
         this.botId = botId;
         this.client = client;
+        this.adapter = adapter;
     }
 
     @Override
@@ -39,6 +42,7 @@ public class BotWorker implements Runnable {
                         .resumeContext(saved)
                         .build();
                 if ("LOGGED_IN".equals(resumeClient.getConnectionStatus().name())) {
+                    this.client = resumeClient;
                     System.out.println("会话恢复成功，免扫码登录");
                     return;
                 }
@@ -63,18 +67,11 @@ public class BotWorker implements Runnable {
         while (running) {
             List<WeixinMessage> msgs = client.getUpdates();
             if (msgs != null && !msgs.isEmpty()) {
-                for (WeixinMessage msg : msgs) {
-                    String userId = msg.getFrom_user_id();
-                    StringBuilder text = new StringBuilder();
-                    if (msg.getItem_list() != null) {
-                        for (var item : msg.getItem_list()) {
-                            if (item.getText_item() != null) {
-                                text.append(item.getText_item().getText());
-                            }
-                        }
-                    }
-                    System.out.println("收到消息 来自[" + userId + "]: " + text);
-                }
+               for(WeixinMessage msg : msgs){
+                   AgentMessage am = adapter.convert(msg);
+                   System.out.println("收到消息 来自[" + am.userId() + "]: " + am.text());  // ② 打印
+                   client.sendText(am.userId(), am.text());  // ③ 原样回显
+               }
             }
         }
     }

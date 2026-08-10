@@ -14,6 +14,7 @@ public class SessionStore {
 
     private static final Path SESSION_DIR = Paths.get("sessions");
 
+    //建立sessions目录，只在最开始执行一次
     static {
         try {
             Files.createDirectories(SESSION_DIR);
@@ -22,6 +23,8 @@ public class SessionStore {
         }
     }
 
+    //得到loginContext，并用“|”分隔写入文件
+    //拆resumeContext存
     public static void save(String botId, ResumeContext ctx) throws IOException {
         LoginContext lc = ctx.getLoginContext();
         String content = String.join("|",
@@ -29,6 +32,8 @@ public class SessionStore {
         Files.writeString(SESSION_DIR.resolve(botId + ".session"), content);
     }
 
+    //split("\\|")：转义
+    //组成resumeContext形式
     public static ResumeContext load(String botId) throws IOException {
         Path file = SESSION_DIR.resolve(botId + ".session");
         if (!Files.exists(file)) return null;
