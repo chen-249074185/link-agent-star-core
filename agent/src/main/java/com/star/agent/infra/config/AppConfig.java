@@ -8,6 +8,8 @@ public class AppConfig {
 
     private final String adminToken = System.getenv("ADMIN_TOKEN");
 
+    private final String deepseekApiKey = System.getenv("DEEPSEEK_API_KEY");
+
     public String dashScopeApiKey(){
         return dashScopeApiKey;
     }
@@ -15,4 +17,9 @@ public class AppConfig {
     public String adminToken(){
         return adminToken;
     }
+
+    public String deepseekApiKey(){
+        return deepseekApiKey;
+    }
+
 }
