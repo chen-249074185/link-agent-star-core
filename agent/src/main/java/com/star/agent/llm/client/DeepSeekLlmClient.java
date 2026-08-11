@@ -19,6 +19,7 @@ public class DeepSeekLlmClient implements LlmClient {
 
     private final RestClient client;
 
+
     public DeepSeekLlmClient(AppConfig appConfig) {
         this.client = RestClient.builder()
                 .baseUrl("https://api.deepseek.com")
@@ -64,6 +65,7 @@ public class DeepSeekLlmClient implements LlmClient {
         return payload;
     }
 
+    //遍历得到工具名,要调什么工具
     private List<ToolCall> parseToolCalls(JsonNode toolCallsNode) {
         List<ToolCall> calls = new ArrayList<>();
         if (toolCallsNode.isMissingNode() || !toolCallsNode.isArray()) {
