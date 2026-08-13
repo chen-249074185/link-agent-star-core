@@ -10,6 +10,8 @@ public class AppConfig {
 
     private final String deepseekApiKey = System.getenv("DEEPSEEK_API_KEY");
 
+    private final String seniverseApiKey = System.getenv("SENIVERSE_API_KEY");
+
     public String dashScopeApiKey(){
         return dashScopeApiKey;
     }
@@ -21,5 +23,7 @@ public class AppConfig {
     public String deepseekApiKey(){
         return deepseekApiKey;
     }
+
+    public String seniverseApiKey(){return seniverseApiKey; }
 
 }

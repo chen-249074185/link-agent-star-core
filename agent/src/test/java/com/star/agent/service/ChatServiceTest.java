@@ -17,8 +17,8 @@ import static org.mockito.Mockito.when;
 class ChatServiceTest {
 
     private final LlmClient llmClient = mock(LlmClient.class);
-    private final ToolDispatcher dispatcher = new ToolDispatcher(List.of(new WeatherSkill()));
-    private final ChatService service = new ChatService(llmClient, dispatcher, List.of(new WeatherSkill()));
+    private final ToolDispatcher dispatcher = new ToolDispatcher(List.of(new WeatherSkill("http://localhost:1", "test")));
+    private final ChatService service = new ChatService(llmClient, dispatcher, List.of(new WeatherSkill("http://localhost:1", "test")));
 
     @Test
     void directAnswer() {
