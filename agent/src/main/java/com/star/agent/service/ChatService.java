@@ -10,9 +10,7 @@ import com.star.agent.tool.ToolExecutor;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 
 @Component
 public class ChatService {
@@ -27,24 +25,13 @@ public class ChatService {
         this.executors = executors;
     }
 
+    //制作“工具菜单”
     private List<ToolSpec> buildTools() {
         List<ToolSpec> tools = new ArrayList<>();
         for (ToolExecutor e : executors) {
             tools.add(new ToolSpec(e.name(), e.description(), e.parameters()));
         }
         return tools;
-    }
-
-    private Map<String, Object> toApiToolCall(ToolCall call) {
-        Map<String, Object> function = new LinkedHashMap<>();
-        function.put("name", call.functionName());
-        function.put("arguments", call.arguments());
-
-        Map<String, Object> wrapper = new LinkedHashMap<>();
-        wrapper.put("id", call.id());
-        wrapper.put("type", "function");
-        wrapper.put("function", function);
-        return wrapper;
     }
 
     public String chat(String userMessage) {
@@ -59,11 +46,7 @@ public class ChatService {
                 return resp.content();
             }
 
-            List<Map<String, Object>> apiCalls = new ArrayList<>();
-            for (ToolCall call : resp.toolCalls()) {
-                apiCalls.add(toApiToolCall(call));
-            }
-            messages.add(ChatMessage.fromAssistant(apiCalls));
+            messages.add(ChatMessage.fromAssistant(resp.toolCalls()));
 
             for (ToolCall call : resp.toolCalls()) {
                 String result = dispatcher.dispatch(call.functionName(), call.arguments());

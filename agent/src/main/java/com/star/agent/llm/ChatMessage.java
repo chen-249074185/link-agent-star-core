@@ -1,25 +1,20 @@
 package com.star.agent.llm;
 
-import com.fasterxml.jackson.annotation.JsonInclude;
-import com.fasterxml.jackson.annotation.JsonProperty;
-
 import java.util.List;
-import java.util.Map;
 
-//装对话历史
-@JsonInclude(JsonInclude.Include.NON_NULL)
+//装对话历史（厂商 API 格式由 client 层负责翻译，此处只存内部结构）
 public record ChatMessage(
         String role,
         String content,
-        @JsonProperty("tool_call_id") String toolCallId,
-        @JsonProperty("tool_calls") List<Map<String, Object>> toolCalls) {
+        String toolCallId,
+        List<ToolCall> toolCalls) {
 
     public ChatMessage(String role, String content) {
         this(role, content, null, null);
     }
 
     //调用加入历史
-    public static ChatMessage fromAssistant(List<Map<String, Object>> toolCalls) {
+    public static ChatMessage fromAssistant(List<ToolCall> toolCalls) {
         return new ChatMessage("assistant", null, null, toolCalls);
     }
 
