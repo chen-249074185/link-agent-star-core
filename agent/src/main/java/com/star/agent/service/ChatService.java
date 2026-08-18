@@ -11,6 +11,7 @@ import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Consumer;
 
 @Component
 public class ChatService {
@@ -54,5 +55,11 @@ public class ChatService {
             }
         }
         return "工具调用次数过多，请换个问法";
+    }
+
+    public void stream(String userMessage, Consumer<String> onToken){
+        List<ChatMessage> messages = new ArrayList<>();
+        messages.add(new ChatMessage("user", userMessage));
+        llmClient.stream(messages,List.of(),onToken);
     }
 }
