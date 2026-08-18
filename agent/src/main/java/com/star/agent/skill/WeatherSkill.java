@@ -81,11 +81,8 @@ public class WeatherSkill implements ToolExecutor {
 
     @Override
     public Map<String, Object> parameters() {
-        return Map.of(
-                "type", "object",
-                "properties", Map.of(
-                        "city", Map.of("type", "string", "description", "城市名")),
-                "required", List.of("city")
-        );
+        return JsonSchemaBuilder.object()
+                .addString("city", "城市名", true)
+                .build();
     }
 }
