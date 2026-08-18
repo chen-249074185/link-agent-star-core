@@ -5,7 +5,7 @@ import com.star.agent.infra.config.AppConfig;
 import com.star.agent.llm.client.DeepSeekLlmClient;
 import com.star.agent.scene.SceneDetector;
 import com.star.agent.service.ChatService;
-import com.star.agent.skill.WeatherSkill;
+import com.star.agent.skill.impl.WeatherSkill;
 import com.star.agent.tool.ToolDispatcher;
 
 import java.util.List;

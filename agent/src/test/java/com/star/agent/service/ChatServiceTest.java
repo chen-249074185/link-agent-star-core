@@ -3,7 +3,7 @@ package com.star.agent.service;
 import com.star.agent.llm.ChatResponse;
 import com.star.agent.llm.LlmClient;
 import com.star.agent.llm.ToolCall;
-import com.star.agent.skill.WeatherSkill;
+import com.star.agent.skill.impl.WeatherSkill;
 import com.star.agent.tool.ToolDispatcher;
 import org.junit.jupiter.api.Test;
 

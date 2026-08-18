@@ -1,8 +1,9 @@
-package com.star.agent.skill;
+package com.star.agent.skill.impl;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.star.agent.infra.config.AppConfig;
+import com.star.agent.skill.JsonSchemaBuilder;
 import com.star.agent.tool.ToolExecutor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
