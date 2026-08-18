@@ -3,6 +3,7 @@ package com.star.agent.adapter.wechat;
 import com.github.wechat.ilink.sdk.ILinkClient;
 import com.star.agent.infra.config.AppConfig;
 import com.star.agent.llm.client.DeepSeekLlmClient;
+import com.star.agent.scene.SceneDetector;
 import com.star.agent.service.ChatService;
 import com.star.agent.skill.WeatherSkill;
 import com.star.agent.tool.ToolDispatcher;
@@ -24,7 +25,7 @@ public class ILinkLoginVerifier {
         DeepSeekLlmClient llm = new DeepSeekLlmClient(config);
         ChatService chatService = new ChatService(llm, dispatcher, List.of(weather));
 
-        BotWorker worker = new BotWorker(null, client, new ILinkMessageAdapter(), chatService);
+        BotWorker worker = new BotWorker(null, client, new ILinkMessageAdapter(), chatService,new SceneDetector());
         Thread thread = new Thread(worker, "bot-new");
         thread.setDaemon(true);
         thread.start();

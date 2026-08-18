@@ -5,11 +5,17 @@ import com.github.wechat.ilink.sdk.core.context.ResumeContext;
 import com.github.wechat.ilink.sdk.core.login.LoginContext;
 import com.github.wechat.ilink.sdk.core.model.WeixinMessage;
 import com.star.agent.message.AgentMessage;
+import com.star.agent.scene.Scene;
+import com.star.agent.scene.SceneDetector;
 import com.star.agent.service.ChatService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.UUID;
 
 public class BotWorker implements Runnable {
 
@@ -17,13 +23,16 @@ public class BotWorker implements Runnable {
     private ILinkClient client;
     private volatile boolean running = true;
     private final ILinkMessageAdapter adapter;
-    private final ChatService chatService;   // 真对话入口：收消息→调 chat()→回复
+    private final ChatService chatService;// 真对话入口：收消息→调 chat()→回复
+    private final SceneDetector sceneDetector;
+    private static final Logger logger = LoggerFactory.getLogger(BotWorker.class);
 
-    public BotWorker(String botId, ILinkClient client, ILinkMessageAdapter adapter, ChatService chatService) {
+    public BotWorker(String botId, ILinkClient client, ILinkMessageAdapter adapter, ChatService chatService, SceneDetector sceneDetector) {
         this.botId = botId;
         this.client = client;
         this.adapter = adapter;
         this.chatService = chatService;
+        this.sceneDetector = sceneDetector;
     }
 
     @Override
@@ -71,12 +80,18 @@ public class BotWorker implements Runnable {
             List<WeixinMessage> msgs = client.getUpdates();
             if (msgs != null && !msgs.isEmpty()) {
                 for(WeixinMessage msg : msgs){
-                   AgentMessage am = adapter.convert(msg);
-                   System.out.println("收到消息 来自[" + am.userId() + "]: " + am.text());  // ② 打印
-                   String reply = chatService.chat(am.text());   // ③ 真对话：消息→模型→回复
-                   System.out.println("回复: " + reply);
-                   client.sendText(am.userId(), reply);          // ④ 发回去
-               }
+                    MDC.put("traceId", UUID.randomUUID().toString().substring(0, 8));  // ① 开工前放钥匙
+                    try {
+                        AgentMessage am = adapter.convert(msg);
+                        Scene scene = sceneDetector.detect(am.text());
+                        logger.info("收到消息 来自[{}]: {}，识别场景: {}", am.userId(), am.text(), scene);
+                        String reply = chatService.chat(am.text());
+                        logger.info("回复[{}]: {}", am.userId(), reply);
+                        client.sendText(am.userId(), reply);
+                    } finally {
+                        MDC.remove("traceId");   // ② 无论成败，收工时拔钥匙
+                    }
+                }
             }
         }
     }

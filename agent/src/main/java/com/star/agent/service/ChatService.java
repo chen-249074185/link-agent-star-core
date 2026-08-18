@@ -7,6 +7,8 @@ import com.star.agent.llm.ToolCall;
 import com.star.agent.llm.ToolSpec;
 import com.star.agent.tool.ToolDispatcher;
 import com.star.agent.tool.ToolExecutor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
@@ -15,6 +17,8 @@ import java.util.function.Consumer;
 
 @Component
 public class ChatService {
+
+    private static final Logger logger = LoggerFactory.getLogger(ChatService.class);
 
     private final LlmClient llmClient;
     private final ToolDispatcher dispatcher;
@@ -36,6 +40,7 @@ public class ChatService {
     }
 
     public String chat(String userMessage) {
+        logger.info("开始对话: {}", userMessage);
         List<ChatMessage> messages = new ArrayList<>();
         messages.add(new ChatMessage("user", userMessage));
         List<ToolSpec> tools = buildTools();
@@ -44,6 +49,7 @@ public class ChatService {
             ChatResponse resp = llmClient.chat(messages, tools);
 
             if (resp.toolCalls().isEmpty()) {
+                logger.info("对话结束，共{}轮", round + 1);
                 return resp.content();
             }
 
@@ -54,10 +60,11 @@ public class ChatService {
                 messages.add(ChatMessage.fromToolResult(call.id(), result));
             }
         }
+        logger.warn("对话超出工具循环上限5轮");
         return "工具调用次数过多，请换个问法";
     }
 
-    public void stream(String userMessage, Consumer<String> onToken){
+public void stream(String userMessage, Consumer<String> onToken){
         List<ChatMessage> messages = new ArrayList<>();
         messages.add(new ChatMessage("user", userMessage));
         llmClient.stream(messages,List.of(),onToken);
