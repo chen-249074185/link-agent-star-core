@@ -12,7 +12,7 @@ public class AppConfig {
 
     private final String seniverseApiKey = System.getenv("SENIVERSE_API_KEY");
 
-    private final String amapApiKey = System.getenv("AMAP_API_KEY");
+    private final String amapApiKey = System.getenv("AMAP_KEY");
 
     public String dashScopeApiKey(){
         return dashScopeApiKey;
