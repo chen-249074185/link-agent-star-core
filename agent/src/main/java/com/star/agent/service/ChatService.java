@@ -1,12 +1,16 @@
 package com.star.agent.service;
 
+import com.star.agent.governance.CheckResult;
+import com.star.agent.governance.GovernanceKernel;
 import com.star.agent.llm.ChatMessage;
 import com.star.agent.llm.ChatResponse;
 import com.star.agent.llm.LlmClient;
 import com.star.agent.llm.ToolCall;
 import com.star.agent.llm.ToolSpec;
-import com.star.agent.tool.ToolDispatcher;
-import com.star.agent.tool.ToolExecutor;
+import com.star.agent.skill.Skill;
+import com.star.agent.skill.SkillContext;
+import com.star.agent.skill.SkillRegistry;
+import com.star.agent.skill.SkillResult;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -21,29 +25,21 @@ public class ChatService {
     private static final Logger logger = LoggerFactory.getLogger(ChatService.class);
 
     private final LlmClient llmClient;
-    private final ToolDispatcher dispatcher;
-    private final List<ToolExecutor> executors;
+    private final SkillRegistry skillRegistry;
+    private final GovernanceKernel governanceKernel;
 
-    public ChatService(LlmClient llmClient, ToolDispatcher dispatcher, List<ToolExecutor> executors) {
+    public ChatService(LlmClient llmClient, SkillRegistry skillRegistry, GovernanceKernel governanceKernel) {
         this.llmClient = llmClient;
-        this.dispatcher = dispatcher;
-        this.executors = executors;
+        this.skillRegistry = skillRegistry;
+        this.governanceKernel = governanceKernel;
     }
 
-    //制作“工具菜单”
-    private List<ToolSpec> buildTools() {
-        List<ToolSpec> tools = new ArrayList<>();
-        for (ToolExecutor e : executors) {
-            tools.add(new ToolSpec(e.name(), e.description(), e.parameters()));
-        }
-        return tools;
-    }
-
-    public String chat(String userMessage) {
+    public String chat(String userMessage, String userId, String scene) {
         logger.info("开始对话: {}", userMessage);
+        governanceKernel.resetRounds(userId);
         List<ChatMessage> messages = new ArrayList<>();
         messages.add(new ChatMessage("user", userMessage));
-        List<ToolSpec> tools = buildTools();
+        List<ToolSpec> tools = skillRegistry.getToolSpecs();
 
         for (int round = 0; round < 5; round++) {
             ChatResponse resp = llmClient.chat(messages, tools);
@@ -56,7 +52,7 @@ public class ChatService {
             messages.add(ChatMessage.fromAssistant(resp.toolCalls()));
 
             for (ToolCall call : resp.toolCalls()) {
-                String result = dispatcher.dispatch(call.functionName(), call.arguments());
+                String result = executeTool(call.functionName(), call.arguments(), userId, scene);
                 messages.add(ChatMessage.fromToolResult(call.id(), result));
             }
         }
@@ -64,9 +60,23 @@ public class ChatService {
         return "工具调用次数过多，请换个问法";
     }
 
-public void stream(String userMessage, Consumer<String> onToken){
+    // 执行一个工具：先过治理内核安检，放行才真正执行
+    private String executeTool(String toolName, String args, String userId, String scene) {
+        CheckResult check = governanceKernel.check(toolName, userId, args, scene);
+        if (!check.allowed()) {
+            return check.reason();
+        }
+        Skill skill = skillRegistry.getSkill(toolName);
+        if (skill == null) {
+            return "没有这个技能: " + toolName;
+        }
+        SkillResult result = skill.execute(new SkillContext(userId, args, ""));
+        return result.content();
+    }
+
+    public void stream(String userMessage, Consumer<String> onToken) {
         List<ChatMessage> messages = new ArrayList<>();
         messages.add(new ChatMessage("user", userMessage));
-        llmClient.stream(messages,List.of(),onToken);
+        llmClient.stream(messages, List.of(), onToken);
     }
 }

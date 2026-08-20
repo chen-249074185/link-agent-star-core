@@ -1,12 +1,15 @@
 package com.star.agent.adapter.wechat;
 
 import com.github.wechat.ilink.sdk.ILinkClient;
+import com.star.agent.governance.GovernanceKernel;
+import com.star.agent.governance.InMemoryConfirmationStore;
+import com.star.agent.governance.InMemoryRateLimiter;
 import com.star.agent.infra.config.AppConfig;
 import com.star.agent.llm.client.DeepSeekLlmClient;
 import com.star.agent.scene.SceneDetector;
 import com.star.agent.service.ChatService;
+import com.star.agent.skill.SkillRegistry;
 import com.star.agent.skill.impl.WeatherSkill;
-import com.star.agent.tool.ToolDispatcher;
 
 import java.util.List;
 
@@ -21,11 +24,14 @@ public class ILinkLoginVerifier {
         // 原则 = 和 Spring 装配一致的构造注入，只是自己写一遍
         AppConfig config = new AppConfig();
         WeatherSkill weather = new WeatherSkill(config);
-        ToolDispatcher dispatcher = new ToolDispatcher(List.of(weather));
+        SkillRegistry skillRegistry = new SkillRegistry(List.of(weather));
+        InMemoryConfirmationStore confirmStore = new InMemoryConfirmationStore();
+        InMemoryRateLimiter rateLimiter = new InMemoryRateLimiter();
+        GovernanceKernel kernel = new GovernanceKernel(skillRegistry, confirmStore, rateLimiter);
         DeepSeekLlmClient llm = new DeepSeekLlmClient(config);
-        ChatService chatService = new ChatService(llm, dispatcher, List.of(weather));
+        ChatService chatService = new ChatService(llm, skillRegistry, kernel);
 
-        BotWorker worker = new BotWorker(null, client, new ILinkMessageAdapter(), chatService,new SceneDetector());
+        BotWorker worker = new BotWorker(null, client, new ILinkMessageAdapter(), chatService, new SceneDetector());
         Thread thread = new Thread(worker, "bot-new");
         thread.setDaemon(true);
         thread.start();

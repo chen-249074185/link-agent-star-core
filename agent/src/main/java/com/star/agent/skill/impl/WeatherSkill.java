@@ -4,7 +4,12 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.star.agent.infra.config.AppConfig;
 import com.star.agent.skill.JsonSchemaBuilder;
-import com.star.agent.tool.ToolExecutor;
+import com.star.agent.skill.RiskLevel;
+import com.star.agent.skill.Skill;
+import com.star.agent.skill.SkillContext;
+import com.star.agent.skill.SkillMeta;
+import com.star.agent.skill.SkillResult;
+import com.star.agent.skill.SkillType;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -15,11 +20,10 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
-import java.util.Map;
 
-// 心知天气真实接入：get_weather 工具
+// 心知天气真实接入：get_weather 技能（已按 Skill 接口实现）
 @Component
-public class WeatherSkill implements ToolExecutor {
+public class WeatherSkill implements Skill {
 
     private static final String DEFAULT_BASE_URL = "https://api.seniverse.com/v3/weather/now.json";
 
@@ -40,16 +44,26 @@ public class WeatherSkill implements ToolExecutor {
     }
 
     @Override
-    public String name() {
-        return "get_weather";
+    public SkillMeta meta() {
+        return new SkillMeta(
+                "get_weather",
+                "查询指定城市的天气",
+                JsonSchemaBuilder.object()
+                        .addString("city", "城市名", true)
+                        .build(),
+                RiskLevel.LOW,
+                List.of("CHAT", "DATA"),
+                "LOCAL",
+                SkillType.EXT
+        );
     }
 
     @Override
-    public String execute(String args) {
+    public SkillResult execute(SkillContext ctx) {
         try {
-            JsonNode node = mapper.readTree(args);
+            JsonNode node = mapper.readTree(ctx.args());
             String city = node.path("city").asText();
-            if (city.isEmpty()) return "请告诉我要查询哪个城市";
+            if (city.isEmpty()) return new SkillResult(false, "请告诉我要查询哪个城市");
 
             // 拼 GET 请求：key + 城市 + 简体中文 + 摄氏度
             String url = baseUrl + "?key=" + apiKey
@@ -65,25 +79,13 @@ public class WeatherSkill implements ToolExecutor {
             JsonNode root = mapper.readTree(resp.body());
             JsonNode now = root.path("results").path(0).path("now");
             if (now.isMissingNode()) {
-                return "没查到[" + city + "]的天气，试试加上省市，如：北京市";
+                return new SkillResult(false, "没查到[" + city + "]的天气，试试加上省市，如：北京市");
             }
             String text = now.path("text").asText();
             String temp = now.path("temperature").asText();
-            return "[" + city + "] 当前天气：" + text + "，" + temp + "℃";
+            return new SkillResult(true, "[" + city + "] 当前天气：" + text + "，" + temp + "℃");
         } catch (Exception e) {
-            return "天气查询失败: " + e.getMessage();
+            return new SkillResult(false, "天气查询失败: " + e.getMessage());
         }
-    }
-
-    @Override
-    public String description() {
-        return "查询指定城市的天气";
-    }
-
-    @Override
-    public Map<String, Object> parameters() {
-        return JsonSchemaBuilder.object()
-                .addString("city", "城市名", true)
-                .build();
     }
 }

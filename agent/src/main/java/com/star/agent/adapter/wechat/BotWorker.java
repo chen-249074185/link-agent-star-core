@@ -85,7 +85,7 @@ public class BotWorker implements Runnable {
                         AgentMessage am = adapter.convert(msg);
                         Scene scene = sceneDetector.detect(am.text());
                         logger.info("收到消息 来自[{}]: {}，识别场景: {}", am.userId(), am.text(), scene);
-                        String reply = chatService.chat(am.text());
+                        String reply = chatService.chat(am.text(), am.userId(), scene.name());
                         logger.info("回复[{}]: {}", am.userId(), reply);
                         client.sendText(am.userId(), reply);
                     } finally {

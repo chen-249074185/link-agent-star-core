@@ -5,6 +5,7 @@ import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
@@ -20,12 +21,25 @@ public class SkillRegistry {
 
     private static final Logger logger = LoggerFactory.getLogger(SkillRegistry.class);
 
+    @Autowired
     public SkillRegistry(ObjectProvider<Skill> skillObjectProvider) {
         this.skillObjectProvider = skillObjectProvider;
     }
 
+    // 非 Spring 环境手动搭链路用：直接给技能列表（ILinkLoginVerifier 扫码测试）
+    public SkillRegistry(List<Skill> skills) {
+        this.skillObjectProvider = null;
+        for (Skill skill : skills) {
+            String name = skill.meta().name();
+            if (skillMap.put(name, skill) != null) {
+                throw new IllegalStateException("技能重名: " + name);
+            }
+        }
+    }
+
     @PostConstruct
     public void init() {
+        if (skillObjectProvider == null) return;  // 手动构造（List 版）已直接登记过
         List<String> names = new ArrayList<>();
         for (Skill skill : skillObjectProvider.stream().toList()) {
             String name = skill.meta().name();
