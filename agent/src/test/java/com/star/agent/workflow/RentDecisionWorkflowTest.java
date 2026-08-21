@@ -42,4 +42,19 @@ class RentDecisionWorkflowTest {
         assertTrue(report.contains("海淀学院路两居"));  // rag mock 房源出现
         assertTrue(report.contains("打分排行"));        // house_score 输出出现
     }
+
+    @Test
+    void execute_reportContainsAllFiveSections() {
+        doReturn(new SkillResult(true, "通勤40分钟")).when(commuteSkill).execute(any());
+
+        String report = workflow.execute("u1", "t1", "上海", 5000);
+
+        // 报告聚合模板：五段全齐，顺序固定
+        assertTrue(report.contains("【一、片区就业分析】"));
+        assertTrue(report.contains("【二、候选房源】"));
+        assertTrue(report.contains("【三、通勤测算】"));
+        assertTrue(report.contains("【四、风险检测】"));
+        assertTrue(report.contains("【五、加权打分排行】"));
+        assertTrue(report.indexOf("【一、片区就业分析】") < report.indexOf("【五、加权打分排行】"));
+    }
 }

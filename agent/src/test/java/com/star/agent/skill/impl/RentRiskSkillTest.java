@@ -11,7 +11,7 @@ class RentRiskSkillTest {
 
     @Test
     void riskyHouseFlagsIssues() {
-        String args = "{\"house\":{\"name\":\"A\",\"price\":800,\"area\":15,\"commute\":90,\"rating\":3}}";
+        String args = "{\"houses\":[{\"name\":\"A\",\"price\":800,\"area\":15,\"commute\":90,\"rating\":3}]}";
         var result = skill.execute(new SkillContext("user1", args, ""));
         assertTrue(result.success());
         assertTrue(result.content().contains("价格异常"));
@@ -22,7 +22,7 @@ class RentRiskSkillTest {
 
     @Test
     void cleanHouseNoRisk() {
-        String args = "{\"house\":{\"name\":\"B\",\"price\":3000,\"area\":50,\"commute\":40,\"rating\":8}}";
+        String args = "{\"houses\":[{\"name\":\"B\",\"price\":3000,\"area\":50,\"commute\":40,\"rating\":8}]}";
         var result = skill.execute(new SkillContext("user1", args, ""));
         assertTrue(result.success());
         assertTrue(result.content().contains("未发现明显风险"));
