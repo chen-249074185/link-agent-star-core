@@ -52,6 +52,19 @@
 		</dependency>
 
 		<dependency>
+			<groupId>io.modelcontextprotocol.sdk</groupId>
+			<artifactId>mcp</artifactId>
+			<version>1.1.4</version>
+		</dependency>
+		<!-- mcp-core 1.1.4 编译期依赖 jackson-annotations 2.20（用了 isRequired() 新 API）；
+			 显式声明覆盖 Spring Boot dependencyManagement 的 2.17.3，否则运行期 NoSuchMethodError -->
+		<dependency>
+			<groupId>com.fasterxml.jackson.core</groupId>
+			<artifactId>jackson-annotations</artifactId>
+			<version>2.20</version>
+		</dependency>
+
+		<dependency>
 			<groupId>org.mybatis.spring.boot</groupId>
 			<artifactId>mybatis-spring-boot-starter</artifactId>
 			<version>3.0.4</version>
