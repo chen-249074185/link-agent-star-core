@@ -4,10 +4,12 @@ import com.star.agent.workflow.context.WorkflowContext;
 import com.star.agent.workflow.node.WorkflowNode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Component;
 
 import java.util.List;
 
 // 工作流引擎：流水线总管——按顺序执行节点清单，单个节点挂了不崩，记进背包
+@Component
 public class WorkflowEngine {
 
     private static final Logger logger = LoggerFactory.getLogger(WorkflowEngine.class);
