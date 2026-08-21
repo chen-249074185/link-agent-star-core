@@ -12,6 +12,8 @@ import com.star.agent.skill.SkillResult;
 import com.star.agent.skill.SkillType;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.net.URI;
 import java.net.URLEncoder;
@@ -24,6 +26,8 @@ import java.util.List;
 // 高德路线规划真实接入：commute_estimate 技能（MAIN 主线：租房通勤成本测算）
 @Component
 public class CommuteSkill implements Skill {
+
+    private static final Logger logger = LoggerFactory.getLogger(CommuteSkill.class);
 
     private static final String DEFAULT_BASE_URL = "https://restapi.amap.com/v3/direction/driving";
 
@@ -81,6 +85,8 @@ public class CommuteSkill implements Skill {
             JsonNode root = mapper.readTree(resp.body());
             JsonNode path = root.path("route").path("paths").path(0);
             if (path.isMissingNode()) {
+                // 诊断日志：打高德返回的错误码（如 INVALID_USER_KEY）不打印 key
+                logger.warn("高德未返回路线: status={}, info={}", root.path("status").asText(), root.path("info").asText());
                 return new SkillResult(false, "没查到该路线的通勤信息");
             }
             int seconds = path.path("duration").asInt();

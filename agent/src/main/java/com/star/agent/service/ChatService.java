@@ -11,6 +11,7 @@ import com.star.agent.skill.Skill;
 import com.star.agent.skill.SkillContext;
 import com.star.agent.skill.SkillRegistry;
 import com.star.agent.skill.SkillResult;
+import com.star.agent.workflow.RentDecisionWorkflow;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -27,15 +28,28 @@ public class ChatService {
     private final LlmClient llmClient;
     private final SkillRegistry skillRegistry;
     private final GovernanceKernel governanceKernel;
+    private final RentRequestDetector rentRequestDetector;
+    private final RentDecisionWorkflow workflow;
 
-    public ChatService(LlmClient llmClient, SkillRegistry skillRegistry, GovernanceKernel governanceKernel) {
+    public ChatService(LlmClient llmClient, SkillRegistry skillRegistry, GovernanceKernel governanceKernel,
+                       RentRequestDetector rentRequestDetector, RentDecisionWorkflow workflow) {
         this.llmClient = llmClient;
         this.skillRegistry = skillRegistry;
         this.governanceKernel = governanceKernel;
+        this.rentRequestDetector = rentRequestDetector;
+        this.workflow = workflow;
     }
 
     public String chat(String userMessage, String userId, String scene) {
         logger.info("开始对话: {}", userMessage);
+
+        // 双模式路由：完整租房需求 → 直跑工作流（跳过 LLM）；否则走自由问答工具循环
+        RentRequest req = rentRequestDetector.parse(userMessage);
+        if (req != null) {
+            logger.info("检测到租房需求，进入工作流模式: {}", req);
+            return workflow.execute(userId, "", req.city(), req.maxPrice());
+        }
+
         governanceKernel.resetRounds(userId);
         List<ChatMessage> messages = new ArrayList<>();
         messages.add(new ChatMessage("user", userMessage));
