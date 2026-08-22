@@ -58,7 +58,7 @@ public class IntentClassifier {
         return messages;
     }
 
-    // 分类规则：场景定义 + 输出格式要求（配合 response_format=json_object 强制 JSON）
+    // 分类规则：场景定义 + few-shot 5 例 + 输出格式要求（配合 response_format=json_object 强制 JSON）
     private static final String SYSTEM_PROMPT = """
             你是场景分类器。根据对话历史判断最新一条消息属于哪个场景，只输出 JSON，不要多余文字。
             场景定义：
@@ -67,6 +67,12 @@ public class IntentClassifier {
             - OFFICE: 周报、日报、邮件、PPT、表格等办公任务
             - DATA: 查天气、股价、汇率、计算等数据查询
             - GROUP: 群聊场景（@全体成员 等）
+            示例（参考但不限于此）：
+            - "帮我画一只猫" → {"scene":"CREATION","confidence":0.95}
+            - "今天北京天气怎么样" → {"scene":"DATA","confidence":0.98}
+            - "帮我写一份周报" → {"scene":"OFFICE","confidence":0.9}
+            - "你好，在吗" → {"scene":"CHAT","confidence":0.95}
+            - "@全体成员 下午开会" → {"scene":"GROUP","confidence":0.97}
             输出格式：{"scene":"CHAT","confidence":0.9}
             """;
 }

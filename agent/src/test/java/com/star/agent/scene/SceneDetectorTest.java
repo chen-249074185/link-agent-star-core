@@ -90,11 +90,12 @@ class SceneDetectorTest {
     }
 
     // 关键词未命中 → LLM 兜底，返回 LLM 的判定
+    // 注意：测试消息必须不含任何关键词（"文案"已被收入 CREATION 白名单）
     @Test
     void keywordMissFallsBackToLlm() {
         when(intentClassifier.classify(anyList())).thenReturn(Scene.CREATION);
         SceneDetector springDetector = new SceneDetector(intentClassifier);
-        assertEquals(Scene.CREATION, springDetector.detect("帮我想个生日祝福文案"));
+        assertEquals(Scene.CREATION, springDetector.detect("帮我出个主意"));
         verify(intentClassifier).classify(anyList());
     }
 
