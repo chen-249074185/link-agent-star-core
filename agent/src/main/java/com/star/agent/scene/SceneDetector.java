@@ -7,6 +7,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+//点餐员
 public class SceneDetector {
 
     // 规则表：场景名 -> 关键词列表（LinkedHashMap 保证按 YAML 里的顺序）
