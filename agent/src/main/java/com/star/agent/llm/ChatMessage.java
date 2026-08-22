@@ -13,6 +13,16 @@ public record ChatMessage(
         this(role, content, null, null);
     }
 
+    //系统规则加入历史（意图分类的 system prompt 用）
+    public static ChatMessage fromSystem(String content) {
+        return new ChatMessage("system", content);
+    }
+
+    //用户消息加入历史
+    public static ChatMessage fromUser(String content) {
+        return new ChatMessage("user", content);
+    }
+
     //调用加入历史
     public static ChatMessage fromAssistant(List<ToolCall> toolCalls) {
         return new ChatMessage("assistant", null, null, toolCalls);

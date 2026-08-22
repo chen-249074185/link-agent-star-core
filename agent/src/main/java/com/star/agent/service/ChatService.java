@@ -14,6 +14,7 @@ import com.star.agent.skill.SkillResult;
 import com.star.agent.workflow.RentDecisionWorkflow;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
@@ -31,7 +32,7 @@ public class ChatService {
     private final RentRequestDetector rentRequestDetector;
     private final RentDecisionWorkflow workflow;
 
-    public ChatService(LlmClient llmClient, SkillRegistry skillRegistry, GovernanceKernel governanceKernel,
+    public ChatService(@Qualifier("deepSeekLlmClient")LlmClient llmClient, SkillRegistry skillRegistry, GovernanceKernel governanceKernel,
                        RentRequestDetector rentRequestDetector, RentDecisionWorkflow workflow) {
         this.llmClient = llmClient;
         this.skillRegistry = skillRegistry;
