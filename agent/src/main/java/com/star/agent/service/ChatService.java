@@ -5,8 +5,10 @@ import com.star.agent.governance.GovernanceKernel;
 import com.star.agent.llm.ChatMessage;
 import com.star.agent.llm.ChatResponse;
 import com.star.agent.llm.LlmClient;
+import com.star.agent.llm.ModelRouter;
 import com.star.agent.llm.ToolCall;
 import com.star.agent.llm.ToolSpec;
+import com.star.agent.scene.Scene;
 import com.star.agent.skill.Skill;
 import com.star.agent.skill.SkillContext;
 import com.star.agent.skill.SkillRegistry;
@@ -26,15 +28,17 @@ public class ChatService {
 
     private static final Logger logger = LoggerFactory.getLogger(ChatService.class);
 
-    private final LlmClient llmClient;
+    private final LlmClient llmClient;          // 工具循环大脑：固定 DeepSeek（工具调用稳定性优先）
+    private final ModelRouter modelRouter;      // 场景路由：stream() 纯对话按 ScenePolicy 选模型
     private final SkillRegistry skillRegistry;
     private final GovernanceKernel governanceKernel;
     private final RentRequestDetector rentRequestDetector;
     private final RentDecisionWorkflow workflow;
 
-    public ChatService(@Qualifier("deepSeekLlmClient")LlmClient llmClient, SkillRegistry skillRegistry, GovernanceKernel governanceKernel,
+    public ChatService(@Qualifier("deepSeekLlmClient")LlmClient llmClient, ModelRouter modelRouter, SkillRegistry skillRegistry, GovernanceKernel governanceKernel,
                        RentRequestDetector rentRequestDetector, RentDecisionWorkflow workflow) {
         this.llmClient = llmClient;
+        this.modelRouter = modelRouter;
         this.skillRegistry = skillRegistry;
         this.governanceKernel = governanceKernel;
         this.rentRequestDetector = rentRequestDetector;
@@ -89,9 +93,12 @@ public class ChatService {
         return result.content();
     }
 
-    public void stream(String userMessage, Consumer<String> onToken) {
+    // SSE 打字机：按场景路由模型（创作→qwen-max，其余→deepseek-v4-flash），无工具调用
+    public void stream(String userMessage, String scene, Consumer<String> onToken) {
+        LlmClient client = modelRouter.clientFor(Scene.valueOf(scene));
+        logger.info("流式对话[{}] 路由模型: {}", scene, client.model());
         List<ChatMessage> messages = new ArrayList<>();
         messages.add(new ChatMessage("user", userMessage));
-        llmClient.stream(messages, List.of(), onToken);
+        client.stream(messages, List.of(), onToken);
     }
 }

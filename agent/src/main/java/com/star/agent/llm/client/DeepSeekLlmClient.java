@@ -39,6 +39,9 @@ public class DeepSeekLlmClient implements LlmClient {
     // 官方接口地址。做成常量，缺省用；测试想打假服务器就换地址
     private static final String DEFAULT_BASE_URL = "https://api.deepseek.com";
 
+    // 官方当前模型 ID：deepseek-chat 别名 2026-07-24 已退役，换 v4-flash（输入 ¥1.5~3 / 输出 ¥4.5~9 每百万 token）
+    public static final String MODEL_NAME = "deepseek-v4-flash";
+
     // 为什么 baseUrl / apiKey 要提成字段？
     // 因为两个 HTTP 客户端都要用它们：
     //   非流式 RestClient 要 baseUrl + key 拼默认请求头
@@ -81,10 +84,15 @@ public class DeepSeekLlmClient implements LlmClient {
 
     // ==================== 非流式（整段返回） ====================
     @Override
+    public String model() {
+        return MODEL_NAME;
+    }
+
+    @Override
     public ChatResponse chat(List<ChatMessage> messages, List<ToolSpec> tools) {
         // 1. 组装请求体（Java Map → RestClient 自动序列化成 JSON）
         Map<String, Object> body = new java.util.LinkedHashMap<>();
-        body.put("model", "deepseek-chat");              // 选模型
+        body.put("model", MODEL_NAME);                       // 选模型
         body.put("messages", buildMessagesPayload(messages)); // 对话历史（内部结构→API 格式）
         body.put("tools", buildToolsPayload(tools));         // 工具菜单（翻译成 {type:function,...}）
 
@@ -109,7 +117,7 @@ public class DeepSeekLlmClient implements LlmClient {
         // 1. 请求体和 chat() 几乎一样，关键差别：多开 stream=true
         //    → 响应不再是"一个大 JSON"，而是 SSE 格式的一串小片段
         Map<String, Object> body = new java.util.LinkedHashMap<>();
-        body.put("model", "deepseek-chat");
+        body.put("model", MODEL_NAME);
         body.put("messages", buildMessagesPayload(messages));
         body.put("tools", buildToolsPayload(tools));
         body.put("stream", true);

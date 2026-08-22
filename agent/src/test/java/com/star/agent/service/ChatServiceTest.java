@@ -6,6 +6,7 @@ import com.star.agent.governance.InMemoryConfirmationStore;
 import com.star.agent.governance.InMemoryRateLimiter;
 import com.star.agent.llm.ChatResponse;
 import com.star.agent.llm.LlmClient;
+import com.star.agent.llm.ModelRouter;
 import com.star.agent.llm.ToolCall;
 import com.star.agent.skill.SkillRegistry;
 import com.star.agent.skill.impl.WeatherSkill;
@@ -32,7 +33,9 @@ class ChatServiceTest {
     private final GovernanceKernel kernel = new GovernanceKernel(registry, confirmStore, new InMemoryRateLimiter());
     private final RentRequestDetector detector = new RentRequestDetector();
     private final RentDecisionWorkflow workflow = mock(RentDecisionWorkflow.class);
-    private final ChatService service = new ChatService(llmClient, registry, kernel, detector, workflow);
+    // 手动链路 ModelRouter：三个客户端全指向 mock（ScenePolicy 传 null 走回退，chat() 测试不受影响）
+    private final ModelRouter router = new ModelRouter(llmClient, llmClient, llmClient, null);
+    private final ChatService service = new ChatService(llmClient, router, registry, kernel, detector, workflow);
 
     @Test
     void directAnswer() {
