@@ -10,6 +10,7 @@ import com.star.agent.llm.LlmClient;
 import com.star.agent.llm.ModelRouter;
 import com.star.agent.llm.ToolCall;
 import com.star.agent.memory.EphemeralMemory;
+import com.star.agent.memory.ShortTermMemory;
 import com.star.agent.scene.Scene;
 import com.star.agent.scene.ScenePolicy;
 import com.star.agent.scene.ScenePolicyConfig;
@@ -43,9 +44,10 @@ class ChatServiceTest {
     // 手动链路 ModelRouter：三个客户端全指向 mock（ScenePolicy 传 null 走回退，chat() 测试不受影响）
     private final ModelRouter router = new ModelRouter(llmClient, llmClient, llmClient, null);
     private final EphemeralMemory memory = mock(EphemeralMemory.class);
+    private final ShortTermMemory shortTermMemory = mock(ShortTermMemory.class);
     // 真实 ScenePolicyConfig：CHAT 场景 memory=ephemeral（验证记忆接入）；GROUP 场景 memory=none（验证不记）
     private final ScenePolicyConfig scenePolicyConfig = new ScenePolicyConfig();
-    private final ChatService service = new ChatService(llmClient, router, registry, kernel, detector, workflow, memory, scenePolicyConfig);
+    private final ChatService service = new ChatService(llmClient, router, registry, kernel, detector, workflow, memory, scenePolicyConfig, shortTermMemory);
 
     public ChatServiceTest() {
         Map<Scene, ScenePolicy> policies = Map.of(
@@ -116,7 +118,7 @@ class ChatServiceTest {
         )), anyList());
     }
 
-    // 瞬时记忆：对话结束后追加进记忆（用户消息 + AI 回答）
+    // 瞬时记忆：对话结束后追加进记忆（用户消息 + AI 回答）+ 短期记忆双写 MySQL
     @Test
     void ephemeralScene_appendsAfterChat() {
         when(llmClient.chat(anyList(), anyList()))
@@ -125,6 +127,8 @@ class ChatServiceTest {
         service.chat("滨江区", "user1", "CHAT");
 
         verify(memory).append(eq("user1"), eq("滨江区"), eq("杭州滨江区房价偏高，建议预算放宽"));
+        verify(shortTermMemory).saveAsync(eq("user1"), eq("user"), eq("滨江区"));
+        verify(shortTermMemory).saveAsync(eq("user1"), eq("assistant"), eq("杭州滨江区房价偏高，建议预算放宽"));
     }
 
     // 瞬时记忆：GROUP 场景（memory=none）不读历史也不写记忆
@@ -137,6 +141,7 @@ class ChatServiceTest {
 
         verify(memory, never()).load(any());
         verify(memory, never()).append(any(), any(), any());
+        verify(shortTermMemory, never()).saveAsync(any(), any(), any());
     }
 
     // 瞬时记忆：工作流模式不写记忆（租房需求直跑 Workflow，不经 LLM）

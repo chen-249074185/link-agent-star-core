@@ -10,6 +10,7 @@ import com.star.agent.llm.ToolCall;
 import com.star.agent.llm.ToolSpec;
 import com.star.agent.memory.ChatEntry;
 import com.star.agent.memory.EphemeralMemory;
+import com.star.agent.memory.ShortTermMemory;
 import com.star.agent.scene.Scene;
 import com.star.agent.scene.ScenePolicy;
 import com.star.agent.scene.ScenePolicyConfig;
@@ -40,10 +41,12 @@ public class ChatService {
     private final RentDecisionWorkflow workflow;
     private final EphemeralMemory ephemeralMemory;   // 瞬时记忆：30 分钟会话上下文（memory=ephemeral 场景启用）
     private final ScenePolicyConfig scenePolicyConfig; // 查场景记忆策略（GROUP=none 不记）
+    private final ShortTermMemory shortTermMemory;    // 短期记忆：对话永久落 MySQL
 
     public ChatService(@Qualifier("deepSeekLlmClient")LlmClient llmClient, ModelRouter modelRouter, SkillRegistry skillRegistry, GovernanceKernel governanceKernel,
                        RentRequestDetector rentRequestDetector, RentDecisionWorkflow workflow,
-                       EphemeralMemory ephemeralMemory, ScenePolicyConfig scenePolicyConfig) {
+                       EphemeralMemory ephemeralMemory, ScenePolicyConfig scenePolicyConfig,
+                       ShortTermMemory shortTermMemory) {
         this.llmClient = llmClient;
         this.modelRouter = modelRouter;
         this.skillRegistry = skillRegistry;
@@ -52,6 +55,7 @@ public class ChatService {
         this.workflow = workflow;
         this.ephemeralMemory = ephemeralMemory;
         this.scenePolicyConfig = scenePolicyConfig;
+        this.shortTermMemory = shortTermMemory;
     }
 
     public String chat(String userMessage, String userId, String scene) {
@@ -80,9 +84,13 @@ public class ChatService {
 
             if (resp.toolCalls().isEmpty()) {
                 logger.info("对话结束，共{}轮", round + 1);
-                // 记忆落库：把"用户说了啥 + AI 答了啥"记进 30 分钟会话（超限自动压缩）
+                // 记忆双写：瞬时(Redis 30分钟) + 短期(MySQL 永久落库)
                 if (memoryEnabled(scene)) {
                     ephemeralMemory.append(userId, userMessage, resp.content());
+                    if (shortTermMemory != null) {
+                        shortTermMemory.saveAsync(userId, "user", userMessage);
+                        shortTermMemory.saveAsync(userId, "assistant", resp.content());
+                    }
                 }
                 return resp.content();
             }
