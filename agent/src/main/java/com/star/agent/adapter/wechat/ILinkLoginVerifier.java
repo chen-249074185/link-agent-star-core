@@ -50,7 +50,8 @@ public class ILinkLoginVerifier {
                 new RagSearchSkill(), new CrawlSkill(), new LiepinSkill(), new UuDeliverySkill(),
                 new CommuteSkill(config),   // 走 AppConfig 构造器 = 内部默认 baseUrl（含 /v3/direction/driving 路径）
                 new HouseScoreSkill(), new RentRiskSkill()), engine);
-        ChatService chatService = new ChatService(llm, modelRouter, skillRegistry, kernel, new RentRequestDetector(), workflow);
+        ChatService chatService = new ChatService(llm, modelRouter, skillRegistry, kernel, new RentRequestDetector(), workflow,
+                null, null);   // 手动链路不进 Spring：无 Redis/ScenePolicy → 瞬时记忆降级关闭
 
         BotWorker worker = new BotWorker(null, client, new ILinkMessageAdapter(), chatService, new SceneDetector());
         Thread thread = new Thread(worker, "bot-new");

@@ -6,8 +6,10 @@ public final class RedisKeys {
 
     private static final String PREFIX = "linkagent";
     private static final String MODULE_GOVERNANCE = "governance";
+    private static final String MODULE_MEMORY = "memory";
     private static final String TYPE_CONFIRMATION = "confirmation";
     private static final String TYPE_RATE = "rate";
+    private static final String TYPE_EPHEMERAL = "ephemeral";
 
     // 工具类惯例：final 类禁止继承 + 私有构造器禁止 new，只许静态调用
     private RedisKeys() {}
@@ -21,5 +23,10 @@ public final class RedisKeys {
     // 单日限次 key：统计谁今天调过哪个技能几次，如 linkagent:governance:rate:user1:get_weather
     public static String rate(String key) {
         return String.format("%s:%s:%s:%s", PREFIX, MODULE_GOVERNANCE, TYPE_RATE, key);
+    }
+
+    // 瞬时记忆 key：每个用户一份 30 分钟会话上下文，如 linkagent:memory:ephemeral:user1
+    public static String memory(String userId) {
+        return String.format("%s:%s:%s:%s", PREFIX, MODULE_MEMORY, TYPE_EPHEMERAL, userId);
     }
 }

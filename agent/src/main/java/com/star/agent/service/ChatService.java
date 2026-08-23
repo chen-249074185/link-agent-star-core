@@ -8,7 +8,11 @@ import com.star.agent.llm.LlmClient;
 import com.star.agent.llm.ModelRouter;
 import com.star.agent.llm.ToolCall;
 import com.star.agent.llm.ToolSpec;
+import com.star.agent.memory.ChatEntry;
+import com.star.agent.memory.EphemeralMemory;
 import com.star.agent.scene.Scene;
+import com.star.agent.scene.ScenePolicy;
+import com.star.agent.scene.ScenePolicyConfig;
 import com.star.agent.skill.Skill;
 import com.star.agent.skill.SkillContext;
 import com.star.agent.skill.SkillRegistry;
@@ -34,15 +38,20 @@ public class ChatService {
     private final GovernanceKernel governanceKernel;
     private final RentRequestDetector rentRequestDetector;
     private final RentDecisionWorkflow workflow;
+    private final EphemeralMemory ephemeralMemory;   // 瞬时记忆：30 分钟会话上下文（memory=ephemeral 场景启用）
+    private final ScenePolicyConfig scenePolicyConfig; // 查场景记忆策略（GROUP=none 不记）
 
     public ChatService(@Qualifier("deepSeekLlmClient")LlmClient llmClient, ModelRouter modelRouter, SkillRegistry skillRegistry, GovernanceKernel governanceKernel,
-                       RentRequestDetector rentRequestDetector, RentDecisionWorkflow workflow) {
+                       RentRequestDetector rentRequestDetector, RentDecisionWorkflow workflow,
+                       EphemeralMemory ephemeralMemory, ScenePolicyConfig scenePolicyConfig) {
         this.llmClient = llmClient;
         this.modelRouter = modelRouter;
         this.skillRegistry = skillRegistry;
         this.governanceKernel = governanceKernel;
         this.rentRequestDetector = rentRequestDetector;
         this.workflow = workflow;
+        this.ephemeralMemory = ephemeralMemory;
+        this.scenePolicyConfig = scenePolicyConfig;
     }
 
     public String chat(String userMessage, String userId, String scene) {
@@ -57,6 +66,12 @@ public class ChatService {
 
         governanceKernel.resetRounds(userId);
         List<ChatMessage> messages = new ArrayList<>();
+        // 瞬时记忆：该场景要记的话，先把历史对话拼在最前面（AI 才记得"之前聊过啥"）
+        if (memoryEnabled(scene)) {
+            for (ChatEntry entry : ephemeralMemory.load(userId)) {
+                messages.add(new ChatMessage(entry.role(), entry.content()));
+            }
+        }
         messages.add(new ChatMessage("user", userMessage));
         List<ToolSpec> tools = skillRegistry.getToolSpecs();
 
@@ -65,6 +80,10 @@ public class ChatService {
 
             if (resp.toolCalls().isEmpty()) {
                 logger.info("对话结束，共{}轮", round + 1);
+                // 记忆落库：把"用户说了啥 + AI 答了啥"记进 30 分钟会话（超限自动压缩）
+                if (memoryEnabled(scene)) {
+                    ephemeralMemory.append(userId, userMessage, resp.content());
+                }
                 return resp.content();
             }
 
@@ -91,6 +110,13 @@ public class ChatService {
         }
         SkillResult result = skill.execute(new SkillContext(userId, args, ""));
         return result.content();
+    }
+
+    // 该场景要不要记瞬时记忆：查 ScenePolicy 的 memory 列（ephemeral=记，none=不记如群聊）
+    private boolean memoryEnabled(String scene) {
+        if (ephemeralMemory == null || scenePolicyConfig == null) return false;
+        ScenePolicy policy = scenePolicyConfig.getPolicies().get(Scene.valueOf(scene));
+        return policy != null && "ephemeral".equals(policy.memory());
     }
 
     // SSE 打字机：按场景路由模型（创作→qwen-max，其余→deepseek-v4-flash），无工具调用
