@@ -1,0 +1,5 @@
+# rag-mcp 构建产物
+rag-mcp/target/
+
+# spike 编译产物（源码保留）
+*.class

@@ -1,6 +1,0 @@
-com\star\rag\store\SQLiteVecStore.class
-com\star\rag\embedding\EmbeddingClient.class
-com\star\rag\store\VectorStore.class
-com\star\rag\RagMcpServer$EofAwareInputStream.class
-com\star\rag\RagMcpServer.class
-com\star\rag\store\VectorStore$SearchHit.class
