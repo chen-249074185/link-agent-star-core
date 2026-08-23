@@ -1,13 +1,15 @@
 package com.star.agent.governance;
 
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDate;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-// 限次：内存版实现（临时），按"日期+key"分组计数，W6 换 Redis
+// 限次：内存版实现（临时兜底），按"日期+key"分组计数，linkagent.redis-enabled=false 时才注册
 @Component
+@ConditionalOnProperty(name = "linkagent.redis-enabled", havingValue = "false", matchIfMissing = true)
 public class InMemoryRateLimiter implements RateLimiter {
 
     private final Map<String, Counter> store = new ConcurrentHashMap<>();
