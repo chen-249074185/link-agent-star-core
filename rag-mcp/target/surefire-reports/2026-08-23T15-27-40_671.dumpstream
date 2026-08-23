@@ -1,0 +1,5 @@
+# Created at 2026-08-23T15:27:40.847
+Boot Manifest-JAR contains absolute paths in classpath 'D:\星链智核\agent\rag-mcp\target\test-classes'
+Hint: <argLine>-Djdk.net.URLClassPath.disableClassPathURLCheck=true</argLine>
+'other' has different root
+
