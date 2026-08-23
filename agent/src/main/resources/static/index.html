@@ -2,61 +2,81 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <title>SSE 聊天测试</title>
+    <title>SSE 聊天测试（可停止）</title>
     <style>
-        /* 简单样式，让页面能看：聊天区、AI回复区、输入框 */
         body { font-family: Arial, sans-serif; max-width: 600px; margin: 40px auto; }
         #chat { border: 1px solid #ccc; min-height: 300px; padding: 10px; margin-bottom: 10px; }
         #chat div { margin: 5px 0; padding: 6px; border-radius: 4px; }
-        #chat div:nth-child(odd) { background: #e6f3ff; }  /* 奇数行=用户消息，浅蓝 */
-        #chat div:nth-child(even) { background: #f0f0f0; }  /* 偶数行=AI回复，浅灰 */
-        #input { width: 70%; padding: 8px; }
+        #chat .user { background: #e6f3ff; }   /* 用户消息：浅蓝 */
+        #chat .ai { background: #f0f0f0; }     /* AI 回复：浅灰 */
+        #chat .sys { background: #fff3cd; font-size: 12px; color: #856404; }  /* 系统提示：浅黄 */
+        #input { width: 60%; padding: 8px; }
         button { padding: 8px 16px; }
+        #stopBtn { background: #dc3545; color: white; display: none; }  /* 停止按钮：默认隐藏，有流时才显示 */
     </style>
 </head>
 <body>
-    <!-- 聊天区：用户消息和 AI 回复都往里加 -->
     <div id="chat"></div>
 
-    <!-- 输入区：文本框 + 发送按钮 -->
     <input id="input" type="text" placeholder="说点什么..." />
     <button onclick="send()">发送</button>
+    <button id="stopBtn" onclick="stopStream()">停止</button>
 
     <script>
-        // 点"发送"时执行
+        let es = null;        // 当前的 SSE 连接
+        let streamId = null;  // 当前流的身份证（后端首推事件里发来）
+
         function send() {
-            // 1. 读输入框内容，去首尾空格
+            if (es) return;   // 已有流在跑，防重复发送
+
             const input = document.getElementById('input');
             const text = input.value.trim();
-            if (!text) return;   // 空的就不发
+            if (!text) return;
 
             const chat = document.getElementById('chat');
 
-            // 2. 把用户的话显示在聊天区（独立小块）
             const userDiv = document.createElement('div');
+            userDiv.className = 'user';
             userDiv.textContent = text;
             chat.appendChild(userDiv);
 
-            // 3. 预留一个 AI 回复区（打字机效果：一个字一个字往里追加）
             const aiDiv = document.createElement('div');
+            aiDiv.className = 'ai';
             chat.appendChild(aiDiv);
 
-            // 4. 建立 SSE 连接：连我们的后端端点，把用户的话作为参数传过去
-            //    EventSource 只发 GET 请求，正好匹配后端的 GET /api/chat/stream
-            const es = new EventSource('/api/chat/stream?message=' + encodeURIComponent(text));
+            es = new EventSource('/api/chat/stream?message=' + encodeURIComponent(text));
 
-            // 5. 后端每推来一个字，触发一次；e.data = 那个字
+            // 命名事件：后端首推的 streamId（拿它才能调 /stop）
+            es.addEventListener('streamId', (e) => {
+                streamId = e.data;
+                document.getElementById('stopBtn').style.display = 'inline';
+            });
+
             es.onmessage = (e) => {
-                aiDiv.textContent += e.data;   // 追加到 AI 回复区
+                aiDiv.textContent += e.data;   // 打字机：逐 token 追加
             };
 
-            // 6. 连接结束（正常结束或出错）都会触发，统一关闭
             es.onerror = () => {
                 es.close();
+                es = null;
+                streamId = null;
+                document.getElementById('stopBtn').style.display = 'none';
             };
 
-            // 7. 发完清空输入框
             input.value = '';
+        }
+
+        // 点"停止"：调后端 /stop，按 streamId 终止当前流
+        function stopStream() {
+            if (!streamId) return;
+            fetch('/api/chat/stop?streamId=' + streamId)
+                .then(r => r.text())
+                .then(msg => {
+                    const sys = document.createElement('div');
+                    sys.className = 'sys';
+                    sys.textContent = '【已停止】' + msg;
+                    document.getElementById('chat').appendChild(sys);
+                });
         }
     </script>
 </body>
