@@ -9,6 +9,7 @@ import com.star.agent.llm.ChatResponse;
 import com.star.agent.llm.LlmClient;
 import com.star.agent.llm.ModelRouter;
 import com.star.agent.llm.ToolCall;
+import com.star.agent.memory.DailySummaryService;
 import com.star.agent.memory.EphemeralMemory;
 import com.star.agent.memory.ShortTermMemory;
 import com.star.agent.scene.Scene;
@@ -45,9 +46,10 @@ class ChatServiceTest {
     private final ModelRouter router = new ModelRouter(llmClient, llmClient, llmClient, null);
     private final EphemeralMemory memory = mock(EphemeralMemory.class);
     private final ShortTermMemory shortTermMemory = mock(ShortTermMemory.class);
+    private final DailySummaryService dailySummaryService = mock(DailySummaryService.class);
     // 真实 ScenePolicyConfig：CHAT 场景 memory=ephemeral（验证记忆接入）；GROUP 场景 memory=none（验证不记）
     private final ScenePolicyConfig scenePolicyConfig = new ScenePolicyConfig();
-    private final ChatService service = new ChatService(llmClient, router, registry, kernel, detector, workflow, memory, scenePolicyConfig, shortTermMemory);
+    private final ChatService service = new ChatService(llmClient, router, registry, kernel, detector, workflow, memory, scenePolicyConfig, shortTermMemory, dailySummaryService);
 
     public ChatServiceTest() {
         Map<Scene, ScenePolicy> policies = Map.of(

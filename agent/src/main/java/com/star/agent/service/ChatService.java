@@ -9,6 +9,7 @@ import com.star.agent.llm.ModelRouter;
 import com.star.agent.llm.ToolCall;
 import com.star.agent.llm.ToolSpec;
 import com.star.agent.memory.ChatEntry;
+import com.star.agent.memory.DailySummaryService;
 import com.star.agent.memory.EphemeralMemory;
 import com.star.agent.memory.ShortTermMemory;
 import com.star.agent.scene.Scene;
@@ -42,11 +43,12 @@ public class ChatService {
     private final EphemeralMemory ephemeralMemory;   // 瞬时记忆：30 分钟会话上下文（memory=ephemeral 场景启用）
     private final ScenePolicyConfig scenePolicyConfig; // 查场景记忆策略（GROUP=none 不记）
     private final ShortTermMemory shortTermMemory;    // 短期记忆：对话永久落 MySQL
+    private final DailySummaryService dailySummaryService;  // 每日压缩：跨天对话前惰性补压
 
     public ChatService(@Qualifier("deepSeekLlmClient")LlmClient llmClient, ModelRouter modelRouter, SkillRegistry skillRegistry, GovernanceKernel governanceKernel,
                        RentRequestDetector rentRequestDetector, RentDecisionWorkflow workflow,
                        EphemeralMemory ephemeralMemory, ScenePolicyConfig scenePolicyConfig,
-                       ShortTermMemory shortTermMemory) {
+                       ShortTermMemory shortTermMemory, DailySummaryService dailySummaryService) {
         this.llmClient = llmClient;
         this.modelRouter = modelRouter;
         this.skillRegistry = skillRegistry;
@@ -56,6 +58,7 @@ public class ChatService {
         this.ephemeralMemory = ephemeralMemory;
         this.scenePolicyConfig = scenePolicyConfig;
         this.shortTermMemory = shortTermMemory;
+        this.dailySummaryService = dailySummaryService;
     }
 
     public String chat(String userMessage, String userId, String scene) {
@@ -69,6 +72,10 @@ public class ChatService {
         }
 
         governanceKernel.resetRounds(userId);
+        // 惰性补压：跨天对话前查该用户摘要缺口，有就当场压（无缺口秒返回，不阻塞）
+        if (dailySummaryService != null) {
+            dailySummaryService.compressMissingForUser(userId);
+        }
         List<ChatMessage> messages = new ArrayList<>();
         // 瞬时记忆：该场景要记的话，先把历史对话拼在最前面（AI 才记得"之前聊过啥"）
         if (memoryEnabled(scene)) {

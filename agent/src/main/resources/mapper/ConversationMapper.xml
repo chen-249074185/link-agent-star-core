@@ -19,6 +19,26 @@
         LIMIT #{limit}
     </select>
 
+    <!-- 查某用户某一天的对话（当日压缩取料用） -->
+    <select id="findByUserIdAndDate" resultType="com.star.agent.memory.Conversation">
+        SELECT id, user_id, role, content, created_at
+        FROM conversation
+        WHERE user_id = #{userId}
+          AND created_at &gt;= #{date}
+          AND created_at &lt; #{date} + INTERVAL 1 DAY
+        ORDER BY id
+    </select>
+
+    <!-- 查所有有对话记录的用户 id（补压时遍历用） -->
+    <select id="findDistinctUserIds" resultType="java.lang.String">
+        SELECT DISTINCT user_id FROM conversation
+    </select>
+
+    <!-- 改某条对话的时间（测试造"昨天"数据用） -->
+    <update id="updateCreatedAt">
+        UPDATE conversation SET created_at = #{createdAt} WHERE id = #{id}
+    </update>
+
     <!-- 删某用户的全部对话（测试清理） -->
     <delete id="deleteByUserId">
         DELETE FROM conversation WHERE user_id = #{userId}
