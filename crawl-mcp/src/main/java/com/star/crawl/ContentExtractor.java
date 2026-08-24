@@ -30,6 +30,10 @@ public class ContentExtractor {
             if (t < MIN_TEXT_LENGTH) {
                 continue;                    // 太短：标题/按钮/碎料，跳过
             }
+            // 实体转义密集的块 = 编码过的标记/样式转储（如百度首页 &lt;style&gt; 墙，真实抓取实测暴露），不是正文
+            if (text.contains("&lt;") || text.contains("&gt;") || text.contains("&quot;")) {
+                continue;
+            }
             double density = (double) t / (t + l);   // 密度 = 纯文字 / 全部文字
             if (density > MIN_DENSITY && t > best.length()) {
                 best = text;                 // 密度达标且更长 → 记为当前最佳（最长达标块=正文）
@@ -42,6 +46,8 @@ public class ContentExtractor {
     private String textOf(String block) {
         return block.replaceAll("<[^>]+>", " ")
                 .replaceAll("&nbsp;", " ")
+                .replaceAll("&quot;", "\"")
+                .replaceAll("&#39;", "'")
                 .replaceAll("&amp;", "&")
                 .replaceAll("\\s+", " ")
                 .trim();

@@ -52,4 +52,17 @@ class ContentExtractorTest {
 
         assertEquals("", extractor.extractMainText(html));
     }
+
+    // 实体转义密集的块（&lt;style&gt; 墙）跳过：真实页面把 CSS 编码成文本时的坑（百度首页实测暴露）
+    @Test
+    void entityEncodedMarkup_skipped() {
+        String html = "<div>&lt;style data-for=\"result\" type=\"text/css\"&gt;html{font-size:100px}"
+                + "body{color:#333;background:#fff;padding:0;margin:0}&lt;/style&gt;</div>"
+                + "<div>这是真正的一段正文内容，讲的是租房通勤和房价分析，文字足够长超过最小长度阈值，值得被选中。</div>";
+
+        String main = extractor.extractMainText(html);
+
+        assertFalse(main.contains("font-size"), "实体转义的样式墙不应进正文");
+        assertTrue(main.contains("租房通勤"), "正文段落应被选中");
+    }
 }
