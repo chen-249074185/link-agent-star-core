@@ -64,4 +64,12 @@ public class SkillRegistry {
         return skillMap.get(name);
     }
 
+    // 程序化注册（MCP 技能注册器用）：带重名校验
+    public void register(Skill skill) {
+        String name = skill.meta().name();
+        if (skillMap.put(name, skill) != null) {
+            throw new IllegalStateException("技能重名: " + name);
+        }
+    }
+
 }
