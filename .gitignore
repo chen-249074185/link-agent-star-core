@@ -1,5 +1,6 @@
 # rag-mcp 构建产物
 rag-mcp/target/
+crawl-mcp/target/
 
 # IDE 配置不入库
 .idea/
