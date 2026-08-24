@@ -55,6 +55,10 @@ public class LiepinMcpHandshakeTest {
                     Map.of("jobs", "[{\"jobId\":85116009,\"jobType\":\"2\",\"jobName\":\"Java开发工程师\",\"company\":\"示例公司\"}]")));
             System.out.println("[5] 投递计划 dry-run:\n" + text(dryRun));
 
+            var apply = client.callTool(new McpSchema.CallToolRequest("liepin_apply",
+                    Map.of("jobId", 85116009, "jobType", "2")));
+            System.out.println("[5.5] 投递(模拟模式):\n" + text(apply));
+
             var resume = client.callTool(new McpSchema.CallToolRequest("liepin_resume", Map.of()));
             System.out.println("[6] 简历:\n" + text(resume));
 

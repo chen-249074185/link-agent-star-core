@@ -24,6 +24,9 @@ import java.util.concurrent.CountDownLatch;
 public class LiepinMcpServer {
 
     private static final ObjectMapper mapper = new ObjectMapper();
+    private static final int MAX_APPLY_PER_DAY = 20;         // 计划要求：投递单日限次
+    private static final long MIN_APPLY_INTERVAL_MS = 3000;  // 真实投递间隔下限
+    private static final long MAX_APPLY_INTERVAL_MS = 8000;  // 真实投递间隔上限
 
     public static void main(String[] args) {
         String token = System.getenv("LIEPIN_USER_TOKEN");
@@ -47,7 +50,8 @@ public class LiepinMcpServer {
             McpServer.sync(transport)
                     .serverInfo("liepin-mcp-server", "0.1.0")
                     .tools(doctorTool(runner), searchJobsTool(runner),
-                            filterJobsTool(runner), resumeTool(runner), applyDryRunTool(runner))
+                            filterJobsTool(runner), resumeTool(runner),
+                            applyDryRunTool(runner), applyTool(runner))
                     .build();
             System.err.println("liepin-mcp-server 就绪，等待客户端...");
         } catch (Exception e) {
@@ -205,6 +209,81 @@ public class LiepinMcpServer {
                     }
                 })
                 .build();
+    }
+
+    // 工具6：投递（双模式）——默认模拟（LIEPIN_SIMULATE=true，流程全走但不真投官方接口）；false 走真实投递
+    // 双模式共用：参数校验 + 单日限次 20；真实模式额外：随机间隔 3~8s + 调官方 job apply
+    private static SyncToolSpecification applyTool(LiepinCliRunner runner) {
+        McpSchema.Tool tool = McpSchema.Tool.builder()
+                .name("liepin_apply")
+                .description("投递一个职位（HIGH_RISK 需确认；默认模拟模式不真实投递，LIEPIN_SIMULATE=false 才真投）")
+                .inputSchema(new McpSchema.JsonSchema("object",
+                        Map.of(
+                                "jobId", Map.of("type", "integer", "description", "职位 ID（从搜索结果取）"),
+                                "jobType", Map.of("type", "string", "description", "职位类型（从搜索结果取，jobKind）")
+                        ),
+                        List.of("jobId", "jobType"), null, null, null))
+                .build();
+        return SyncToolSpecification.builder()
+                .tool(tool)
+                .callHandler((exchange, request) -> {
+                    Map<String, Object> a = request.arguments();
+                    Object jobIdObj = a.get("jobId");
+                    Object jobTypeObj = a.get("jobType");
+                    if (!(jobIdObj instanceof Number) || jobTypeObj == null) {
+                        return error("参数缺失：jobId(数字) + jobType(字符串) 必填（从搜索结果取）");
+                    }
+                    long jobId = ((Number) jobIdObj).longValue();
+                    String jobType = String.valueOf(jobTypeObj);
+
+                    ApplyLimiter limiter = limiter();   // 单日限次 20（懒加载，跨天重置）
+                    if (!limiter.tryAcquire()) {
+                        return error("今日投递次数已用完（限 " + MAX_APPLY_PER_DAY + " 次/天），明天再来");
+                    }
+
+                    boolean simulate = !"false".equalsIgnoreCase(System.getenv("LIEPIN_SIMULATE"));
+                    try {
+                        if (simulate) {
+                            // 模拟模式：不调官方接口，返回完整"应发生的结果"话术
+                            return ok("已投递（模拟，未真实投递）: jobId=" + jobId + " jobType=" + jobType
+                                    + "\n[演示模式] 真实投递会：调官方接口 + 间隔 3~8s + 单日限次 20，"
+                                    + "部署时将 LIEPIN_SIMULATE 置 false 即真投"
+                                    + "\nHR 回复会通过猎聘 App/短信通知，请回 App 查看。");
+                        }
+                        // 真实模式：随机间隔 3~8s（防官方 60 次/分钟限流）
+                        long delay = MIN_APPLY_INTERVAL_MS
+                                + (long) (Math.random() * (MAX_APPLY_INTERVAL_MS - MIN_APPLY_INTERVAL_MS));
+                        Thread.sleep(delay);
+                        JsonNode r = mapper.readTree(runner.run("job", "apply",
+                                "--job-id", String.valueOf(jobId),
+                                "--job-kind", jobType, "--output", "json"));
+                        if (r.path("errCode").asInt() != 0) {
+                            return error("投递失败: " + r.path("data").path("result").asText());
+                        }
+                        return ok("已投递: jobId=" + jobId + "（剩余今日额度 " + limiter.remaining() + " 次）"
+                                + "\nHR 回复会通过猎聘 App/短信通知，请回 App 查看。");
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        return error("投递被中断");
+                    } catch (Exception e) {
+                        return error("投递失败: " + e.getMessage());
+                    }
+                })
+                .build();
+    }
+
+    private static volatile ApplyLimiter applyLimiter;
+
+    // 单例限次器（工具 handler 是静态的，进程内共享一个计数）
+    private static ApplyLimiter limiter() {
+        if (applyLimiter == null) {
+            synchronized (LiepinMcpServer.class) {
+                if (applyLimiter == null) {
+                    applyLimiter = new ApplyLimiter(MAX_APPLY_PER_DAY);
+                }
+            }
+        }
+        return applyLimiter;
     }
 
     // 共用：拼命令 → 跑 CLI → 解析成 data 节点（list 或 result 的容器）

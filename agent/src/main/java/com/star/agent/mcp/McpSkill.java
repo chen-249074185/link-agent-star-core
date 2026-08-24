@@ -51,7 +51,8 @@ public class McpSkill implements Skill {
                 PREFIX + tool.name(),
                 tool.description() + "（由 MCP 子进程提供，回答请标注来源）",
                 params,
-                tool.name().contains("delete") ? RiskLevel.HIGH_RISK : RiskLevel.LOW,  // 删库=破坏性操作
+                tool.name().contains("delete") || tool.name().contains("apply")
+                        ? RiskLevel.HIGH_RISK : RiskLevel.LOW,   // 删库/投递=破坏性操作，治理内核确认放行
                 List.of("CHAT", "DATA"),     // 群聊 GROUP 不在白名单 → 群聊场景自动禁用（风控）
                 "MCP:" + connection.serverName(),   // 来源标注：MCP:rag-mcp / MCP:crawl-mcp
                 SkillType.MAIN
