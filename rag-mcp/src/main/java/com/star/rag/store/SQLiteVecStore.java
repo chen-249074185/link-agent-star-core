@@ -8,10 +8,11 @@ import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
+import java.util.UUID;
 
-// VectorStore 的 sqlite-vec 实现（D37 方案 A）
-// 双表：vec_chunks 虚拟表（向量 KNN）+ chunks 普通表（正文/元数据）
-public class SQLiteVecStore implements VectorStore {
+// VectorStore 的 sqlite-vec 实现（D37 方案 A）+ KnowledgeBaseRepository（user/知识库显式归属）
+// 三块数据：vec_chunks 虚拟表（向量 KNN）+ chunks 普通表（正文/元数据）+ users/knowledge_base（归属管理）
+public class SQLiteVecStore implements VectorStore, KnowledgeBaseRepository {
 
     private final Connection conn;
 
@@ -41,6 +42,15 @@ public class SQLiteVecStore implements VectorStore {
                     "metadata_json TEXT," +
                     "created_at TEXT NOT NULL DEFAULT (datetime('now','localtime')))");
             st.execute("CREATE INDEX IF NOT EXISTS idx_chunks_user ON chunks (user_id, kb_id)");
+            // W8(09-29)：user 表 + knowledge_base 表，知识库归属显式化（R10）
+            st.execute("CREATE TABLE IF NOT EXISTS users (" +
+                    "user_id TEXT PRIMARY KEY," +
+                    "created_at TEXT NOT NULL DEFAULT (datetime('now','localtime')))");
+            st.execute("CREATE TABLE IF NOT EXISTS knowledge_base (" +
+                    "kb_id TEXT PRIMARY KEY," +
+                    "user_id TEXT NOT NULL," +
+                    "name TEXT NOT NULL," +
+                    "created_at TEXT NOT NULL DEFAULT (datetime('now','localtime')))");
         }
     }
 
@@ -157,18 +167,96 @@ public class SQLiteVecStore implements VectorStore {
         }
     }
 
-    // 归属校验（R10）：kb_id 由第一个上传内容的用户"认领"——只要存在"其他用户"的同名库，就不归我
+    // 归属校验（R10 显式版）：knowledge_base 表里有 (kb_id, user_id) 行才算拥有
     @Override
     public boolean ownsKb(String userId, String kbId) {
         try (PreparedStatement ps = conn.prepareStatement(
-                "SELECT EXISTS(SELECT 1 FROM chunks WHERE kb_id = ? AND user_id <> ?)")) {
+                "SELECT EXISTS(SELECT 1 FROM knowledge_base WHERE kb_id = ? AND user_id = ?)")) {
             ps.setString(1, kbId);
             ps.setString(2, userId);
             try (ResultSet rs = ps.executeQuery()) {
-                return !rs.getBoolean(1);   // 没有"别人"占用 → 归我
+                return rs.getBoolean(1);
             }
         } catch (Exception e) {
             throw new RuntimeException("校验知识库归属失败: " + e.getMessage(), e);
+        }
+    }
+
+    // ===== KnowledgeBaseRepository 实现（W8 09-29）=====
+
+    // 新用户自动建默认库：INSERT OR IGNORE 幂等（已存在不报错），默认库 kb_id = userId + "-default"
+    @Override
+    public KnowledgeBase ensureUserWithDefaultKb(String userId) {
+        try {
+            try (PreparedStatement ps = conn.prepareStatement(
+                    "INSERT OR IGNORE INTO users (user_id) VALUES (?)")) {
+                ps.setString(1, userId);
+                ps.executeUpdate();
+            }
+            String defaultKbId = userId + "-default";
+            try (PreparedStatement ps = conn.prepareStatement(
+                    "INSERT OR IGNORE INTO knowledge_base (kb_id, user_id, name) VALUES (?,?,?)")) {
+                ps.setString(1, defaultKbId);
+                ps.setString(2, userId);
+                ps.setString(3, "默认知识库");
+                ps.executeUpdate();
+            }
+            return new KnowledgeBase(defaultKbId, userId, "默认知识库");
+        } catch (Exception e) {
+            throw new RuntimeException("创建默认知识库失败: " + e.getMessage(), e);
+        }
+    }
+
+    // 新建命名知识库：kb_id 用 UUID 短前缀（跨用户不撞名）
+    @Override
+    public KnowledgeBase createKb(String userId, String name) {
+        try {
+            String kbId = "kb-" + UUID.randomUUID().toString().substring(0, 8);
+            try (PreparedStatement ps = conn.prepareStatement(
+                    "INSERT INTO knowledge_base (kb_id, user_id, name) VALUES (?,?,?)")) {
+                ps.setString(1, kbId);
+                ps.setString(2, userId);
+                ps.setString(3, name);
+                ps.executeUpdate();
+            }
+            return new KnowledgeBase(kbId, userId, name);
+        } catch (Exception e) {
+            throw new RuntimeException("创建知识库失败: " + e.getMessage(), e);
+        }
+    }
+
+    // 列出用户全部知识库（含默认库）
+    @Override
+    public List<KnowledgeBase> listByUser(String userId) {
+        try (PreparedStatement ps = conn.prepareStatement(
+                "SELECT kb_id, user_id, name FROM knowledge_base WHERE user_id = ? ORDER BY created_at")) {
+            ps.setString(1, userId);
+            List<KnowledgeBase> list = new ArrayList<>();
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    list.add(new KnowledgeBase(
+                            rs.getString("kb_id"), rs.getString("user_id"), rs.getString("name")));
+                }
+            }
+            return list;
+        } catch (Exception e) {
+            throw new RuntimeException("列出知识库失败: " + e.getMessage(), e);
+        }
+    }
+
+    // 删库：先删库内全部切片，再删 knowledge_base 行（调用方已做归属校验）
+    @Override
+    public void deleteKb(String userId, String kbId) {
+        try {
+            deleteByKb(userId, kbId);
+            try (PreparedStatement ps = conn.prepareStatement(
+                    "DELETE FROM knowledge_base WHERE kb_id = ? AND user_id = ?")) {
+                ps.setString(1, kbId);
+                ps.setString(2, userId);
+                ps.executeUpdate();
+            }
+        } catch (Exception e) {
+            throw new RuntimeException("删除知识库失败: " + e.getMessage(), e);
         }
     }
 

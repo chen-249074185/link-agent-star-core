@@ -167,32 +167,27 @@ class SQLiteVecStoreTest {
         return v;
     }
 
-    // ===== R10 归属校验（ownsKb + KnowledgeBaseGuard）=====
+    // ===== R10 归属校验（显式版：knowledge_base 表）=====
 
-    // 空库/无别人占用 → 归该用户
+    // 显式归属：默认库归该用户，别人/未知库不拥有
     @Test
-    void ownsKb_trueWhenNoOtherUserClaims() {
-        store.insertChunk("u1", "kb1", "自己的", axis(0), "{}");
-        assertTrue(store.ownsKb("u1", "kb1"));      // 自己上传过 → 有
-        assertTrue(store.ownsKb("u2", "fresh-kb")); // 全新库名没人占用 → 也归 u2（可认领）
-    }
-
-    // 别的用户已占用同名库 → 不归我（R10 越权核心）
-    @Test
-    void ownsKb_falseWhenOtherUserClaims() {
-        store.insertChunk("u1", "kb1", "别人的库", axis(0), "{}");
-        assertTrue(!store.ownsKb("u2", "kb1"));     // u2 想碰 u1 的 kb1 → 拒绝
+    void ownsKb_explicitOwnership() {
+        store.ensureUserWithDefaultKb("u1");               // 新用户自动建默认库 u1-default
+        assertTrue(store.ownsKb("u1", "u1-default"));      // 自己默认库 → 拥有
+        assertTrue(!store.ownsKb("u2", "u1-default"));     // u2 想碰 u1 的库 → 拒绝
+        assertTrue(!store.ownsKb("u1", "kb-unknown"));     // 不存在的库也不拥有
     }
 
     // Guard 校验层：归属通过返回 null；越权返回话术 + 审计日志（走 stderr）
     @Test
     void guard_allowsOwner_deniesIntruder() {
         KnowledgeBaseGuard guard = new KnowledgeBaseGuard(store);
-        store.insertChunk("u1", "kb1", "只有u1的内容", axis(0), "{}");
+        store.ensureUserWithDefaultKb("u1");
+        store.insertChunk("u1", "u1-default", "只有u1的内容", axis(0), "{}");
 
-        assertTrue(guard.checkAccess("u1", "kb1") == null);          // 主人 → 放行
-        assertTrue(guard.checkAccess("u2", "kb1") != null);          // 入侵者 → 拒绝（含审计日志）
-        assertTrue(guard.checkAccess("u2", "kb1").contains("无权"));
+        assertTrue(guard.checkAccess("u1", "u1-default") == null);   // 主人 → 放行
+        assertTrue(guard.checkAccess("u2", "u1-default") != null);   // 入侵者 → 拒绝（含审计日志）
+        assertTrue(guard.checkAccess("u2", "u1-default").contains("无权"));
     }
 
     // deleteChunks 按行号删：只删指定的，别的保留（上传回滚真实路径）

@@ -5,6 +5,7 @@ import com.star.rag.document.DocumentParser;
 import com.star.rag.document.TextChunker;
 import com.star.rag.embedding.EmbeddingClient;
 import com.star.rag.security.KnowledgeBaseGuard;
+import com.star.rag.store.KnowledgeBaseRepository;
 import com.star.rag.store.SQLiteVecStore;
 import com.star.rag.store.VectorStore;
 import com.star.rag.upload.UploadService;
@@ -61,7 +62,8 @@ public class RagMcpServer {
         System.setOut(System.err);   // 之后日志全走 stderr，不污染协议流
 
         try {
-            VectorStore store = new SQLiteVecStore(dbPath.toString(), vecDll.toString());
+            SQLiteVecStore store = new SQLiteVecStore(dbPath.toString(), vecDll.toString());
+            KnowledgeBaseRepository kbRepo = store;   // 同一连接：user/知识库归属显式管理
             EmbeddingClient embedding = new EmbeddingClient(apiKey);
             KnowledgeBaseGuard guard = new KnowledgeBaseGuard(store);
             // 上传管道：解析→清洗→切片→向量化→入库（失败自动回滚）
@@ -71,9 +73,9 @@ public class RagMcpServer {
             McpServer.sync(transport)
                     .serverInfo("rag-mcp-server", "0.1.0")
                     .tools(
-                            uploadTool(uploader, guard),
-                            searchTool(store, embedding, guard),
-                            deleteTool(store, guard)
+                            uploadTool(uploader, guard, kbRepo),
+                            searchTool(store, embedding, guard, kbRepo),
+                            deleteTool(store, guard, kbRepo)
                     )
                     .build();
             System.err.println("rag-mcp-server 就绪，等待客户端...");
@@ -86,8 +88,9 @@ public class RagMcpServer {
     }
 
     // 工具1：上传文档（txt/md，filename+content）→ 走完整管道自动切片向量化入库
-    // 归属校验：别人占用的库拒收；失败已由 UploadService 内部回滚
-    private static SyncToolSpecification uploadTool(UploadService uploader, KnowledgeBaseGuard guard) {
+    // 归属校验：不是自己的库拒收；失败已由 UploadService 内部回滚
+    private static SyncToolSpecification uploadTool(UploadService uploader, KnowledgeBaseGuard guard,
+                                                    KnowledgeBaseRepository kbRepo) {
         McpSchema.Tool tool = McpSchema.Tool.builder()
                 .name("rag_upload")
                 .description("上传一个文本文档到指定用户的私有知识库，自动解析/清洗/切片/向量化/入库")
@@ -106,7 +109,8 @@ public class RagMcpServer {
                     Map<String, Object> args = request.arguments();
                     String userId = String.valueOf(args.get("user_id"));
                     String kbId = String.valueOf(args.get("kb_id"));
-                    String denied = guard.checkAccess(userId, kbId);   // 归属校验（R10）
+                    kbRepo.ensureUserWithDefaultKb(userId);          // 新用户自动建默认库
+                    String denied = guard.checkAccess(userId, kbId); // 归属校验（R10）
                     if (denied != null) {
                         return errorResult(denied);
                     }
@@ -121,7 +125,8 @@ public class RagMcpServer {
     }
 
     // 工具2：检索知识库（topK 最相关切片）；归属校验：越权直接拒，不悄悄返回空
-    private static SyncToolSpecification searchTool(VectorStore store, EmbeddingClient embedding, KnowledgeBaseGuard guard) {
+    private static SyncToolSpecification searchTool(VectorStore store, EmbeddingClient embedding,
+                                                    KnowledgeBaseGuard guard, KnowledgeBaseRepository kbRepo) {
         McpSchema.Tool tool = McpSchema.Tool.builder()
                 .name("rag_search")
                 .description("在指定用户的私有知识库检索与问题最相关的文本片段")
@@ -140,6 +145,7 @@ public class RagMcpServer {
                     Map<String, Object> args = request.arguments();
                     String userId = String.valueOf(args.get("user_id"));
                     String kbId = String.valueOf(args.get("kb_id"));
+                    kbRepo.ensureUserWithDefaultKb(userId);
                     String denied = guard.checkAccess(userId, kbId);
                     if (denied != null) {
                         return errorResult(denied);
@@ -160,11 +166,12 @@ public class RagMcpServer {
                 .build();
     }
 
-    // 工具3：删除某知识库全部内容；归属校验：不是自己的库不能删
-    private static SyncToolSpecification deleteTool(VectorStore store, KnowledgeBaseGuard guard) {
+    // 工具3：删除某知识库（含库内全部切片）；归属校验：不是自己的库不能删
+    private static SyncToolSpecification deleteTool(VectorStore store, KnowledgeBaseGuard guard,
+                                                    KnowledgeBaseRepository kbRepo) {
         McpSchema.Tool tool = McpSchema.Tool.builder()
                 .name("rag_delete_kb")
-                .description("删除指定用户的某个知识库的全部内容")
+                .description("删除指定用户的某个知识库及其全部内容")
                 .inputSchema(new McpSchema.JsonSchema("object",
                         Map.of(
                                 "user_id", Map.of("type", "string"),
@@ -178,13 +185,14 @@ public class RagMcpServer {
                     Map<String, Object> args = request.arguments();
                     String userId = String.valueOf(args.get("user_id"));
                     String kbId = String.valueOf(args.get("kb_id"));
+                    kbRepo.ensureUserWithDefaultKb(userId);
                     String denied = guard.checkAccess(userId, kbId);
                     if (denied != null) {
                         return errorResult(denied);
                     }
-                    int deleted = store.deleteByKb(userId, kbId);
+                    kbRepo.deleteKb(userId, kbId);   // 删库 + 库内全部切片
                     return McpSchema.CallToolResult.builder()
-                            .content(List.of(new McpSchema.TextContent("已删除 " + deleted + " 条")))
+                            .content(List.of(new McpSchema.TextContent("已删除知识库: " + kbId)))
                             .build();
                 })
                 .build();
