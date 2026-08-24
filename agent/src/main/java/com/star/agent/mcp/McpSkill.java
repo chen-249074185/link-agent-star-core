@@ -40,12 +40,12 @@ public class McpSkill implements Skill {
     }
 
     private SkillMeta buildMeta() {
-        // 入参过滤：user_id/kb_id 由工单注入，不暴露给 LLM（防 LLM 乱填他人身份）
+        // 入参过滤：user_id/kb_id/is_base64 由上下文/上层注入，不暴露给 LLM（防 LLM 乱填他人身份）
         // 注意：字段名在 JSON Schema 的 properties 嵌套层，不是顶层 keySet
         Map<String, Object> params = toParameters(tool.inputSchema());
         Object propsObj = params.get("properties");
         if (propsObj instanceof Map<?, ?> props) {
-            props.keySet().removeIf(k -> k.equals("user_id") || k.equals("kb_id"));
+            props.keySet().removeIf(k -> k.equals("user_id") || k.equals("kb_id") || k.equals("is_base64"));
         }
 
         return new SkillMeta(
