@@ -33,6 +33,7 @@ class McpSkillTest {
 
     @BeforeEach
     void setUp() {
+        when(connection.serverName()).thenReturn("rag-mcp");
         skill = new McpSkill(searchTool(), connection);
     }
 

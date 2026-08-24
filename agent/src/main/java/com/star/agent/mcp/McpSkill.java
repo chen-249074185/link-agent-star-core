@@ -21,7 +21,6 @@ import java.util.Map;
 public class McpSkill implements Skill {
 
     private static final String PREFIX = "mcp_";              // 工具名前缀：rag_search → mcp_rag_search
-    private static final String PROVIDER = "MCP:rag-mcp";     // 来源标注（SkillMeta.provider）
 
     private final McpSchema.Tool tool;                        // 原始 MCP 工具说明（名字/描述/Schema）
     private final McpConnection connection;                   // 调子进程的唯一通道
@@ -53,8 +52,8 @@ public class McpSkill implements Skill {
                 tool.description() + "（由 MCP 子进程提供，回答请标注来源）",
                 params,
                 tool.name().contains("delete") ? RiskLevel.HIGH_RISK : RiskLevel.LOW,  // 删库=破坏性操作
-                List.of("CHAT", "DATA"),
-                PROVIDER,
+                List.of("CHAT", "DATA"),     // 群聊 GROUP 不在白名单 → 群聊场景自动禁用（风控）
+                "MCP:" + connection.serverName(),   // 来源标注：MCP:rag-mcp / MCP:crawl-mcp
                 SkillType.MAIN
         );
     }

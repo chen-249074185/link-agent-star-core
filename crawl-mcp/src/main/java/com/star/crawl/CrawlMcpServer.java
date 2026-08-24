@@ -69,6 +69,7 @@ public class CrawlMcpServer {
                     String mode = args.getOrDefault("mode", "auto") == null
                             ? "auto" : String.valueOf(args.get("mode")).toLowerCase();
                     try {
+                        UrlGuard.check(url);   // SSRF 防护：内网地址先拦（抓取前最后一道闸）
                         String html = fetcher.fetch(url);
                         String result = switch (mode) {
                             case "json" -> {
