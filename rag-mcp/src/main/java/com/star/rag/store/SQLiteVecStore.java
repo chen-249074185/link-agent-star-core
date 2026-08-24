@@ -128,6 +128,21 @@ public class SQLiteVecStore implements VectorStore {
         }
     }
 
+    // 归属校验（R10）：kb_id 由第一个上传内容的用户"认领"——只要存在"其他用户"的同名库，就不归我
+    @Override
+    public boolean ownsKb(String userId, String kbId) {
+        try (PreparedStatement ps = conn.prepareStatement(
+                "SELECT EXISTS(SELECT 1 FROM chunks WHERE kb_id = ? AND user_id <> ?)")) {
+            ps.setString(1, kbId);
+            ps.setString(2, userId);
+            try (ResultSet rs = ps.executeQuery()) {
+                return !rs.getBoolean(1);   // 没有"别人"占用 → 归我
+            }
+        } catch (Exception e) {
+            throw new RuntimeException("校验知识库归属失败: " + e.getMessage(), e);
+        }
+    }
+
     // float[] → "[0.1, 0.2, ...]"（vec0 接受 JSON 数组字符串）
     private String toJson(float[] arr) {
         StringBuilder sb = new StringBuilder("[");

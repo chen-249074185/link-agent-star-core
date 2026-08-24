@@ -16,6 +16,9 @@ public interface VectorStore {
     // 删某知识库的全部切片（用户删库用）
     int deleteByKb(String userId, String kbId);
 
+    // 该用户是否"拥有"此知识库（R10 归属校验）：没有其他用户占用同名的 kb_id = 归我
+    boolean ownsKb(String userId, String kbId);
+
     // 检索命中：正文 + 相似度
     record SearchHit(String content, double score) {
     }

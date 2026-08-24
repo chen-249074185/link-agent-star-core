@@ -1,5 +1,6 @@
 package com.star.rag.store;
 
+import com.star.rag.security.KnowledgeBaseGuard;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -164,5 +165,33 @@ class SQLiteVecStoreTest {
             v[i] = rand.nextFloat() * 2 - 1;
         }
         return v;
+    }
+
+    // ===== R10 归属校验（ownsKb + KnowledgeBaseGuard）=====
+
+    // 空库/无别人占用 → 归该用户
+    @Test
+    void ownsKb_trueWhenNoOtherUserClaims() {
+        store.insertChunk("u1", "kb1", "自己的", axis(0), "{}");
+        assertTrue(store.ownsKb("u1", "kb1"));      // 自己上传过 → 有
+        assertTrue(store.ownsKb("u2", "fresh-kb")); // 全新库名没人占用 → 也归 u2（可认领）
+    }
+
+    // 别的用户已占用同名库 → 不归我（R10 越权核心）
+    @Test
+    void ownsKb_falseWhenOtherUserClaims() {
+        store.insertChunk("u1", "kb1", "别人的库", axis(0), "{}");
+        assertTrue(!store.ownsKb("u2", "kb1"));     // u2 想碰 u1 的 kb1 → 拒绝
+    }
+
+    // Guard 校验层：归属通过返回 null；越权返回话术 + 审计日志（走 stderr）
+    @Test
+    void guard_allowsOwner_deniesIntruder() {
+        KnowledgeBaseGuard guard = new KnowledgeBaseGuard(store);
+        store.insertChunk("u1", "kb1", "只有u1的内容", axis(0), "{}");
+
+        assertTrue(guard.checkAccess("u1", "kb1") == null);          // 主人 → 放行
+        assertTrue(guard.checkAccess("u2", "kb1") != null);          // 入侵者 → 拒绝（含审计日志）
+        assertTrue(guard.checkAccess("u2", "kb1").contains("无权"));
     }
 }

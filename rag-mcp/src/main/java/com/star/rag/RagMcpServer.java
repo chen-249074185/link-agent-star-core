@@ -1,6 +1,7 @@
 package com.star.rag;
 
 import com.star.rag.embedding.EmbeddingClient;
+import com.star.rag.security.KnowledgeBaseGuard;
 import com.star.rag.store.SQLiteVecStore;
 import com.star.rag.store.VectorStore;
 import io.modelcontextprotocol.json.McpJsonMapper;
@@ -57,13 +58,14 @@ public class RagMcpServer {
         try {
             VectorStore store = new SQLiteVecStore(dbPath.toString(), vecDll.toString());
             EmbeddingClient embedding = new EmbeddingClient(apiKey);
+            KnowledgeBaseGuard guard = new KnowledgeBaseGuard(store);
 
             McpServer.sync(transport)
                     .serverInfo("rag-mcp-server", "0.1.0")
                     .tools(
-                            uploadTool(store, embedding),
-                            searchTool(store, embedding),
-                            deleteTool(store)
+                            uploadTool(store, embedding, guard),
+                            searchTool(store, embedding, guard),
+                            deleteTool(store, guard)
                     )
                     .build();
             System.err.println("rag-mcp-server 就绪，等待客户端...");
@@ -75,8 +77,8 @@ public class RagMcpServer {
         eofAware.awaitEof();
     }
 
-    // 工具1：上传切片入库（user_id/kb_id 归属 + 正文）
-    private static SyncToolSpecification uploadTool(VectorStore store, EmbeddingClient embedding) {
+    // 工具1：上传切片入库（user_id/kb_id 归属 + 正文）；归属校验：别人占用的库拒收
+    private static SyncToolSpecification uploadTool(VectorStore store, EmbeddingClient embedding, KnowledgeBaseGuard guard) {
         McpSchema.Tool tool = McpSchema.Tool.builder()
                 .name("rag_upload")
                 .description("上传一段文本到指定用户的私有知识库，自动向量化")
@@ -94,6 +96,10 @@ public class RagMcpServer {
                     Map<String, Object> args = request.arguments();
                     String userId = String.valueOf(args.get("user_id"));
                     String kbId = String.valueOf(args.get("kb_id"));
+                    String denied = guard.checkAccess(userId, kbId);   // 归属校验（R10）
+                    if (denied != null) {
+                        return errorResult(denied);
+                    }
                     String content = String.valueOf(args.get("content"));
                     float[] vec = embedding.embed(content);
                     store.insertChunk(userId, kbId, content, vec, "{}");
@@ -104,8 +110,8 @@ public class RagMcpServer {
                 .build();
     }
 
-    // 工具2：检索知识库（topK 最相关切片）
-    private static SyncToolSpecification searchTool(VectorStore store, EmbeddingClient embedding) {
+    // 工具2：检索知识库（topK 最相关切片）；归属校验：越权直接拒，不悄悄返回空
+    private static SyncToolSpecification searchTool(VectorStore store, EmbeddingClient embedding, KnowledgeBaseGuard guard) {
         McpSchema.Tool tool = McpSchema.Tool.builder()
                 .name("rag_search")
                 .description("在指定用户的私有知识库检索与问题最相关的文本片段")
@@ -124,6 +130,10 @@ public class RagMcpServer {
                     Map<String, Object> args = request.arguments();
                     String userId = String.valueOf(args.get("user_id"));
                     String kbId = String.valueOf(args.get("kb_id"));
+                    String denied = guard.checkAccess(userId, kbId);
+                    if (denied != null) {
+                        return errorResult(denied);
+                    }
                     String query = String.valueOf(args.get("query"));
                     int topK = args.getOrDefault("top_k", 5) instanceof Number n ? n.intValue() : 5;
                     float[] vec = embedding.embed(query);
@@ -140,8 +150,8 @@ public class RagMcpServer {
                 .build();
     }
 
-    // 工具3：删除某知识库全部内容
-    private static SyncToolSpecification deleteTool(VectorStore store) {
+    // 工具3：删除某知识库全部内容；归属校验：不是自己的库不能删
+    private static SyncToolSpecification deleteTool(VectorStore store, KnowledgeBaseGuard guard) {
         McpSchema.Tool tool = McpSchema.Tool.builder()
                 .name("rag_delete_kb")
                 .description("删除指定用户的某个知识库的全部内容")
@@ -156,12 +166,24 @@ public class RagMcpServer {
                 .tool(tool)
                 .callHandler((exchange, request) -> {
                     Map<String, Object> args = request.arguments();
-                    int deleted = store.deleteByKb(String.valueOf(args.get("user_id")),
-                            String.valueOf(args.get("kb_id")));
+                    String userId = String.valueOf(args.get("user_id"));
+                    String kbId = String.valueOf(args.get("kb_id"));
+                    String denied = guard.checkAccess(userId, kbId);
+                    if (denied != null) {
+                        return errorResult(denied);
+                    }
+                    int deleted = store.deleteByKb(userId, kbId);
                     return McpSchema.CallToolResult.builder()
                             .content(List.of(new McpSchema.TextContent("已删除 " + deleted + " 条")))
                             .build();
                 })
+                .build();
+    }
+
+    // 统一拒绝话术返回（越权/参数错都走这里）
+    private static McpSchema.CallToolResult errorResult(String msg) {
+        return McpSchema.CallToolResult.builder()
+                .content(List.of(new McpSchema.TextContent(msg)))
                 .build();
     }
 
