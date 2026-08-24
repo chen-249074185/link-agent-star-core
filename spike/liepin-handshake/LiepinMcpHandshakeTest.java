@@ -56,8 +56,8 @@ public class LiepinMcpHandshakeTest {
             System.out.println("[5] 投递计划 dry-run:\n" + text(dryRun));
 
             var apply = client.callTool(new McpSchema.CallToolRequest("liepin_apply",
-                    Map.of("jobId", 85116009, "jobType", "2")));
-            System.out.println("[5.5] 投递(模拟模式):\n" + text(apply));
+                    Map.of("jobId", 999999999, "jobType", "2")));
+            System.out.println("[5.5] 投递(真实调用, 不存在的jobId验证链路):\n" + text(apply));
 
             var resume = client.callTool(new McpSchema.CallToolRequest("liepin_resume", Map.of()));
             System.out.println("[6] 简历:\n" + text(resume));

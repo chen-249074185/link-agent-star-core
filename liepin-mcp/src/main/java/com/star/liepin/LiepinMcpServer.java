@@ -211,12 +211,13 @@ public class LiepinMcpServer {
                 .build();
     }
 
-    // 工具6：投递（双模式）——默认模拟（LIEPIN_SIMULATE=true，流程全走但不真投官方接口）；false 走真实投递
-    // 双模式共用：参数校验 + 单日限次 20；真实模式额外：随机间隔 3~8s + 调官方 job apply
+    // 工具6：投递（真实调用官方接口）
+    // 验证方式：用不存在的 jobId 调用 → 官方返回"职位不存在"错误，证明链路全通（Token/命令/参数/错误处理）且无真实投递
+    // 单日限次 20 + 随机间隔 3~8s（防官方 60 次/分钟限流）
     private static SyncToolSpecification applyTool(LiepinCliRunner runner) {
         McpSchema.Tool tool = McpSchema.Tool.builder()
                 .name("liepin_apply")
-                .description("投递一个职位（HIGH_RISK 需确认；默认模拟模式不真实投递，LIEPIN_SIMULATE=false 才真投）")
+                .description("投递一个职位（HIGH_RISK 需确认；调用猎聘官方投递接口）")
                 .inputSchema(new McpSchema.JsonSchema("object",
                         Map.of(
                                 "jobId", Map.of("type", "integer", "description", "职位 ID（从搜索结果取）"),
@@ -241,16 +242,8 @@ public class LiepinMcpServer {
                         return error("今日投递次数已用完（限 " + MAX_APPLY_PER_DAY + " 次/天），明天再来");
                     }
 
-                    boolean simulate = !"false".equalsIgnoreCase(System.getenv("LIEPIN_SIMULATE"));
                     try {
-                        if (simulate) {
-                            // 模拟模式：不调官方接口，返回完整"应发生的结果"话术
-                            return ok("已投递（模拟，未真实投递）: jobId=" + jobId + " jobType=" + jobType
-                                    + "\n[演示模式] 真实投递会：调官方接口 + 间隔 3~8s + 单日限次 20，"
-                                    + "部署时将 LIEPIN_SIMULATE 置 false 即真投"
-                                    + "\nHR 回复会通过猎聘 App/短信通知，请回 App 查看。");
-                        }
-                        // 真实模式：随机间隔 3~8s（防官方 60 次/分钟限流）
+                        // 随机间隔 3~8s：连续投递打散，防官方 60 次/分钟限流
                         long delay = MIN_APPLY_INTERVAL_MS
                                 + (long) (Math.random() * (MAX_APPLY_INTERVAL_MS - MIN_APPLY_INTERVAL_MS));
                         Thread.sleep(delay);
@@ -258,6 +251,7 @@ public class LiepinMcpServer {
                                 "--job-id", String.valueOf(jobId),
                                 "--job-kind", jobType, "--output", "json"));
                         if (r.path("errCode").asInt() != 0) {
+                            // 官方接口错误（含"职位不存在"等拒绝）：不产生投递，原样回报
                             return error("投递失败: " + r.path("data").path("result").asText());
                         }
                         return ok("已投递: jobId=" + jobId + "（剩余今日额度 " + limiter.remaining() + " 次）"
