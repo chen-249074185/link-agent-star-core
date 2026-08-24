@@ -34,4 +34,18 @@ public record FilterRules(String education, List<String> workYearKeywords,
     private static FilterRules defaults() {
         return new FilterRules("本科", List.of("经验不限", "应届", "实习"), 0, List.of());
     }
+
+    // 对话式规则覆盖：只换覆盖的字段，没覆盖的维度保持原值（用户说"看看硕士岗"→ education=硕士 其余不变）
+    public FilterRules withOverride(Map<String, Object> o) {
+        if (o == null || o.isEmpty()) {
+            return this;
+        }
+        String edu = o.containsKey("education") ? String.valueOf(o.get("education")) : education;
+        List<String> kw = o.get("workYearKeywords") instanceof List<?> l
+                ? l.stream().map(String::valueOf).toList() : workYearKeywords;
+        int salary = o.get("salaryFloorK") instanceof Number n ? n.intValue() : salaryFloorK;
+        List<String> cities = o.get("cities") instanceof List<?> l
+                ? l.stream().map(String::valueOf).toList() : this.cities;
+        return new FilterRules(edu, kw, salary, cities);
+    }
 }

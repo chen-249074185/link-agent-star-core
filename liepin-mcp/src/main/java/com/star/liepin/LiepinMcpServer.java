@@ -129,16 +129,20 @@ public class LiepinMcpServer {
                 .build();
     }
 
-    // 工具3：按求职画像精筛（学历/经验/薪资/城市四维，规则在 liepin-filter-rules.yaml）→ 能投的岗位 + 理由
+    // 工具3：按求职画像精筛（学历/经验/薪资/城市四维，规则在 liepin-filter-rules.yaml）
+    // 支持 overrides 对话式覆盖：用户说"看硕士岗"→ LLM 传 {"education":"硕士"}，其他维度 YAML 兜底
     private static SyncToolSpecification filterJobsTool(LiepinCliRunner runner) {
         McpSchema.Tool tool = McpSchema.Tool.builder()
                 .name("liepin_filter_jobs")
-                .description("搜索并按求职画像（学历/经验/薪资/城市，YAML 可配）精筛，返回能投的岗位及匹配理由")
+                .description("搜索并按求职画像（学历/经验/薪资/城市）精筛，返回能投的岗位及匹配理由；"
+                        + "可用 overrides 临时覆盖规则（如 {\"education\":\"硕士\"}），未覆盖维度用默认画像")
                 .inputSchema(new McpSchema.JsonSchema("object",
                         Map.of(
                                 "keyword", Map.of("type", "string", "description", "职位关键词"),
                                 "address", Map.of("type", "string", "description", "城市"),
-                                "page", Map.of("type", "integer", "description", "页码，0 起")
+                                "page", Map.of("type", "integer", "description", "页码，0 起"),
+                                "overrides", Map.of("type", "string",
+                                        "description", "规则覆盖 JSON，如 {\"education\":\"硕士\",\"salaryFloorK\":8,\"cities\":[\"北京\",\"成都\"]}")
                         ),
                         List.of("keyword"), null, null, null))
                 .build();
@@ -148,6 +152,15 @@ public class LiepinMcpServer {
                     Map<String, Object> a = request.arguments();
                     try {
                         FilterRules rules = FilterRules.load();
+                        Object ov = a.get("overrides");
+                        if (ov != null && !String.valueOf(ov).isBlank()) {
+                            try {
+                                rules = rules.withOverride(mapper.convertValue(
+                                        mapper.readTree(String.valueOf(ov)), Map.class));
+                            } catch (Exception ignored) {
+                                // 覆盖参数解析失败：忽略，用默认画像（坏参数不挂工具）
+                            }
+                        }
                         JsonNode r = doSearch(runner,
                                 String.valueOf(a.get("keyword")),
                                 a.get("address") == null ? "" : String.valueOf(a.get("address")),

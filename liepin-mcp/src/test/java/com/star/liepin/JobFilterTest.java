@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -69,6 +70,30 @@ class JobFilterTest {
         assertEquals("本科", rules.education());
         assertEquals(10, rules.salaryFloorK());
         assertTrue(rules.cities().contains("北京"));
+    }
+
+    // 对话式覆盖：只覆盖学历 → 其他维度保持原值（用户说"看硕士岗，其他不变"）
+    @Test
+    void withOverride_changesOnlyGivenDimension() {
+        FilterRules base = FilterRules.load();
+        FilterRules overridden = base.withOverride(Map.of("education", "硕士"));
+
+        assertEquals("硕士", overridden.education());
+        assertEquals(base.salaryFloorK(), overridden.salaryFloorK());   // 薪资没提 → 不变
+        assertEquals(base.workYearKeywords(), overridden.workYearKeywords());
+        assertEquals(base.cities(), overridden.cities());
+    }
+
+    // 覆盖多个维度 + 空覆盖不动
+    @Test
+    void withOverride_multiAndEmpty() {
+        FilterRules base = FilterRules.load();
+        FilterRules multi = base.withOverride(Map.of("salaryFloorK", 8, "cities", List.of("北京", "成都")));
+        assertEquals(8, multi.salaryFloorK());
+        assertTrue(multi.cities().contains("成都"));
+
+        assertEquals(base, base.withOverride(Map.of()));   // 空覆盖 → 原样
+        assertEquals(base, base.withOverride(null));
     }
 
     private static JsonNode array(String... jobs) throws Exception {
