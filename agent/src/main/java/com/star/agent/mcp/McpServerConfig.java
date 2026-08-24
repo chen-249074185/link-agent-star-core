@@ -1,12 +1,15 @@
 package com.star.agent.mcp;
 
+import com.star.agent.infra.config.AppConfig;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
 
-// MCP server 装配：按 server 配置创建多个 McpConnection（rag-mcp + crawl-mcp 各一子进程）
+import java.util.Map;
+
+// MCP server 装配：按 server 配置创建多个 McpConnection（rag-mcp / crawl-mcp / liepin-mcp 各一子进程）
 // 仅 mock-enabled=false 时注册（true 时 Mock 占位技能在位，MCP 全部不拉起）
 @Configuration
 public class McpServerConfig {
@@ -24,5 +27,15 @@ public class McpServerConfig {
     public McpConnection crawlMcpConnection(
             @Value("${linkagent.mcp.crawl-jar:../crawl-mcp/target/crawl-mcp-0.0.1-SNAPSHOT.jar}") String jar) {
         return new McpConnection("crawl-mcp", jar);
+    }
+
+    @Bean
+    @ConditionalOnProperty(name = "linkagent.workflow.mock-enabled", havingValue = "false")
+    public McpConnection liepinMcpConnection(
+            @Value("${linkagent.mcp.liepin-jar:../liepin-mcp/target/liepin-mcp-0.0.1-SNAPSHOT.jar}") String jar,
+            AppConfig config) {
+        // 猎聘 Token 走子进程环境变量注入（零明文进命令行/日志）
+        return new McpConnection("liepin-mcp", jar,
+                Map.of("LIEPIN_USER_TOKEN", config.liepinUserToken()));
     }
 }

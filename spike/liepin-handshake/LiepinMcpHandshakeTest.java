@@ -1,0 +1,63 @@
+import io.modelcontextprotocol.client.McpClient;
+import io.modelcontextprotocol.client.McpSyncClient;
+import io.modelcontextprotocol.client.transport.ServerParameters;
+import io.modelcontextprotocol.client.transport.StdioClientTransport;
+import io.modelcontextprotocol.json.McpJsonMapper;
+import io.modelcontextprotocol.json.jackson3.JacksonMcpJsonMapper;
+import io.modelcontextprotocol.spec.McpSchema;
+import tools.jackson.databind.json.JsonMapper;
+
+import java.time.Duration;
+import java.util.List;
+import java.util.Map;
+
+// 猎聘 MCP 壳端到端握手：拉起 liepin-mcp fat jar → doctor 自检 → 搜岗位 → 读简历
+// 需要 LIEPIN_USER_TOKEN（.env 里那份；这里手动传入子进程环境变量）
+public class LiepinMcpHandshakeTest {
+
+    public static void main(String[] args) throws Exception {
+        String token = System.getenv("LIEPIN_USER_TOKEN");
+        if (token == null || token.isBlank()) {
+            System.err.println("需要 LIEPIN_USER_TOKEN");
+            System.exit(1);
+        }
+
+        McpJsonMapper jsonMapper = new JacksonMcpJsonMapper(JsonMapper.builder().build());
+        ServerParameters params = ServerParameters.builder("java")
+                .args("-jar", "D:/星链智核/agent/liepin-mcp/target/liepin-mcp-0.0.1-SNAPSHOT.jar")
+                .env(Map.of("LIEPIN_USER_TOKEN", token))
+                .build();
+        StdioClientTransport transport = new StdioClientTransport(params, jsonMapper);
+        transport.setStdErrorHandler(System.err::println);
+
+        McpSyncClient client = McpClient.sync(transport)
+                .requestTimeout(Duration.ofSeconds(120))
+                .build();
+        try {
+            client.initialize();
+            List<String> toolNames = client.listTools().tools().stream()
+                    .map(McpSchema.Tool::name)
+                    .toList();
+            System.out.println("[1] 工具清单: " + toolNames);
+
+            var doctor = client.callTool(new McpSchema.CallToolRequest("liepin_doctor", Map.of()));
+            System.out.println("[2] doctor 自检:\n" + text(doctor));
+
+            var search = client.callTool(new McpSchema.CallToolRequest("liepin_search_jobs",
+                    Map.of("keyword", "Java开发", "address", "北京", "page", 0)));
+            System.out.println("[3] 搜索(北京 Java开发):\n" + text(search));
+
+            var resume = client.callTool(new McpSchema.CallToolRequest("liepin_resume", Map.of()));
+            System.out.println("[4] 简历:\n" + text(resume));
+
+            client.closeGracefully();
+            System.out.println("\n===== 猎聘 MCP 端到端验证通过! =====");
+        } finally {
+            client.close();
+        }
+    }
+
+    private static String text(McpSchema.CallToolResult r) {
+        return ((McpSchema.TextContent) r.content().get(0)).text();
+    }
+}

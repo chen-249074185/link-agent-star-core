@@ -29,6 +29,8 @@ public class AppConfig {
 
     private final String amapApiKey = firstOf("AMAP_KEY");
 
+    private final String liepinUserToken = firstOf("LIEPIN_USER_TOKEN");   // 猎聘授权 Token（W9，.env 已 gitignore）
+
     // 构造自检：各 key 是否就位 + 脱敏指纹（后4位，对比 .env/环境变量是否同 key；纯 main 扫码链路也走这个构造器）
     public AppConfig() {
         logger.info("配置自检: DEEPSEEK={} SENIVERSE={} AMAP={} AMAP指纹={} (长度, 0=缺失, 来源={})",
@@ -82,5 +84,7 @@ public class AppConfig {
     public String seniverseApiKey(){return seniverseApiKey; }
 
     public String amapApiKey(){ return amapApiKey; }
+
+    public String liepinUserToken(){ return liepinUserToken; }
 
 }

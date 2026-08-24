@@ -25,13 +25,19 @@ public class McpConnection {
 
     private final String serverName;                // 如 rag-mcp / crawl-mcp（Skill 来源标注用）
     private final String jarPath;                   // fat jar 路径（application.properties）
+    private final Map<String, String> extraEnv;     // 子进程额外环境变量（如猎聘 Token，走环境不落命令行）
     private final McpJsonMapper jsonMapper = new JacksonMcpJsonMapper(JsonMapper.builder().build());
 
     private McpSyncClient client;                   // null = 未连接（含连接失败）
 
     public McpConnection(String serverName, String jarPath) {
+        this(serverName, jarPath, Map.of());
+    }
+
+    public McpConnection(String serverName, String jarPath, Map<String, String> extraEnv) {
         this.serverName = serverName;
         this.jarPath = jarPath;
+        this.extraEnv = extraEnv;
     }
 
     public String serverName() {
@@ -41,10 +47,13 @@ public class McpConnection {
     // 启动子进程 + 握手（connect→initialize→listTools）；失败返回空表并清理，主程序继续跑
     public List<McpSchema.Tool> connect() {
         try {
-            // 子进程：java -jar（环境变量继承主进程，DASHSCOPE_API_KEY 自然带过去）
-            ServerParameters params = ServerParameters.builder("java")
-                    .args("-jar", jarPath)
-                    .build();
+            // 子进程：java -jar（环境变量继承主进程；extraEnv 补充注入，如猎聘 Token）
+            ServerParameters.Builder b = ServerParameters.builder("java")
+                    .args("-jar", jarPath);
+            if (!extraEnv.isEmpty()) {
+                b.env(extraEnv);
+            }
+            ServerParameters params = b.build();
             StdioClientTransport transport = new StdioClientTransport(params, jsonMapper);
             transport.setStdErrorHandler(line -> logger.warn("[{}] {}", serverName, line));  // 子进程日志转主程序
             client = McpClient.sync(transport)
