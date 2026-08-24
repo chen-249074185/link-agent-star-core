@@ -3,8 +3,12 @@ package com.star.rag.store;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Random;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -74,5 +78,91 @@ class SQLiteVecStoreTest {
         // 查询 = 第 1 维（与 0 维正交，L2 距离 √2）→ 阈值 1.0 下应被过滤
         List<VectorStore.SearchHit> hits = store.search("u1", "kb1", axis(1), 5, 1.0);
         assertEquals(0, hits.size());
+    }
+
+    // topK 参数化验证：返回条数正确 + 最相关永远排第一 + 整条距离非降序
+    @ParameterizedTest
+    @ValueSource(ints = {1, 2, 3, 5})
+    void search_respectsTopK(int topK) {
+        // 插入 5 条："片段i" 对应"第 i 维方向"
+        for (int i = 0; i < 5; i++) {
+            store.insertChunk("u1", "kb1", "片段" + i, axis(i), "{}");
+        }
+
+        // 查询 = 第 0 维方向 → "片段0" 距离 0 最相关
+        // 阈值 1.5：两两正交距离都是 √2≈1.414 < 1.5 → 5 条全在范围内，条数只由 topK 决定
+        List<VectorStore.SearchHit> hits = store.search("u1", "kb1", axis(0), topK, 1.5);
+
+        // 断言1：返回条数 = topK（验证 topK 生效）
+        assertEquals(topK, hits.size());
+
+        // 断言2：最相关的永远排第一（vec0 KNN 按距离升序返回）
+        assertEquals("片段0", hits.get(0).content());
+
+        // 断言3：整条结果距离非降序（相邻两条 后 >= 前）
+        for (int i = 1; i < hits.size(); i++) {
+            assertTrue(hits.get(i).score() >= hits.get(i - 1).score());
+        }
+    }
+
+    // 阈值参数化验证（紧阈值）：距离 > threshold 的远端向量被过滤
+    // 插入 axis(0)=距离0 + axis(1)=距离√2≈1.414，阈值 0.5/1.0 都小于 1.414 → 只剩最近那条
+    @ParameterizedTest
+    @ValueSource(doubles = {0.5, 1.0})
+    void search_tightThresholdFiltersFar(double threshold) {
+        store.insertChunk("u1", "kb1", "最近", axis(0), "{}");
+        store.insertChunk("u1", "kb1", "正交远", axis(1), "{}");
+
+        List<VectorStore.SearchHit> hits = store.search("u1", "kb1", axis(0), 5, threshold);
+        assertEquals(1, hits.size());
+        assertEquals("最近", hits.get(0).content());
+    }
+
+    // 阈值参数化验证（宽松阈值）：阈值 1.5/2.0 ≥ 1.414 → 两条都放行
+    @ParameterizedTest
+    @ValueSource(doubles = {1.5, 2.0})
+    void search_looseThresholdAllowsNear(double threshold) {
+        store.insertChunk("u1", "kb1", "最近", axis(0), "{}");
+        store.insertChunk("u1", "kb1", "正交远", axis(1), "{}");
+
+        List<VectorStore.SearchHit> hits = store.search("u1", "kb1", axis(0), 5, threshold);
+        assertEquals(2, hits.size());
+    }
+
+    // 性能基准：1000 条随机向量（1024 维）入库后，KNN 查询耗时 < 100ms 达标
+    @Test
+    void performance_1000VectorsQueryUnder100ms() {
+        Random rand = new Random(42);   // 固定 seed：每次跑同一条随机数据，结果可复现
+        List<float[]> vecs = new ArrayList<>();
+        for (int i = 0; i < 1000; i++) {
+            float[] v = randomVec(rand);
+            vecs.add(v);
+            store.insertChunk("u1", "kb1", "基准片段" + i, v, "{}");
+        }
+
+        // 预热一次：JIT 编译 + 连接/页缓存就绪，不算进基准（第一次查询通常偏慢）
+        store.search("u1", "kb1", vecs.get(0), 5, 1.5);
+
+        long maxMs = 0;
+        for (int i = 0; i < 10; i++) {
+            // 用库里真实存在的向量做查询 → 自身距离 0，必然命中，测的是"带命中的真实检索"
+            float[] query = vecs.get((i * 97) % 1000);
+            long start = System.nanoTime();
+            List<VectorStore.SearchHit> hits = store.search("u1", "kb1", query, 5, 1.5);
+            long ms = (System.nanoTime() - start) / 1_000_000;
+            maxMs = Math.max(maxMs, ms);
+            assertTrue(hits.size() > 0, "查询自身向量应命中");   // 顺带校验检索正确性
+        }
+
+        assertTrue(maxMs < 100, "1000 条向量 KNN 查询耗时 " + maxMs + "ms，超过 100ms 上限");
+    }
+
+    // 造随机向量：每维在 [-1,1)（固定 seed 保证可复现）
+    private float[] randomVec(Random rand) {
+        float[] v = new float[1024];
+        for (int i = 0; i < v.length; i++) {
+            v[i] = rand.nextFloat() * 2 - 1;
+        }
+        return v;
     }
 }

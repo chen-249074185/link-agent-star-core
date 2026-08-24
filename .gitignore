@@ -1,5 +1,8 @@
 # rag-mcp 构建产物
 rag-mcp/target/
 
+# IDE 配置不入库
+.idea/
+
 # spike 编译产物（源码保留）
 *.class
