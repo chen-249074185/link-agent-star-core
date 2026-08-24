@@ -2,6 +2,9 @@
 rag-mcp/target/
 crawl-mcp/target/
 
+# 第三方工具（vendored liepin-cli 官方 Python 工具 + venv，不入库）
+mcp/liepin-cli/
+
 # IDE 配置不入库
 .idea/
 
