@@ -110,6 +110,45 @@ class UploadServiceTest {
         assertEquals(List.of(1), failing.deletedRowIds);      // 删的是第 1 块的行号
     }
 
+    // ===== 上传安全加固（10-01 内容提前）=====
+
+    // 路径穿越攻击：../../ 伪装路径被剥掉只剩文件名，上传照常成功（不落盘不碰路径，无攻击面）
+    @Test
+    void upload_pathTraversalFilename_sanitized() {
+        String doc = "安全内容。";
+        UploadService.UploadResult r = service.upload("u1", "kb1",
+                "../../etc/passwd/../笔记.txt", doc.getBytes(StandardCharsets.UTF_8));
+
+        assertEquals(1, r.chunkCount());                      // 清洗后照常入库
+        assertTrue(r.message().contains("1"));
+    }
+
+    // 纯路径名（.. 或空）→ 拒绝
+    @Test
+    void upload_invalidFilename_rejected() {
+        assertThrows(IllegalArgumentException.class,
+                () -> service.upload("u1", "kb1", "..", "内容".getBytes(StandardCharsets.UTF_8)));
+        assertThrows(IllegalArgumentException.class,
+                () -> service.upload("u1", "kb1", "", "内容".getBytes(StandardCharsets.UTF_8)));
+    }
+
+    // 超大文件：超过 10MB 拒绝（不解析不向量化，fail fast）
+    @Test
+    void upload_oversizedFile_rejected() {
+        byte[] big = new byte[10 * 1024 * 1024 + 1];          // 10MB + 1 字节
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> service.upload("u1", "kb1", "大文件.txt", big));
+        assertTrue(ex.getMessage().contains("10MB"));
+    }
+
+    // 错误类型：白名单外扩展名拒绝（fail fast，报错比 DocumentParser 更友好）
+    @Test
+    void upload_unsupportedType_rejected() {
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> service.upload("u1", "kb1", "evil.exe", "内容".getBytes(StandardCharsets.UTF_8)));
+        assertTrue(ex.getMessage().contains("不支持的文件类型"));
+    }
+
     // 造 1024 维向量响应：第 i 条第一维 = i+1（与 vec0 表 float[1024] 匹配）
     private String embeddingResponse(int n) {
         StringBuilder sb = new StringBuilder("{\"data\":[");
