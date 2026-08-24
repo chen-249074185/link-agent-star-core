@@ -6,6 +6,7 @@ import com.star.rag.document.TextChunker;
 import com.star.rag.embedding.EmbeddingClient;
 import com.star.rag.security.KnowledgeBaseGuard;
 import com.star.rag.store.KnowledgeBaseRepository;
+import com.star.rag.store.KnowledgeBaseRepository;
 import com.star.rag.store.SQLiteVecStore;
 import com.star.rag.store.VectorStore;
 import com.star.rag.upload.UploadService;
@@ -70,11 +71,12 @@ public class RagMcpServer {
             UploadService uploader = new UploadService(
                     new DocumentParser(), new ContentCleaner(), new TextChunker(), embedding, store);
 
-            McpServer.sync(transport)
+McpServer.sync(transport)
                     .serverInfo("rag-mcp-server", "0.1.0")
                     .tools(
                             uploadTool(uploader, guard, kbRepo),
                             searchTool(store, embedding, guard, kbRepo),
+                            listKbsTool(kbRepo),
                             deleteTool(store, guard, kbRepo)
                     )
                     .build();
@@ -89,6 +91,7 @@ public class RagMcpServer {
 
     // 工具1：上传文档（txt/md，filename+content）→ 走完整管道自动切片向量化入库
     // 归属校验：不是自己的库拒收；失败已由 UploadService 内部回滚
+    // is_base64=true 时 content 按 Base64 解码成字节（HTTP 上传二进制 PDF 走这条路，JSON 传不了裸二进制）
     private static SyncToolSpecification uploadTool(UploadService uploader, KnowledgeBaseGuard guard,
                                                     KnowledgeBaseRepository kbRepo) {
         McpSchema.Tool tool = McpSchema.Tool.builder()
@@ -99,7 +102,8 @@ public class RagMcpServer {
                                 "user_id", Map.of("type", "string"),
                                 "kb_id", Map.of("type", "string"),
                                 "filename", Map.of("type", "string"),
-                                "content", Map.of("type", "string")
+                                "content", Map.of("type", "string"),
+                                "is_base64", Map.of("type", "boolean", "description", "content 是否为 Base64 编码（传二进制文件用）")
                         ),
                         List.of("user_id", "kb_id", "filename", "content"), null, null, null))
                 .build();
@@ -110,13 +114,17 @@ public class RagMcpServer {
                     String userId = String.valueOf(args.get("user_id"));
                     String kbId = String.valueOf(args.get("kb_id"));
                     kbRepo.ensureUserWithDefaultKb(userId);          // 新用户自动建默认库
-                    String denied = guard.checkAccess(userId, kbId); // 归属校验（R10）
+                    String denied = guard.checkAccess(userId, kbId);   // 归属校验（R10）
                     if (denied != null) {
                         return errorResult(denied);
                     }
                     String filename = String.valueOf(args.get("filename"));
-                    byte[] content = String.valueOf(args.get("content")).getBytes(StandardCharsets.UTF_8);
-                    UploadService.UploadResult result = uploader.upload(userId, kbId, filename, content);
+                    String rawContent = String.valueOf(args.get("content"));
+                    boolean isBase64 = Boolean.parseBoolean(String.valueOf(args.getOrDefault("is_base64", "false")));
+                    byte[] bytes = isBase64
+                            ? java.util.Base64.getDecoder().decode(rawContent)
+                            : rawContent.getBytes(StandardCharsets.UTF_8);
+                    UploadService.UploadResult result = uploader.upload(userId, kbId, filename, bytes);
                     return McpSchema.CallToolResult.builder()
                             .content(List.of(new McpSchema.TextContent(result.message())))
                             .build();
@@ -166,7 +174,34 @@ public class RagMcpServer {
                 .build();
     }
 
-    // 工具3：删除某知识库（含库内全部切片）；归属校验：不是自己的库不能删
+    // 工具3：列出用户全部知识库（HTTP 管理接口 /api/rag/list 用；顺带保证新用户有默认库）
+    private static SyncToolSpecification listKbsTool(KnowledgeBaseRepository kbRepo) {
+        McpSchema.Tool tool = McpSchema.Tool.builder()
+                .name("rag_list_kbs")
+                .description("列出指定用户的全部知识库")
+                .inputSchema(new McpSchema.JsonSchema("object",
+                        Map.of("user_id", Map.of("type", "string")),
+                        List.of("user_id"), null, null, null))
+                .build();
+        return SyncToolSpecification.builder()
+                .tool(tool)
+                .callHandler((exchange, request) -> {
+                    String userId = String.valueOf(request.arguments().get("user_id"));
+                    kbRepo.ensureUserWithDefaultKb(userId);
+                    List<KnowledgeBaseRepository.KnowledgeBase> kbs = kbRepo.listByUser(userId);
+                    StringBuilder sb = new StringBuilder();
+                    for (KnowledgeBaseRepository.KnowledgeBase kb : kbs) {
+                        sb.append(kb.kbId()).append(" | ").append(kb.name()).append("\n");
+                    }
+                    return McpSchema.CallToolResult.builder()
+                            .content(List.of(new McpSchema.TextContent(
+                                    sb.isEmpty() ? "暂无知识库" : sb.toString().trim())))
+                            .build();
+                })
+                .build();
+    }
+
+    // 工具4：删除某知识库（含库内全部切片）；归属校验：不是自己的库不能删
     private static SyncToolSpecification deleteTool(VectorStore store, KnowledgeBaseGuard guard,
                                                     KnowledgeBaseRepository kbRepo) {
         McpSchema.Tool tool = McpSchema.Tool.builder()
