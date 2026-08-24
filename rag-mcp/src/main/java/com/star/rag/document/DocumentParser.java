@@ -20,7 +20,7 @@ public class DocumentParser {
             default -> throw new IllegalArgumentException("不支持的文件类型: ." + ext);    // 安全网
         };
     }
-
+    
     // PDF：PDFBox 把 PDF 里的文字抠出来
     // PDF 是二进制格式，电脑读不懂，必须靠库解析；try-with-resources 自动关文档资源
     private String parsePdf(byte[] content) {

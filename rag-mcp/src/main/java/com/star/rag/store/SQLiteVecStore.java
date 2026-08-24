@@ -44,9 +44,9 @@ public class SQLiteVecStore implements VectorStore {
         }
     }
 
-    // 存切片：正文/向量进 chunks 表，向量进 vec_chunks 虚拟表（rowid 对应）
+    // 存切片：正文/向量进 chunks 表，向量进 vec_chunks 虚拟表（rowid 对应）；返回新行号（回滚追踪用）
     @Override
-    public void insertChunk(String userId, String kbId, String content, float[] embedding, String metadataJson) {
+    public int insertChunk(String userId, String kbId, String content, float[] embedding, String metadataJson) {
         try {
             String vecJson = toJson(embedding);
             // 先插普通表拿自增 id（rowid 就是 vec 表的 rowid）
@@ -70,8 +70,37 @@ public class SQLiteVecStore implements VectorStore {
             vps.setString(4, vecJson);
             vps.executeUpdate();
             vps.close();
+            return rowId;
         } catch (Exception e) {
             throw new RuntimeException("插入切片失败: " + e.getMessage(), e);
+        }
+    }
+
+    // 按行号批量删切片（上传失败回滚）：正文表按 id、向量表按 rowid，两个表都要删
+    @Override
+    public void deleteChunks(String userId, List<Integer> rowIds) {
+        if (rowIds == null || rowIds.isEmpty()) {
+            return;                                     // 没入库过任何块 → 无事可回滚
+        }
+        String placeholders = String.join(",", java.util.Collections.nCopies(rowIds.size(), "?"));
+        try {
+            PreparedStatement vps = conn.prepareStatement(
+                    "DELETE FROM vec_chunks WHERE rowid IN (" + placeholders + ")");
+            for (int i = 0; i < rowIds.size(); i++) {
+                vps.setInt(i + 1, rowIds.get(i));
+            }
+            vps.executeUpdate();
+            vps.close();
+
+            PreparedStatement ps = conn.prepareStatement(
+                    "DELETE FROM chunks WHERE id IN (" + placeholders + ")");
+            for (int i = 0; i < rowIds.size(); i++) {
+                ps.setInt(i + 1, rowIds.get(i));
+            }
+            ps.executeUpdate();
+            ps.close();
+        } catch (Exception e) {
+            throw new RuntimeException("回滚删除切片失败: " + e.getMessage(), e);
         }
     }
 

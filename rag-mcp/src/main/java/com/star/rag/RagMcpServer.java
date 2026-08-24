@@ -1,9 +1,13 @@
 package com.star.rag;
 
+import com.star.rag.document.ContentCleaner;
+import com.star.rag.document.DocumentParser;
+import com.star.rag.document.TextChunker;
 import com.star.rag.embedding.EmbeddingClient;
 import com.star.rag.security.KnowledgeBaseGuard;
 import com.star.rag.store.SQLiteVecStore;
 import com.star.rag.store.VectorStore;
+import com.star.rag.upload.UploadService;
 import io.modelcontextprotocol.json.McpJsonMapper;
 import io.modelcontextprotocol.json.jackson3.JacksonMcpJsonMapper;
 import io.modelcontextprotocol.server.McpServer;
@@ -16,6 +20,7 @@ import tools.jackson.databind.json.JsonMapper;
 import java.io.FilterInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
@@ -59,11 +64,14 @@ public class RagMcpServer {
             VectorStore store = new SQLiteVecStore(dbPath.toString(), vecDll.toString());
             EmbeddingClient embedding = new EmbeddingClient(apiKey);
             KnowledgeBaseGuard guard = new KnowledgeBaseGuard(store);
+            // 上传管道：解析→清洗→切片→向量化→入库（失败自动回滚）
+            UploadService uploader = new UploadService(
+                    new DocumentParser(), new ContentCleaner(), new TextChunker(), embedding, store);
 
             McpServer.sync(transport)
                     .serverInfo("rag-mcp-server", "0.1.0")
                     .tools(
-                            uploadTool(store, embedding, guard),
+                            uploadTool(uploader, guard),
                             searchTool(store, embedding, guard),
                             deleteTool(store, guard)
                     )
@@ -77,18 +85,20 @@ public class RagMcpServer {
         eofAware.awaitEof();
     }
 
-    // 工具1：上传切片入库（user_id/kb_id 归属 + 正文）；归属校验：别人占用的库拒收
-    private static SyncToolSpecification uploadTool(VectorStore store, EmbeddingClient embedding, KnowledgeBaseGuard guard) {
+    // 工具1：上传文档（txt/md，filename+content）→ 走完整管道自动切片向量化入库
+    // 归属校验：别人占用的库拒收；失败已由 UploadService 内部回滚
+    private static SyncToolSpecification uploadTool(UploadService uploader, KnowledgeBaseGuard guard) {
         McpSchema.Tool tool = McpSchema.Tool.builder()
                 .name("rag_upload")
-                .description("上传一段文本到指定用户的私有知识库，自动向量化")
+                .description("上传一个文本文档到指定用户的私有知识库，自动解析/清洗/切片/向量化/入库")
                 .inputSchema(new McpSchema.JsonSchema("object",
                         Map.of(
                                 "user_id", Map.of("type", "string"),
                                 "kb_id", Map.of("type", "string"),
+                                "filename", Map.of("type", "string"),
                                 "content", Map.of("type", "string")
                         ),
-                        List.of("user_id", "kb_id", "content"), null, null, null))
+                        List.of("user_id", "kb_id", "filename", "content"), null, null, null))
                 .build();
         return SyncToolSpecification.builder()
                 .tool(tool)
@@ -100,11 +110,11 @@ public class RagMcpServer {
                     if (denied != null) {
                         return errorResult(denied);
                     }
-                    String content = String.valueOf(args.get("content"));
-                    float[] vec = embedding.embed(content);
-                    store.insertChunk(userId, kbId, content, vec, "{}");
+                    String filename = String.valueOf(args.get("filename"));
+                    byte[] content = String.valueOf(args.get("content")).getBytes(StandardCharsets.UTF_8);
+                    UploadService.UploadResult result = uploader.upload(userId, kbId, filename, content);
                     return McpSchema.CallToolResult.builder()
-                            .content(List.of(new McpSchema.TextContent("已入库: " + content.length() + " 字")))
+                            .content(List.of(new McpSchema.TextContent(result.message())))
                             .build();
                 })
                 .build();

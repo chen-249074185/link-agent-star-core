@@ -194,4 +194,18 @@ class SQLiteVecStoreTest {
         assertTrue(guard.checkAccess("u2", "kb1") != null);          // 入侵者 → 拒绝（含审计日志）
         assertTrue(guard.checkAccess("u2", "kb1").contains("无权"));
     }
+
+    // deleteChunks 按行号删：只删指定的，别的保留（上传回滚真实路径）
+    @Test
+    void deleteChunks_removesOnlySpecified() {
+        int r1 = store.insertChunk("u1", "kb1", "甲", axis(0), "{}");
+        int r2 = store.insertChunk("u1", "kb1", "乙", axis(1), "{}");
+        int r3 = store.insertChunk("u1", "kb1", "丙", axis(2), "{}");
+
+        store.deleteChunks("u1", List.of(r1, r3));   // 删甲和丙，留乙
+
+        List<VectorStore.SearchHit> hits = store.search("u1", "kb1", axis(1), 5, 1.5);
+        assertEquals(1, hits.size());
+        assertEquals("乙", hits.get(0).content());
+    }
 }

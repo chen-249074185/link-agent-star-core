@@ -23,11 +23,11 @@ class ContentCleanerTest {
         assertEquals("a\tb", cleaner.clean("a\u0000\tb"));
     }
 
-    // 逐行 trim + 剔空行
+    // 逐行 trim + 空行归一化：连续空行压成一个（段落分隔符保留），段落首尾不留空行
     @Test
-    void trimsAndDropsEmptyLines() {
-        String out = cleaner.clean("  第一行  \n\n    \n  第二行  ");
-        assertEquals("第一行\n第二行", out);
+    void trimsAndNormalizesBlankLines() {
+        String out = cleaner.clean("  第一行  \n\n    \n\n  第二行  \n");
+        assertEquals("第一行\n\n第二行", out);
     }
 
     // 超长截断：超过安全上限截到 MAX_CHARS
