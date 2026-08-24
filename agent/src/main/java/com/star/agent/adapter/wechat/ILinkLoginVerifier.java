@@ -46,10 +46,11 @@ public class ILinkLoginVerifier {
         ModelRouter modelRouter = new ModelRouter(llm, dashScope, qwenMax, null);
         // 工作流链路：Mock 技能 + 真实技能（扫码验证场景也能跑租房工作流）
         WorkflowEngine engine = new WorkflowEngine();
-        RentDecisionWorkflow workflow = new RentDecisionWorkflow(List.of(
+        SkillRegistry workflowSkills = new SkillRegistry(List.of(
                 new RagSearchSkill(), new CrawlSkill(), new LiepinSkill(), new UuDeliverySkill(),
                 new CommuteSkill(config),   // 走 AppConfig 构造器 = 内部默认 baseUrl（含 /v3/direction/driving 路径）
-                new HouseScoreSkill(), new RentRiskSkill()), engine);
+                new HouseScoreSkill(), new RentRiskSkill()));
+        RentDecisionWorkflow workflow = new RentDecisionWorkflow(workflowSkills, engine);
         ChatService chatService = new ChatService(llm, modelRouter, skillRegistry, kernel, new RentRequestDetector(), workflow,
                 null, null, null, null);   // 手动链路不进 Spring：记忆/压缩全部降级关闭
 

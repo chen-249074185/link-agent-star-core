@@ -64,6 +64,11 @@ public class SkillRegistry {
         return skillMap.get(name);
     }
 
+    // 全部已注册技能（本地 @Component + 程序化注册的 MCP 技能都在里面）
+    public List<Skill> allSkills() {
+        return List.copyOf(skillMap.values());
+    }
+
     // 程序化注册（MCP 技能注册器用）：带重名校验
     public void register(Skill skill) {
         String name = skill.meta().name();
