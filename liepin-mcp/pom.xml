@@ -38,6 +38,13 @@
             <version>2.20.0</version>
         </dependency>
 
+        <!-- SnakeYAML：解析求职画像筛选规则（liepin-filter-rules.yaml，改配置不改代码） -->
+        <dependency>
+            <groupId>org.yaml</groupId>
+            <artifactId>snakeyaml</artifactId>
+            <version>2.2</version>
+        </dependency>
+
         <!-- 测试 -->
         <dependency>
             <groupId>org.junit.jupiter</groupId>

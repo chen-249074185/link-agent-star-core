@@ -33,17 +33,19 @@ public class LiepinCliRunner {
             ProcessBuilder pb = new ProcessBuilder(cmd);
             // Token 只进子进程环境变量（--token 会出现在进程命令行里，环境变量更隐蔽）
             pb.environment().put("LIEPIN_USER_TOKEN", token);
+            // 关键坑：Windows 下 Python 默认按控制台编码(GBK)输出，必须强制 UTF-8，否则中文全乱码
+            pb.environment().put("PYTHONIOENCODING", "utf-8");
             pb.redirectErrorStream(true);
             Process p = pb.start();
-            String out = new String(p.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+            byte[] bytes = p.getInputStream().readAllBytes();
             if (!p.waitFor(TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
                 p.destroyForcibly();
                 throw new RuntimeException("liepin-cli 执行超时: " + String.join(" ", cmd));
             }
             if (p.exitValue() != 0) {
-                throw new RuntimeException("liepin-cli 退出码 " + p.exitValue() + ": " + truncate(out));
+                throw new RuntimeException("liepin-cli 退出码 " + p.exitValue() + ": " + truncate(decode(bytes)));
             }
-            return out;
+            return decode(bytes);   // UTF-8 优先，乱码则 GBK 兜底（防 Python 忽略 PYTHONIOENCODING 的场景）
         } catch (IOException e) {
             throw new RuntimeException("liepin-cli 无法启动: " + e.getMessage() + "（路径: " + cliPath + "）", e);
         } catch (InterruptedException e) {
@@ -83,6 +85,15 @@ public class LiepinCliRunner {
 
     private String truncate(String s) {
         return s == null ? "" : (s.length() > 300 ? s.substring(0, 300) + "..." : s);
+    }
+
+    // 解码：UTF-8 优先；出现替换符 � 说明编码不对 → GBK 兜底（Windows Python 常见）
+    private String decode(byte[] bytes) {
+        String utf8 = new String(bytes, StandardCharsets.UTF_8);
+        if (!utf8.contains("\uFFFD")) {
+            return utf8;
+        }
+        return new String(bytes, java.nio.charset.Charset.forName("GBK"));
     }
 
     public String token() {

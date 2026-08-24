@@ -47,8 +47,16 @@ public class LiepinMcpHandshakeTest {
                     Map.of("keyword", "Java开发", "address", "北京", "page", 0)));
             System.out.println("[3] 搜索(北京 Java开发):\n" + text(search));
 
+            var filter = client.callTool(new McpSchema.CallToolRequest("liepin_filter_jobs",
+                    Map.of("keyword", "Java开发", "address", "北京")));
+            System.out.println("[4] 精筛(按画像: 本科/经验不限应届实习/薪资≥10k/城市):\n" + text(filter));
+
+            var dryRun = client.callTool(new McpSchema.CallToolRequest("liepin_apply_dry_run",
+                    Map.of("jobs", "[{\"jobId\":85116009,\"jobType\":\"2\",\"jobName\":\"Java开发工程师\",\"company\":\"示例公司\"}]")));
+            System.out.println("[5] 投递计划 dry-run:\n" + text(dryRun));
+
             var resume = client.callTool(new McpSchema.CallToolRequest("liepin_resume", Map.of()));
-            System.out.println("[4] 简历:\n" + text(resume));
+            System.out.println("[6] 简历:\n" + text(resume));
 
             client.closeGracefully();
             System.out.println("\n===== 猎聘 MCP 端到端验证通过! =====");

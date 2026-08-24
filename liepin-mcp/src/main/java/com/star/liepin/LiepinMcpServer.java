@@ -46,7 +46,8 @@ public class LiepinMcpServer {
         try {
             McpServer.sync(transport)
                     .serverInfo("liepin-mcp-server", "0.1.0")
-                    .tools(doctorTool(runner), searchJobsTool(runner), resumeTool(runner))
+                    .tools(doctorTool(runner), searchJobsTool(runner),
+                            filterJobsTool(runner), resumeTool(runner), applyDryRunTool(runner))
                     .build();
             System.err.println("liepin-mcp-server 就绪，等待客户端...");
         } catch (Exception e) {
@@ -110,32 +111,15 @@ public class LiepinMcpServer {
                 .tool(tool)
                 .callHandler((exchange, request) -> {
                     Map<String, Object> a = request.arguments();
-                    String keyword = String.valueOf(a.get("keyword"));
-                    String address = a.get("address") == null ? "" : String.valueOf(a.get("address"));
-                    int salary = a.get("salaryFloor") == null ? 0 : ((Number) a.get("salaryFloor")).intValue();
-                    int page = a.get("page") == null ? 0 : ((Number) a.get("page")).intValue();
-
-                    List<String> cmd = new java.util.ArrayList<>(List.of(
-                            "job", "search", "--job-name", keyword, "--output", "json"));
-                    if (!address.isBlank()) cmd.addAll(List.of("--address", address));
-                    if (salary > 0) cmd.addAll(List.of("--salary-floor", String.valueOf(salary)));
-                    cmd.addAll(List.of("--page", String.valueOf(page)));
-
                     try {
-                        JsonNode r = parse(mapper, runner.run(cmd.toArray(new String[0])));
-                        if (r.path("errCode").asInt() != 0) {
-                            return error("猎聘返回错误: " + r.path("data").path("result").asText());
-                        }
+                        JsonNode r = doSearch(runner,
+                                String.valueOf(a.get("keyword")),
+                                a.get("address") == null ? "" : String.valueOf(a.get("address")),
+                                a.get("salaryFloor") == null ? 0 : ((Number) a.get("salaryFloor")).intValue(),
+                                a.get("page") == null ? 0 : ((Number) a.get("page")).intValue());
                         StringBuilder sb = new StringBuilder();
-                        for (JsonNode j : r.path("data").path("list")) {
-                            sb.append("jobId=").append(j.path("jobId").asLong())
-                                    .append(" | ").append(j.path("jobName").asText())
-                                    .append(" | ").append(j.path("company").asText())
-                                    .append(" | ").append(j.path("salary").asText())
-                                    .append(" | ").append(j.path("education").asText())
-                                    .append(" | ").append(j.path("workYears").asText())
-                                    .append(" | ").append(j.path("location").asText())
-                                    .append("\n");
+                        for (JsonNode j : r.path("list")) {
+                            sb.append(formatJob(j)).append("\n");
                         }
                         return ok(sb.isEmpty() ? "未找到匹配岗位" : sb.toString());
                     } catch (Exception e) {
@@ -143,6 +127,97 @@ public class LiepinMcpServer {
                     }
                 })
                 .build();
+    }
+
+    // 工具3：按求职画像精筛（学历/经验/薪资/城市四维，规则在 liepin-filter-rules.yaml）→ 能投的岗位 + 理由
+    private static SyncToolSpecification filterJobsTool(LiepinCliRunner runner) {
+        McpSchema.Tool tool = McpSchema.Tool.builder()
+                .name("liepin_filter_jobs")
+                .description("搜索并按求职画像（学历/经验/薪资/城市，YAML 可配）精筛，返回能投的岗位及匹配理由")
+                .inputSchema(new McpSchema.JsonSchema("object",
+                        Map.of(
+                                "keyword", Map.of("type", "string", "description", "职位关键词"),
+                                "address", Map.of("type", "string", "description", "城市"),
+                                "page", Map.of("type", "integer", "description", "页码，0 起")
+                        ),
+                        List.of("keyword"), null, null, null))
+                .build();
+        return SyncToolSpecification.builder()
+                .tool(tool)
+                .callHandler((exchange, request) -> {
+                    Map<String, Object> a = request.arguments();
+                    try {
+                        FilterRules rules = FilterRules.load();
+                        JsonNode r = doSearch(runner,
+                                String.valueOf(a.get("keyword")),
+                                a.get("address") == null ? "" : String.valueOf(a.get("address")),
+                                0,
+                                a.get("page") == null ? 0 : ((Number) a.get("page")).intValue());
+                        List<JobFilter.Match> matches = JobFilter.filter(r.path("list"), rules);
+                        if (matches.isEmpty()) {
+                            return ok("没有符合求职画像的岗位（画像: 学历" + rules.education()
+                                    + " 经验" + rules.workYearKeywords()
+                                    + " 薪资≥" + rules.salaryFloorK() + "k 城市" + rules.cities() + "）");
+                        }
+                        StringBuilder sb = new StringBuilder();
+                        for (JobFilter.Match m : matches) {
+                            sb.append(formatJob(m.job())).append(" | ").append(m.reason()).append("\n");
+                        }
+                        return ok(sb.toString());
+                    } catch (Exception e) {
+                        return error("精筛失败: " + e.getMessage());
+                    }
+                })
+                .build();
+    }
+
+    // 工具5：投递计划 dry-run（只生成拟投清单，不真实投递；确认后才走真实投递）
+    private static SyncToolSpecification applyDryRunTool(LiepinCliRunner runner) {
+        McpSchema.Tool tool = McpSchema.Tool.builder()
+                .name("liepin_apply_dry_run")
+                .description("生成投递计划清单（不真实投递）：传入岗位 JSON 数组（含 jobId/jobType，从搜索结果取）")
+                .inputSchema(new McpSchema.JsonSchema("object",
+                        Map.of("jobs", Map.of("type", "string",
+                                "description", "岗位 JSON 数组，如 [{\"jobId\":1,\"jobType\":\"2\",\"jobName\":\"..\",\"company\":\"..\"}]")),
+                        List.of("jobs"), null, null, null))
+                .build();
+        return SyncToolSpecification.builder()
+                .tool(tool)
+                .callHandler((exchange, request) -> {
+                    try {
+                        return ok(ApplyPlanner.buildDryRunPlan(
+                                String.valueOf(request.arguments().get("jobs"))));
+                    } catch (Exception e) {
+                        return error("生成投递计划失败: " + e.getMessage());
+                    }
+                })
+                .build();
+    }
+
+    // 共用：拼命令 → 跑 CLI → 解析成 data 节点（list 或 result 的容器）
+    private static JsonNode doSearch(LiepinCliRunner runner, String keyword, String address, int salary, int page) throws Exception {
+        List<String> cmd = new java.util.ArrayList<>(List.of(
+                "job", "search", "--job-name", keyword, "--output", "json"));
+        if (!address.isBlank()) cmd.addAll(List.of("--address", address));
+        if (salary > 0) cmd.addAll(List.of("--salary-floor", String.valueOf(salary)));
+        cmd.addAll(List.of("--page", String.valueOf(page)));
+
+        JsonNode r = mapper.readTree(runner.run(cmd.toArray(new String[0])));
+        if (r.path("errCode").asInt() != 0) {
+            throw new RuntimeException("猎聘返回错误: " + r.path("data").path("result").asText());
+        }
+        return r.path("data");
+    }
+
+    private static String formatJob(JsonNode j) {
+        return "jobId=" + j.path("jobId").asLong()
+                + " jobType=" + j.path("jobType").asText("")
+                + " | " + j.path("jobName").asText("")
+                + " | " + j.path("company").asText("")
+                + " | " + j.path("salary").asText("")
+                + " | " + j.path("education").asText("")
+                + " | " + j.path("workYears").asText("")
+                + " | " + j.path("location").asText("");
     }
 
     // 工具3：读简历（Markdown 全文，含基本信息/求职期望/教育/项目/自我评价）
