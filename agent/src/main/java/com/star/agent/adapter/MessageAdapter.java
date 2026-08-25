@@ -15,6 +15,9 @@ public interface MessageAdapter {
     // 发图片（byte[] 原始字节，fileName 带扩展名，caption 图片说明可空）
     void sendImage(String userId, byte[] imageBytes, String fileName, String caption) throws Exception;
 
+    // 发语音（byte[] 原始字节，fileName 带扩展名）
+    void sendVoice(String userId, byte[] voiceBytes, String fileName) throws Exception;
+
     // 发文件
     void sendFile(String userId, byte[] fileBytes, String fileName, String caption) throws Exception;
 }

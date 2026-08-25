@@ -52,6 +52,11 @@ public class ILinkMessageAdapter implements MessageAdapter {
     }
 
     @Override
+    public void sendVoice(String userId, byte[] voiceBytes, String fileName) throws Exception {
+        client.sendVoice(userId, voiceBytes, fileName, null, null);
+    }
+
+    @Override
     public void sendFile(String userId, byte[] fileBytes, String fileName, String caption) throws Exception {
         client.sendFile(userId, fileBytes, fileName, caption);
     }
