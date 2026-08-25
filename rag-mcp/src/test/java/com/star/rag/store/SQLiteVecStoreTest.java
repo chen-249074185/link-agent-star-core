@@ -8,8 +8,10 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Random;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -202,5 +204,40 @@ class SQLiteVecStoreTest {
         List<VectorStore.SearchHit> hits = store.search("u1", "kb1", axis(1), 5, 1.5);
         assertEquals(1, hits.size());
         assertEquals("乙", hits.get(0).content());
+    }
+
+    // 去重回归（10-10 M3 发现的 topK 重复块 bug）：同一文档重复上传（内容+向量全同）后，
+    // 检索结果按内容去重只保留一条；重复块不再霸占 topK 名额
+    @Test
+    void search_dedupesDuplicateContent() {
+        store.insertChunk("u1", "kb1", "北京海淀两居室6500元", axis(0), "{}");
+        store.insertChunk("u1", "kb1", "北京海淀两居室6500元", axis(0), "{}");   // 重复上传第 2 次
+        store.insertChunk("u1", "kb1", "北京海淀两居室6500元", axis(0), "{}");   // 重复上传第 3 次
+        store.insertChunk("u1", "kb1", "上海单间3800元", axis(1), "{}");
+
+        List<VectorStore.SearchHit> hits = store.search("u1", "kb1", axis(0), 5, 1.5);
+
+        assertEquals(2, hits.size(), "重复内容应去重为一条");
+        assertEquals("北京海淀两居室6500元", hits.get(0).content(), "最近那条保留");
+        assertEquals("上海单间3800元", hits.get(1).content());
+    }
+
+    // 去重后仍按 topK 截断：唯一内容多于 topK 时只回 topK 条，且无重复
+    @Test
+    void search_dedupThenTopKTruncation() {
+        for (int i = 0; i < 5; i++) {
+            store.insertChunk("u1", "kb1", "重复块A", axis(0), "{}");   // 5 份相同内容
+            store.insertChunk("u1", "kb1", "片段" + i, axis(i), "{}");
+        }
+
+        List<VectorStore.SearchHit> hits = store.search("u1", "kb1", axis(0), 3, 1.5);
+
+        assertEquals(3, hits.size(), "去重后仍按 topK 截断");
+        Set<String> contents = new HashSet<>();
+        for (VectorStore.SearchHit h : hits) {
+            assertTrue(contents.add(h.content()), "结果不应有重复内容: " + h.content());
+        }
+        long dupCount = hits.stream().filter(h -> h.content().equals("重复块A")).count();
+        assertEquals(1, dupCount, "重复块A 只出现一次");
     }
 }

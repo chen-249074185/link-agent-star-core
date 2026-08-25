@@ -6,8 +6,10 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.Statement;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Properties;
+import java.util.Set;
 import java.util.UUID;
 
 // VectorStore 的 sqlite-vec 实现（D37 方案 A）+ KnowledgeBaseRepository（user/知识库显式归属）
@@ -117,9 +119,14 @@ public class SQLiteVecStore implements VectorStore, KnowledgeBaseRepository {
     // KNN 检索：MATCH 查询 + user_id/kb_id 过滤（partition key 自动只扫本区）
     // 注意：vec0 要求 KNN 查询必须带 k 约束（不能用参数化 LIMIT，坑：静态解析失败报
     // "A LIMIT or 'k = ?' constraint is required on vec0 knn queries"）
+    // 去重（10-10 修复）：同一文档重复上传产生内容/向量完全相同的重复块，KNN 前 topK
+    // 可能全是同一内容 → 多取几倍候选（fetchK 上限 100），按内容去重保留最低距离，
+    // 再截断回 topK（KNN 按距离升序返回，首次见到的内容即最低距离那条）
     @Override
     public List<SearchHit> search(String userId, String kbId, float[] queryEmbedding, int topK, double threshold) {
+        int fetchK = Math.min(Math.max(topK * 3, topK), 100);
         List<SearchHit> hits = new ArrayList<>();
+        Set<String> seen = new HashSet<>();
         try {
             String sql = "SELECT c.content, v.distance FROM vec_chunks v " +
                     "JOIN chunks c ON c.id = v.rowid " +
@@ -129,12 +136,13 @@ public class SQLiteVecStore implements VectorStore, KnowledgeBaseRepository {
             ps.setString(1, toJson(queryEmbedding));
             ps.setString(2, userId);
             ps.setString(3, kbId);
-            ps.setInt(4, topK);
+            ps.setInt(4, fetchK);
             ResultSet rs = ps.executeQuery();
             while (rs.next()) {
                 double score = rs.getDouble("distance");
-                if (score <= threshold) {   // 距离越小越相关（阈值 = 最大可接受距离）
-                    hits.add(new SearchHit(rs.getString("content"), score));
+                String content = rs.getString("content");
+                if (score <= threshold && seen.add(content)) {   // 阈值过滤 + 内容去重
+                    hits.add(new SearchHit(content, score));
                 }
             }
             rs.close();
@@ -142,7 +150,8 @@ public class SQLiteVecStore implements VectorStore, KnowledgeBaseRepository {
         } catch (Exception e) {
             throw new RuntimeException("检索失败: " + e.getMessage(), e);
         }
-        return hits;
+        // 截断回 topK；去重后不足 topK 属正常（库里唯一内容就那么多）
+        return hits.size() > topK ? hits.subList(0, topK) : hits;
     }
 
     @Override
