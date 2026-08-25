@@ -35,7 +35,7 @@ public class ShortTermMemory {
         });
     }
 
-    // 查某用户最近的历史（倒序，最新的在前）；W12 用户端历史记录页用
+    // 查某用户最近的历史（倒序，最新的在前）；用户端历史记录页用
     public List<Conversation> findHistory(String userId, int limit) {
         return mapper.findByUserId(userId, limit);
     }

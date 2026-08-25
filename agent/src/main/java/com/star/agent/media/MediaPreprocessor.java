@@ -2,7 +2,7 @@ package com.star.agent.media;
 
 import java.util.Base64;
 
-// 多媒体预处理编排（W10 第5天，10-15 提前做 10-16 内容）：
+// 多媒体预处理编排：
 // 图片 → base64（给多模态 LLM 识图）；语音 → 魔数检测 → ffmpeg 转 16k WAV → 转文字
 // 降级链（R7）：转码失败（ffmpeg 缺失/格式不支持）→ 返回降级话术，不抛异常不崩
 public class MediaPreprocessor {

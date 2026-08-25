@@ -167,7 +167,7 @@ class GovernanceKernelTest {
         assertTrue(kernel.check("get_weather", "user1", "{}", "CHAT").allowed());
     }
 
-    // 确认闭环（10-10）：高危被拒后记录待确认 → confirm() 写入确认态 → 再 check 放行且确认被消费
+    // 确认闭环：高危被拒后记录待确认 → confirm() 写入确认态 → 再 check 放行且确认被消费
     @Test
     void highRisk_denyThenConfirm_allowsNextCheck() {
         SkillRegistry registry = mock(SkillRegistry.class);

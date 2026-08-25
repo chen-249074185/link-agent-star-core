@@ -13,7 +13,7 @@ public interface ConversationMapper {
     // 存一条对话（user/assistant 都要落库）
     int insert(Conversation conversation);
 
-    // 查某用户最近的对话（按时间倒序，limit 条；W12 用户端历史记录也用这个）
+    // 查某用户最近的对话（按时间倒序，limit 条；用户端历史记录也用这个）
     List<Conversation> findByUserId(String userId, int limit);
 
     // 查某用户某一天的对话（当日压缩取料用）

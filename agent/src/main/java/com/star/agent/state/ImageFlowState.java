@@ -1,6 +1,6 @@
 package com.star.agent.state;
 
-// 图片处理流状态机 5 态（W10 第3天，10-13 提前做 10-14 内容）
+// 图片处理流状态机 5 态：
 // IDLE 起点/终点 → WAIT_IMAGE 等第一张图 → WAIT_CONSTRAINT 等操作约束 → WAIT_SECOND_IMAGE 等第二张图 → DUAL_IMAGE_ACTION 双图执行
 public enum ImageFlowState {
     IDLE,                // 空闲：起点/终点

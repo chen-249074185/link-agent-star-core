@@ -69,7 +69,7 @@ public class RentDecisionWorkflow {
             new SkillNode("houses", skill("rag_search"),
                     "{\"city\":\"" + city + "\",\"maxPrice\":" + maxPrice
                             + ",\"query\":\"" + city + " 预算" + maxPrice + "元以内 房源 租房\"}"),
-            // 工序3：通勤测算（mock 阶段固定示例坐标，W9 真实房源带坐标后改动态）
+            // 工序3：通勤测算（mock 阶段固定示例坐标，真实房源带坐标后改动态）
             new SkillNode("commutes", skill("commute_estimate"),
                     "{\"origin\":\"116.481028,39.989643\",\"destination\":\"116.465302,40.004717\"}"),
             // 工序4：风险检测（动态参数：真实 RAG 自由文本 → HouseTextParser 结构化房源 JSON）

@@ -8,7 +8,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.Duration;
 
-// 限次：Redis 版实现（W6 正式版），key 走 RedisKeys 规范
+// 限次：Redis 版实现（正式版），key 走 RedisKeys 规范
 // 跨天清零靠 TTL：第一次计数时把 key 的过期时间设到"明天零点"，到点 Redis 自动删，天然重计
 @Component
 @ConditionalOnProperty(name = "linkagent.redis-enabled", havingValue = "true")

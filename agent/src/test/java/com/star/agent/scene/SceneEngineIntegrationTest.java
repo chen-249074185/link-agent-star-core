@@ -10,7 +10,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 // 场景引擎集成测试：消息 → 三层识别 → 场景 → 断言 模型/工具集/风格 全链路正确
-// 覆盖 W5 前 4 天成果的联动（SceneDetector + ScenePolicyConfig + ModelRouter）
+// 三组件联动验证（SceneDetector + ScenePolicyConfig + ModelRouter）
 @SpringBootTest
 class SceneEngineIntegrationTest {
 

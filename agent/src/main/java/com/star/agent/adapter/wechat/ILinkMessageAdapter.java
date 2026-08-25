@@ -56,7 +56,7 @@ public class ILinkMessageAdapter implements MessageAdapter {
         client.sendFile(userId, fileBytes, fileName, caption);
     }
 
-    // 微信消息 → 系统内部统一格式（收方向翻译；10-15 升级：识别图片/语音/文件 + 下载媒体字节）
+    // 微信消息 → 系统内部统一格式（收方向翻译：识别文本/图片/语音/文件 + 下载媒体字节）
     public AgentMessage convert(WeixinMessage msg) {
         String userId = msg.getFrom_user_id();
 

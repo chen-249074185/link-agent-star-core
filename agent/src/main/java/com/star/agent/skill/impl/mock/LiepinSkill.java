@@ -12,7 +12,7 @@ import org.springframework.stereotype.Component;
 
 import java.util.List;
 
-// 猎聘片区就业分析 Mock（MAIN 主线：Workflow 第一步，评估片区就业热度；W9 换真实猎聘 MCP）
+// 猎聘片区就业分析 Mock（MAIN 主线：Workflow 第一步，评估片区就业热度；后续换真实猎聘 MCP）
 @Component
 @ConditionalOnProperty(name = "linkagent.workflow.mock-enabled", havingValue = "true")
 public class LiepinSkill implements Skill {

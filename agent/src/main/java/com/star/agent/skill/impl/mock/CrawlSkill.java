@@ -12,7 +12,7 @@ import org.springframework.stereotype.Component;
 
 import java.util.List;
 
-// 爬虫房源采集 Mock（MAIN 主线：Workflow 房源数据采集；mock 先行，W9 换真实 Crawl MCP）
+// 爬虫房源采集 Mock（MAIN 主线：Workflow 房源数据采集；mock 先行，后续换真实 Crawl MCP）
 @Component
 @ConditionalOnProperty(name = "linkagent.workflow.mock-enabled",havingValue = "true")
 public class CrawlSkill implements Skill {

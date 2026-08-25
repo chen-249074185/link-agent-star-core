@@ -7,7 +7,7 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.serializer.GenericJackson2JsonRedisSerializer;
 import org.springframework.data.redis.serializer.StringRedisSerializer;
 
-// Redis 模板配置：key 统一 String 序列化（可读），value 用 JSON（可存对象，W6 记忆系统复用）
+// Redis 模板配置：key 统一 String 序列化（可读），value 用 JSON（可存对象，记忆系统复用）
 @Configuration
 public class RedisConfig {
 

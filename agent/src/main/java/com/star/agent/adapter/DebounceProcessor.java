@@ -9,7 +9,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-// 消息防抖聚合器（W10 第4天，10-14 提前做 10-15 内容）：
+// 消息防抖聚合器：
 // 用户连续发消息时先攒着不处理，静默期（窗口）过了没有新消息才打包产出——防止
 // ① AI 回复穿插在用户连续消息中间 ② 图+文字说明被拆散/顺序颠倒（文字先到会被下游忽略）
 // ③ 碎片消息多次调 AI 浪费 token

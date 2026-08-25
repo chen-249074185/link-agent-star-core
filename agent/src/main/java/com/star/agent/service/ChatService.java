@@ -71,7 +71,7 @@ public class ChatService {
             return workflow.execute(userId, "", req.city(), req.maxPrice());
         }
 
-        // 高危操作确认闭环（10-10）：用户回"确认" → 把待确认工具写入确认态（用完即弃），
+        // 高危操作确认闭环：用户回"确认" → 把待确认工具写入确认态（用完即弃），
         // 模型下一轮重试工具调用时治理内核关3放行；无待确认项时零副作用
         if (userMessage.trim().startsWith("确认")) {
             String pending = governanceKernel.confirm(userId);

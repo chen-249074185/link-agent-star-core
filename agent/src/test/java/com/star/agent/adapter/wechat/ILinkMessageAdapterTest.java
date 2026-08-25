@@ -125,7 +125,7 @@ class ILinkMessageAdapterTest {
         assertEquals("新客户端", adapter.receive().text());
     }
 
-    // 多媒体识别（10-15）：图片消息 → mediaType=IMAGE + 下载字节填 mediaBytes
+    // 多媒体识别：图片消息 → mediaType=IMAGE + 下载字节填 mediaBytes
     @Test
     void convert_imageMessage_downloadsBytes() throws Exception {
         WeixinMessage msg = new WeixinMessage();
@@ -146,7 +146,7 @@ class ILinkMessageAdapterTest {
         assertArrayEquals(downloaded, am.mediaBytes());
     }
 
-    // 多媒体识别（10-15）：语音消息 → mediaType=VOICE + 下载字节
+    // 多媒体识别：语音消息 → mediaType=VOICE + 下载字节
     @Test
     void convert_voiceMessage_downloadsBytes() throws Exception {
         WeixinMessage msg = new WeixinMessage();
@@ -165,7 +165,7 @@ class ILinkMessageAdapterTest {
         assertArrayEquals(downloaded, am.mediaBytes());
     }
 
-    // 多媒体识别（10-15）：下载失败 → 不抛异常，mediaType 仍标注、字节为 null（下游降级）
+    // 多媒体识别：下载失败 → 不抛异常，mediaType 仍标注、字节为 null（下游降级）
     @Test
     void convert_downloadFailure_degrades() throws Exception {
         WeixinMessage msg = new WeixinMessage();

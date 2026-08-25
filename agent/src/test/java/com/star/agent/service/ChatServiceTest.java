@@ -163,7 +163,7 @@ class ChatServiceTest {
         verify(memory, never()).append(any(), any(), any());
     }
 
-    // 高危确认闭环（10-10）：模型先调高危工具被拒 → 用户回"确认" → 模型再调 → 放行执行
+    // 高危确认闭环：模型先调高危工具被拒 → 用户回"确认" → 模型再调 → 放行执行
     @Test
     void highRiskTool_confirmFlow() {
         // 独立链路：注册表加一个 HIGH_RISK 真技能（liepin_apply），共用字段级 confirmStore/kernel

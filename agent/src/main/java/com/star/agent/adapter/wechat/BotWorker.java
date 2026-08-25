@@ -3,29 +3,33 @@ package com.star.agent.adapter.wechat;
 import com.github.wechat.ilink.sdk.ILinkClient;
 import com.github.wechat.ilink.sdk.core.context.ResumeContext;
 import com.github.wechat.ilink.sdk.core.login.LoginContext;
-import com.star.agent.message.AgentMessage;
-import com.star.agent.scene.Scene;
+import com.star.agent.adapter.MessageDispatcher;
+import com.star.agent.adapter.ReconnectHandler;
 import com.star.agent.scene.SceneDetector;
 import com.star.agent.service.ChatService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.slf4j.MDC;
 
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
-import java.util.UUID;
 
-public class BotWorker implements Runnable {
+// 机器人生命周期：登录/恢复 → 启动双线程 MessageDispatcher（收消息与回复解耦）
+// 断线自动重登：onDisconnected 回调 = 重走 login()（恢复失败转扫码），adapter 换绑后继续收
+public class BotWorker implements Runnable, ReconnectHandler {
+
+    private static final Logger logger = LoggerFactory.getLogger(BotWorker.class);
 
     private final String botId;
     private ILinkClient client;
     private volatile boolean running = true;
     private final ILinkMessageAdapter adapter;
-    private final ChatService chatService;// 真对话入口：收消息→调 chat()→回复
+    private final ChatService chatService;
     private final SceneDetector sceneDetector;
-    private static final Logger logger = LoggerFactory.getLogger(BotWorker.class);
+    private final Object loginLock = new Object();   // 首次登录与断线重登可能不同线程，防并发重入
+    private MessageDispatcher dispatcher;
 
-    public BotWorker(String botId, ILinkClient client, ILinkMessageAdapter adapter, ChatService chatService, SceneDetector sceneDetector) {
+    public BotWorker(String botId, ILinkClient client, ILinkMessageAdapter adapter,
+                     ChatService chatService, SceneDetector sceneDetector) {
         this.botId = botId;
         this.client = client;
         this.adapter = adapter;
@@ -37,9 +41,18 @@ public class BotWorker implements Runnable {
     public void run() {
         try {
             login();
-            loop();
+            dispatcher = new MessageDispatcher(adapter, sceneDetector, chatService, this);
+            dispatcher.start();
         } catch (Exception e) {
-            e.printStackTrace();
+            logger.error("机器人启动失败", e);
+        }
+    }
+
+    // 断线自动重登（MessageDispatcher 的 ReconnectHandler 回调，在 fetcher 线程执行）
+    @Override
+    public void onDisconnected() throws Exception {
+        synchronized (loginLock) {
+            login();
         }
     }
 
@@ -74,27 +87,10 @@ public class BotWorker implements Runnable {
         if (rc != null) SessionStore.save(newBotId, rc);
     }
 
-    private void loop() throws Exception {
-        System.out.println("开始接收消息...");
-        while (running) {
-            AgentMessage am = adapter.receive();   // 收消息统一走 adapter（内部 getUpdates+缓冲）
-            if (am == null) {
-                continue;
-            }
-            MDC.put("traceId", UUID.randomUUID().toString().substring(0, 8));  // ① 开工前放钥匙
-            try {
-                Scene scene = sceneDetector.detect(am.text());
-                logger.info("收到消息 来自[{}]: {}，识别场景: {}", am.userId(), am.text(), scene);
-                String reply = chatService.chat(am.text(), am.userId(), scene.name());
-                logger.info("回复[{}]: {}", am.userId(), reply);
-                adapter.send(am.userId(), reply);   // 发送也走 adapter，不再直接碰 SDK
-            } finally {
-                MDC.remove("traceId");   // ② 无论成败，收工时拔钥匙
-            }
-        }
-    }
-
     public void stop() {
         running = false;
+        if (dispatcher != null) {
+            dispatcher.stop();
+        }
     }
 }

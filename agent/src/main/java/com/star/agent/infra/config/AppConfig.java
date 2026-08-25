@@ -29,7 +29,7 @@ public class AppConfig {
 
     private final String amapApiKey = firstOf("AMAP_KEY");
 
-    private final String liepinUserToken = firstOf("LIEPIN_USER_TOKEN");   // 猎聘授权 Token（W9，.env 已 gitignore）
+    private final String liepinUserToken = firstOf("LIEPIN_USER_TOKEN");   // 猎聘授权 Token（.env 已 gitignore）
 
     // 构造自检：各 key 是否就位 + 脱敏指纹（后4位，对比 .env/环境变量是否同 key；纯 main 扫码链路也走这个构造器）
     public AppConfig() {

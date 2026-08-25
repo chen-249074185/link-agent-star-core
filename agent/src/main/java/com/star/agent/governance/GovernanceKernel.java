@@ -75,7 +75,7 @@ public class GovernanceKernel {
         roundCount.remove(userId);
     }
 
-    // 用户回"确认"时调用：把待确认工具写入确认态（10-10 接通闭环，此前无人调 save）
+    // 用户回"确认"时调用：把待确认工具写入确认态
     // 确认态 5 分钟过期（Redis 原生 TTL / 内存版懒过期），超时需重新确认
     // 返回待确认的工具名；没有待确认项返回 null（普通"确认"消息零副作用）
     public String confirm(String userId) {

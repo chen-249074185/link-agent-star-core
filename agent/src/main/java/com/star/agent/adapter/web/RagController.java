@@ -17,7 +17,7 @@ import java.util.Optional;
 
 // RAG 管理接口（面向用户的 HTTP 层）：upload|list|delete|search
 // 底层全部走 MCP 协议调 rag-mcp 子进程（与 McpSkill 同一通道）；mock 模式无 McpConnection → 503
-// 注：userId 暂由参数传入（W12 用户体系 JWT 后改为从会话取，接口签名不变）
+// 注：userId 暂由参数传入（用户体系 JWT 后改为从会话取，接口签名不变）
 @RestController
 @RequestMapping("/api/rag")
 public class RagController {
@@ -49,7 +49,7 @@ public class RagController {
         return call("rag_list_kbs", Map.of("user_id", userId));
     }
 
-    // 删除我的知识库（破坏性操作；W12 用户体系后加二次确认）
+    // 删除我的知识库（破坏性操作；用户体系后加二次确认）
     @DeleteMapping("/delete")
     public Result<String> delete(@RequestParam String userId, @RequestParam String kbId) {
         return call("rag_delete_kb", Map.of("user_id", userId, "kb_id", kbId));

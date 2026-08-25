@@ -9,7 +9,7 @@ import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-// 房源文本 → 结构化 JSON 转换桥（M3 双轨切换暴露的接口契约适配）
+// 房源文本 → 结构化 JSON 转换桥（双轨切换暴露的接口契约适配）
 // 场景：Mock RagSearchSkill 返回结构化房源 JSON（原样透传）；真实 MCP RAG 返回自由文本
 // （"[score=0.719] 北京海淀学院路两居室月租6500元，通勤中关村35分钟。"）→ 正则提取结构化字段
 public class HouseTextParser {

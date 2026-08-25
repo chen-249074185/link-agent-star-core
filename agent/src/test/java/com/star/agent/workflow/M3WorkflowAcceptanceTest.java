@@ -11,8 +11,8 @@ import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-// M3 验收：mock=false 真实模式 Workflow 全链路（真实 MCP 三 server + 真实 API）
-// @Disabled：依赖真实子进程/网络/额度，手动运行（临时去掉注解）：mvn test -Dtest=M3WorkflowAcceptanceTest
+// 验收：mock=false 真实模式 Workflow 全链路（真实 MCP 三 server + 真实 API）
+    // @Disabled：依赖真实子进程/网络/额度，手动运行（临时去掉注解）：mvn test -Dtest=M3WorkflowAcceptanceTest
 @SpringBootTest(properties = "linkagent.workflow.mock-enabled=false")
 @Disabled("手动验收用（真实 MCP + 真实 API），不进常规套件")
 class M3WorkflowAcceptanceTest {

@@ -12,7 +12,7 @@ import org.springframework.stereotype.Component;
 
 import java.util.List;
 
-// RAG 房源检索 Mock（MAIN 主线：Workflow 房源筛选输入源；mock 先行，W7 换真实 RAG MCP）
+// RAG 房源检索 Mock（MAIN 主线：Workflow 房源筛选输入源；mock 先行，后续换真实 RAG MCP）
 @Component
 @ConditionalOnProperty(name = "linkagent.workflow.mock-enabled",havingValue = "true")
 public class RagSearchSkill implements Skill {

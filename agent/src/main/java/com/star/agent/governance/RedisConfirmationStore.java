@@ -6,7 +6,7 @@ import org.springframework.stereotype.Component;
 
 import java.time.Duration;
 
-// 确认态存储：Redis 版实现（W6 正式版），key 走 RedisKeys 规范
+// 确认态存储：Redis 版实现（正式版），key 走 RedisKeys 规范
 // 条件装配：linkagent.redis-enabled=true 时注册，取代内存版
 @Component
 @ConditionalOnProperty(name = "linkagent.redis-enabled", havingValue = "true")

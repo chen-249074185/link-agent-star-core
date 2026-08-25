@@ -16,6 +16,7 @@ class AgentMessageTest {
                 "北京天气",
                 MediaType.TEXT,
                 null,
+                "msg_1001",
                 Instant.parse("2026-08-12T10:00:00Z")
         );
 
@@ -23,6 +24,7 @@ class AgentMessageTest {
         assertEquals("wx_123", msg.userId());
         assertEquals("北京天气", msg.text());
         assertEquals(MediaType.TEXT, msg.mediaType());
+        assertEquals("msg_1001", msg.messageId());
         assertEquals("2026-08-12T10:00:00Z", msg.timestamp().toString());
     }
 }

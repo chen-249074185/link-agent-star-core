@@ -8,7 +8,7 @@ import java.util.Map;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 // 关键词层准确率评测：50 条标注消息 → 无参 SceneDetector（纯关键词，LLM 兜底由微信实测）
-// DoD：准确率 ≥90%（计划书 09-12 验收标准）
+// DoD：准确率 ≥90%（验收标准）
 class KeywordAccuracyTest {
 
     // 评测集：50 条（每场景 10 条），标注为消息 → 期望场景

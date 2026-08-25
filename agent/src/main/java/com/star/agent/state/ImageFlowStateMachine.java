@@ -11,7 +11,7 @@ import java.util.concurrent.ConcurrentHashMap;
 //  4) 状态机只管状态迁移，不执行业务动作：进入 DUAL_IMAGE_ACTION 由调用方执行双图操作后调 finish()
 public class ImageFlowStateMachine {
 
-    public static final long SECOND_IMAGE_TIMEOUT_MS = 8000;   // 双图 8s 超时（计划值）
+    public static final long SECOND_IMAGE_TIMEOUT_MS = 8000;   // 双图 8s 超时
 
     // 迁移矩阵：from 状态 × 事件 → 目标状态；null 表示"忽略该事件，停留在原状态"
     private static final Map<ImageFlowState, Map<ImageFlowEvent, ImageFlowState>> TRANSITIONS = buildTransitions();

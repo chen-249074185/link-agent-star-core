@@ -7,7 +7,7 @@ import org.springframework.context.ApplicationContext;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 
-// 反向验证：mock-enabled=false 时 4 个 Mock 全部不注册（为 W9 真实 MCP 接管腾位子）
+// 反向验证：mock-enabled=false 时 4 个 Mock 全部不注册（为真实 MCP 接管腾位子）
 @SpringBootTest(properties = "linkagent.workflow.mock-enabled=false")
 class MockSkillsDisabledTest {
 

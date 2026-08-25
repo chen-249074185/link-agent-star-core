@@ -2,7 +2,7 @@ package com.star.agent.adapter;
 
 import com.star.agent.message.AgentMessage;
 
-// 通道抽象（W10 微信管线重写第一步）：任何接入端实现这四个方法即可接入系统
+// 通道抽象：任何接入端实现这四个方法即可接入系统
 // 微信=ILinkMessageAdapter；企微/其他端未来按同一合同实现（详见 docs/ADAPTER.md）
 public interface MessageAdapter {
 
