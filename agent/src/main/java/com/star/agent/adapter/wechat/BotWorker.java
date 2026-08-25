@@ -14,7 +14,8 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 
 // 机器人生命周期：登录/恢复 → 启动双线程 MessageDispatcher（收消息与回复解耦）
-// 断线自动重登：onDisconnected 回调 = 重走 login()（恢复失败转扫码），adapter 换绑后继续收
+// 断线自动重登：onDisconnected 回调 = 强制扫码重登（resume 会话已失效时不能再用同一份过期会话，
+// SDK resume 自报 LOGGED_IN 但服务端已过期，第一次 getUpdates 才暴露 session expired → 重登必须跳过 resume）
 public class BotWorker implements Runnable, ReconnectHandler {
 
     private static final Logger logger = LoggerFactory.getLogger(BotWorker.class);
@@ -22,6 +23,7 @@ public class BotWorker implements Runnable, ReconnectHandler {
     private final String botId;
     private ILinkClient client;
     private volatile boolean running = true;
+    private volatile boolean forceScan = false;   // 重登强制扫码：跳过 resume（过期会话死循环的解法）
     private final ILinkMessageAdapter adapter;
     private final ChatService chatService;
     private final SceneDetector sceneDetector;
@@ -49,15 +51,22 @@ public class BotWorker implements Runnable, ReconnectHandler {
     }
 
     // 断线自动重登（MessageDispatcher 的 ReconnectHandler 回调，在 fetcher 线程执行）
+    // 收消息失败 = 当前会话已失效（如 session expired）→ 强制扫码，不再用过期会话 resume
     @Override
     public void onDisconnected() throws Exception {
         synchronized (loginLock) {
-            login();
+            forceScan = true;
+            try {
+                login();
+            } finally {
+                forceScan = false;
+            }
         }
     }
 
     private void login() throws Exception {
-        if (botId != null) {
+        // 首次启动允许 resume（会话文件可能仍有效）；重登（forceScan）跳过 resume 直接扫码
+        if (!forceScan && botId != null) {
             ResumeContext saved = SessionStore.load(botId);
             if (saved != null) {
                 ILinkClient resumeClient = ILinkClient.builder()

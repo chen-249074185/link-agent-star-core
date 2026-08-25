@@ -11,8 +11,6 @@ import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
-import java.util.List;
-
 // 微信 Bot 启动器（Spring 化接线）：应用启动时自动拉起微信 Bot
 // 作用：微信对话走容器内的真实组件（Redis/MySQL 记忆、技能），不再用手动 main 链路的 null 降级
 // 登录：sessions 目录有已保存会话 → 免扫码恢复；没有 → 打印二维码等扫码（第一次）
@@ -34,9 +32,8 @@ public class WechatBotStarter implements ApplicationRunner {
 
     @Override
     public void run(ApplicationArguments args) throws Exception {
-        // 找已保存会话：单 Bot 取第一个（W11 升级为遍历全部）
-        List<String> botIds = SessionStore.listBotIds();
-        String botId = botIds.isEmpty() ? null : botIds.get(0);
+        // 找已保存会话：取最新的一份（多 Bot 版遍历全部）
+        String botId = SessionStore.latestBotId();
         if (botId != null) {
             logger.info("检测到已保存会话 botId={}，尝试免扫码恢复", botId);
         } else {
