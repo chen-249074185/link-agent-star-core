@@ -15,7 +15,13 @@ import com.star.agent.memory.ShortTermMemory;
 import com.star.agent.scene.Scene;
 import com.star.agent.scene.ScenePolicy;
 import com.star.agent.scene.ScenePolicyConfig;
+import com.star.agent.skill.RiskLevel;
+import com.star.agent.skill.Skill;
+import com.star.agent.skill.SkillContext;
+import com.star.agent.skill.SkillMeta;
 import com.star.agent.skill.SkillRegistry;
+import com.star.agent.skill.SkillResult;
+import com.star.agent.skill.SkillType;
 import com.star.agent.skill.impl.WeatherSkill;
 import com.star.agent.workflow.RentDecisionWorkflow;
 import org.junit.jupiter.api.Test;
@@ -155,5 +161,42 @@ class ChatServiceTest {
 
         verify(memory, never()).load(any());
         verify(memory, never()).append(any(), any(), any());
+    }
+
+    // 高危确认闭环（10-10）：模型先调高危工具被拒 → 用户回"确认" → 模型再调 → 放行执行
+    @Test
+    void highRiskTool_confirmFlow() {
+        // 独立链路：注册表加一个 HIGH_RISK 真技能（liepin_apply），共用字段级 confirmStore/kernel
+        Skill highRisk = new Skill() {
+            @Override
+            public SkillMeta meta() {
+                return new SkillMeta("liepin_apply", "投递简历", Map.of(),
+                        RiskLevel.HIGH_RISK, List.of("CHAT"), "MCP:liepin-mcp", SkillType.SCENE);
+            }
+
+            @Override
+            public SkillResult execute(SkillContext ctx) {
+                return new SkillResult(true, "已投递岗位");
+            }
+        };
+        SkillRegistry registry2 = new SkillRegistry(List.of(weather, highRisk));
+        ChatService svc = new ChatService(llmClient, router, registry2, kernel, detector, workflow,
+                memory, scenePolicyConfig, shortTermMemory, dailySummaryService);
+
+        // 第一轮：模型请求 liepin_apply → 治理内核拒绝 → 模型把拒绝转述给用户
+        when(llmClient.chat(anyList(), anyList()))
+                .thenReturn(new ChatResponse("", List.of(
+                        new ToolCall("c1", "liepin_apply", "{\"jobId\":\"1\"}")
+                )))
+                .thenReturn(new ChatResponse("该操作有风险，请回复确认后执行", List.of()));
+        assertEquals("该操作有风险，请回复确认后执行", svc.chat("投递这个岗位", "user1", "CHAT"));
+
+        // 第二轮：用户回"确认" → confirm() 写入确认态 → 模型重试 → 放行执行 → 回复结果
+        when(llmClient.chat(anyList(), anyList()))
+                .thenReturn(new ChatResponse("", List.of(
+                        new ToolCall("c2", "liepin_apply", "{\"jobId\":\"1\"}")
+                )))
+                .thenReturn(new ChatResponse("已投递岗位", List.of()));
+        assertEquals("已投递岗位", svc.chat("确认", "user1", "CHAT"));
     }
 }

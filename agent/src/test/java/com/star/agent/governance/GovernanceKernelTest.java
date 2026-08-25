@@ -10,8 +10,11 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 import java.util.Map;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -162,5 +165,42 @@ class GovernanceKernelTest {
 
         kernel.resetRounds("user1");
         assertTrue(kernel.check("get_weather", "user1", "{}", "CHAT").allowed());
+    }
+
+    // 确认闭环（10-10）：高危被拒后记录待确认 → confirm() 写入确认态 → 再 check 放行且确认被消费
+    @Test
+    void highRisk_denyThenConfirm_allowsNextCheck() {
+        SkillRegistry registry = mock(SkillRegistry.class);
+        ConfirmationStore store = mock(ConfirmationStore.class);
+        RateLimiter limiter = mock(RateLimiter.class);
+        Skill skill = mockSkill(RiskLevel.HIGH_RISK, "liepin_apply", List.of("CHAT"));
+        when(registry.getSkill("liepin_apply")).thenReturn(skill);
+        when(store.get("user1:liepin_apply"))
+                .thenReturn(null)          // 第一次 check：未确认 → 拒
+                .thenReturn("yes");        // confirm 之后：放行
+
+        GovernanceKernel kernel = newKernel(registry, store, limiter);
+
+        assertFalse(kernel.check("liepin_apply", "user1", "{}", "CHAT").allowed());
+
+        String pending = kernel.confirm("user1");
+        assertEquals("liepin_apply", pending, "confirm 应返回待确认的工具名");
+        verify(store).save("user1:liepin_apply", "yes", 300);
+
+        assertTrue(kernel.check("liepin_apply", "user1", "{}", "CHAT").allowed());
+        verify(store).delete("user1:liepin_apply");   // 确认用完即弃
+    }
+
+    // 确认闭环：没有待确认项时 confirm 返回 null（普通"确认"消息零副作用）
+    @Test
+    void confirm_withoutPending_returnsNull() {
+        SkillRegistry registry = mock(SkillRegistry.class);
+        ConfirmationStore store = mock(ConfirmationStore.class);
+        RateLimiter limiter = mock(RateLimiter.class);
+
+        GovernanceKernel kernel = newKernel(registry, store, limiter);
+
+        assertNull(kernel.confirm("user1"));
+        verify(store, never()).save(anyString(), anyString(), anyInt());
     }
 }

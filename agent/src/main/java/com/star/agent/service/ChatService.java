@@ -71,6 +71,15 @@ public class ChatService {
             return workflow.execute(userId, "", req.city(), req.maxPrice());
         }
 
+        // 高危操作确认闭环（10-10）：用户回"确认" → 把待确认工具写入确认态（用完即弃），
+        // 模型下一轮重试工具调用时治理内核关3放行；无待确认项时零副作用
+        if (userMessage.trim().startsWith("确认")) {
+            String pending = governanceKernel.confirm(userId);
+            if (pending != null) {
+                logger.info("用户确认高危操作: {}", pending);
+            }
+        }
+
         governanceKernel.resetRounds(userId);
         // 惰性补压：跨天对话前查该用户摘要缺口，有就当场压（无缺口秒返回，不阻塞）
         if (dailySummaryService != null) {

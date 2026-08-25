@@ -13,11 +13,14 @@ public class GovernanceKernel {
 
     // 单日限次上限：同一用户一天内调同一技能不超过该次数
     private static final int MAX_DAILY = 100;
+    // 高危确认态有效期：5 分钟（超时需重新确认）
+    private static final int CONFIRM_TTL_SECONDS = 300;
 
     private final SkillRegistry skillRegistry;        // 花名册
     private final ConfirmationStore confirmationStore; // 确认登记本
     private final RateLimiter rateLimiter;            // 单日限次记账本
     private final Map<String, Integer> roundCount = new java.util.HashMap<>(); // 每轮工具计数
+    private final Map<String, String> pendingConfirmations = new java.util.HashMap<>(); // 待确认登记本 userId→工具名
 
     public GovernanceKernel(SkillRegistry skillRegistry,
                             ConfirmationStore confirmationStore,
@@ -44,6 +47,7 @@ public class GovernanceKernel {
             String key = userId + ":" + toolName;
             String confirm = confirmationStore.get(key);
             if (confirm == null) {
+                pendingConfirmations.put(userId, toolName);   // 记下"谁想确认哪个工具"，用户回"确认"时放行
                 return CheckResult.deny("该操作有风险，回复'确认'后执行");
             }
             confirmationStore.delete(key);  // 用完即弃，确认只生效一次
@@ -69,5 +73,16 @@ public class GovernanceKernel {
     // 每轮对话开始前调用，清零该用户本轮计数
     public void resetRounds(String userId) {
         roundCount.remove(userId);
+    }
+
+    // 用户回"确认"时调用：把待确认工具写入确认态（10-10 接通闭环，此前无人调 save）
+    // 确认态 5 分钟过期（Redis 原生 TTL / 内存版懒过期），超时需重新确认
+    // 返回待确认的工具名；没有待确认项返回 null（普通"确认"消息零副作用）
+    public String confirm(String userId) {
+        String toolName = pendingConfirmations.remove(userId);
+        if (toolName != null) {
+            confirmationStore.save(userId + ":" + toolName, "yes", CONFIRM_TTL_SECONDS);
+        }
+        return toolName;
     }
 }
