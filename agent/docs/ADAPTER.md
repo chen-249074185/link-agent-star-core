@@ -24,7 +24,16 @@
 3. 登录态绑定走同一模式：登录完成后 `attach(对应 client)`，恢复/换号后重新 attach
 4. 业务层零改动——BotWorker（以及 10-13 起的 MessageDispatcher）按接口编程，多通道只需装配不同的 adapter 实例
 
-## 四、为什么这样设计
+## 四、双线程管线（MessageDispatcher）
+
+fetcher 线程只管收（adapter.receive → BlockingQueue），processor 线程只管干（200ms poll → 场景识别 → chat → send），队列解耦后收消息不被 AI 回复阻塞。
+
+- **去重**：AgentMessage.messageId 记入 seenMsgIds（ConcurrentHashMap.newKeySet），长轮询重复返回同一条消息时跳过不重复回复；无 id 的消息不查重
+- **断线自动重登**：receive 抛异常 → 调 ReconnectHandler.onDisconnected()（实现方重新登录并 attach 换绑）→ 继续收；**5 秒重登冷却**防断线风暴，异常/空闲时小睡防 CPU 空转
+- **背压**：队列容量 100，队满时 fetcher 等位最多 1s，不让消息无限积压
+- **单条失败隔离**：processor 处理一条消息抛异常只记日志，继续下一条
+
+## 五、为什么这样设计
 
 - **隔离 SDK**：微信 SDK 类（WeixinMessage 等）只出现在 adapter 包内，换通道/升级 SDK 业务层无感
 - **统一消息模型**：内部一律 `AgentMessage`（source/userId/text/mediaType/mediaBytes/timestamp），三端（微信/Web/小程序）最终汇成同一模型
