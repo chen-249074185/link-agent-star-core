@@ -1,16 +1,20 @@
 package com.star.agent.adapter.wechat;
 
 import com.github.wechat.ilink.sdk.ILinkClient;
+import com.github.wechat.ilink.sdk.core.model.ImageItem;
 import com.github.wechat.ilink.sdk.core.model.MessageItem;
 import com.github.wechat.ilink.sdk.core.model.TextItem;
+import com.github.wechat.ilink.sdk.core.model.VoiceItem;
 import com.github.wechat.ilink.sdk.core.model.WeixinMessage;
 import com.star.agent.message.AgentMessage;
+import com.star.agent.message.MediaType;
 import com.star.agent.message.MessageSource;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -119,5 +123,63 @@ class ILinkMessageAdapterTest {
         adapter.attach(newClient);
 
         assertEquals("新客户端", adapter.receive().text());
+    }
+
+    // 多媒体识别（10-15）：图片消息 → mediaType=IMAGE + 下载字节填 mediaBytes
+    @Test
+    void convert_imageMessage_downloadsBytes() throws Exception {
+        WeixinMessage msg = new WeixinMessage();
+        msg.setFrom_user_id("u1");
+        MessageItem item = new MessageItem();
+        ImageItem img = new ImageItem();
+        img.setUrl("https://cdn.example.com/a.png");
+        item.setImage_item(img);
+        msg.setItem_list(List.of(item));
+
+        byte[] downloaded = new byte[]{11, 22, 33};
+        when(client.downloadMediaFromMessageItem(item)).thenReturn(downloaded);
+        adapter.attach(client);
+
+        AgentMessage am = adapter.convert(msg);
+
+        assertEquals(MediaType.IMAGE, am.mediaType());
+        assertArrayEquals(downloaded, am.mediaBytes());
+    }
+
+    // 多媒体识别（10-15）：语音消息 → mediaType=VOICE + 下载字节
+    @Test
+    void convert_voiceMessage_downloadsBytes() throws Exception {
+        WeixinMessage msg = new WeixinMessage();
+        msg.setFrom_user_id("u1");
+        MessageItem item = new MessageItem();
+        item.setVoice_item(new VoiceItem());
+        msg.setItem_list(List.of(item));
+
+        byte[] downloaded = new byte[]{1, 2, 3};
+        when(client.downloadMediaFromMessageItem(item)).thenReturn(downloaded);
+        adapter.attach(client);
+
+        AgentMessage am = adapter.convert(msg);
+
+        assertEquals(MediaType.VOICE, am.mediaType());
+        assertArrayEquals(downloaded, am.mediaBytes());
+    }
+
+    // 多媒体识别（10-15）：下载失败 → 不抛异常，mediaType 仍标注、字节为 null（下游降级）
+    @Test
+    void convert_downloadFailure_degrades() throws Exception {
+        WeixinMessage msg = new WeixinMessage();
+        msg.setFrom_user_id("u1");
+        MessageItem item = new MessageItem();
+        item.setImage_item(new ImageItem());
+        msg.setItem_list(List.of(item));
+
+        when(client.downloadMediaFromMessageItem(item)).thenThrow(new java.io.IOException("下载失败"));
+        adapter.attach(client);
+
+        AgentMessage am = adapter.convert(msg);
+
+        assertEquals(MediaType.IMAGE, am.mediaType());
+        assertNull(am.mediaBytes());
     }
 }

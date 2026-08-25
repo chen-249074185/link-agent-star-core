@@ -56,15 +56,26 @@ public class ILinkMessageAdapter implements MessageAdapter {
         client.sendFile(userId, fileBytes, fileName, caption);
     }
 
-    // 微信消息 → 系统内部统一格式（收方向翻译）
+    // 微信消息 → 系统内部统一格式（收方向翻译；10-15 升级：识别图片/语音/文件 + 下载媒体字节）
     public AgentMessage convert(WeixinMessage msg) {
         String userId = msg.getFrom_user_id();
 
         StringBuilder text = new StringBuilder();
+        MediaType mediaType = MediaType.TEXT;
+        byte[] mediaBytes = null;
         if (msg.getItem_list() != null) {
             for (var item : msg.getItem_list()) {
                 if (item.getText_item() != null) {
                     text.append(item.getText_item().getText());
+                } else if (item.getImage_item() != null) {
+                    mediaType = MediaType.IMAGE;
+                    mediaBytes = downloadSafely(item);
+                } else if (item.getVoice_item() != null) {
+                    mediaType = MediaType.VOICE;
+                    mediaBytes = downloadSafely(item);
+                } else if (item.getFile_item() != null) {
+                    mediaType = MediaType.FILE;
+                    mediaBytes = downloadSafely(item);
                 }
             }
         }
@@ -72,9 +83,19 @@ public class ILinkMessageAdapter implements MessageAdapter {
                 MessageSource.WECHAT,   // source：固定微信
                 userId,                 // userId：第一步拿到的
                 text.toString(),        // text：第二步拼好的文本
-                MediaType.TEXT,         // mediaType：今天只做文本，固定 TEXT
-                null,                   // mediaBytes：没有媒体，先 null
+                mediaType,              // mediaType：按实际消息类型（文本/图片/语音/文件）
+                mediaBytes,             // mediaBytes：媒体字节（下载失败为 null，降级纯文本）
+                msg.getMessage_id() == null ? null : String.valueOf(msg.getMessage_id()),   // messageId：去重用
                 Instant.now()           // timestamp：当前时间
         );
+    }
+
+    // 下载媒体字节：走 SDK downloadMediaFromMessageItem；失败不抛（返回 null，下游降级）
+    private byte[] downloadSafely(com.github.wechat.ilink.sdk.core.model.MessageItem item) {
+        try {
+            return client == null ? null : client.downloadMediaFromMessageItem(item);
+        } catch (Exception e) {
+            return null;
+        }
     }
 }
