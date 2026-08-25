@@ -8,6 +8,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.List;
 
 //登录信息存储 --> 文件存储
 public class SessionStore {
@@ -40,5 +41,15 @@ public class SessionStore {
         String[] parts = Files.readString(file).split("\\|");
         LoginContext lc = new LoginContext(parts[0], parts[1], parts[2], parts[3]);
         return ResumeContext.of(lc);
+    }
+
+    // 列出已保存会话的全部 botId（启动恢复用；多 Bot 版在此基础上扫全部）
+    public static List<String> listBotIds() throws IOException {
+        try (var stream = Files.list(SESSION_DIR)) {
+            return stream.filter(p -> p.getFileName().toString().endsWith(".session"))
+                    .map(p -> p.getFileName().toString().replace(".session", ""))
+                    .sorted()
+                    .toList();
+        }
     }
 }
