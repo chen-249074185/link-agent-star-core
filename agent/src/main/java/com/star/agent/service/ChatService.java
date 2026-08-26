@@ -2,6 +2,7 @@ package com.star.agent.service;
 
 import com.star.agent.governance.CheckResult;
 import com.star.agent.governance.GovernanceKernel;
+import com.star.agent.governance.SensitiveToolGuard;
 import com.star.agent.llm.ChatMessage;
 import com.star.agent.llm.ChatResponse;
 import com.star.agent.llm.LlmClient;
@@ -44,11 +45,13 @@ public class ChatService {
     private final ScenePolicyConfig scenePolicyConfig; // 查场景记忆策略（GROUP=none 不记）
     private final ShortTermMemory shortTermMemory;    // 短期记忆：对话永久落 MySQL
     private final DailySummaryService dailySummaryService;  // 每日压缩：跨天对话前惰性补压
+    private final SensitiveToolGuard sensitiveToolGuard;    // 敏感工具意图守卫（简历等需用户明确要求）
 
     public ChatService(@Qualifier("deepSeekLlmClient")LlmClient llmClient, ModelRouter modelRouter, SkillRegistry skillRegistry, GovernanceKernel governanceKernel,
                        RentRequestDetector rentRequestDetector, RentDecisionWorkflow workflow,
                        EphemeralMemory ephemeralMemory, ScenePolicyConfig scenePolicyConfig,
-                       ShortTermMemory shortTermMemory, DailySummaryService dailySummaryService) {
+                       ShortTermMemory shortTermMemory, DailySummaryService dailySummaryService,
+                       SensitiveToolGuard sensitiveToolGuard) {
         this.llmClient = llmClient;
         this.modelRouter = modelRouter;
         this.skillRegistry = skillRegistry;
@@ -59,6 +62,7 @@ public class ChatService {
         this.scenePolicyConfig = scenePolicyConfig;
         this.shortTermMemory = shortTermMemory;
         this.dailySummaryService = dailySummaryService;
+        this.sensitiveToolGuard = sensitiveToolGuard;
     }
 
     public String chat(String userMessage, String userId, String scene) {
@@ -114,7 +118,7 @@ public class ChatService {
             messages.add(ChatMessage.fromAssistant(resp.toolCalls()));
 
             for (ToolCall call : resp.toolCalls()) {
-                String result = executeTool(call.functionName(), call.arguments(), userId, scene);
+                String result = executeTool(call.functionName(), call.arguments(), userId, scene, userMessage);
                 messages.add(ChatMessage.fromToolResult(call.id(), result));
             }
         }
@@ -123,7 +127,14 @@ public class ChatService {
     }
 
     // 执行一个工具：先过治理内核安检，放行才真正执行
-    private String executeTool(String toolName, String args, String userId, String scene) {
+    private String executeTool(String toolName, String args, String userId, String scene, String userMessage) {
+        // 敏感工具意图守卫：读简历等私人信息工具，用户本轮消息必须含明确意图关键词
+        // （实测事故：用户只说"你好"，模型自作主张调 mcp_liepin_resume 把简历全量展示）
+        if (sensitiveToolGuard != null && sensitiveToolGuard.isSensitive(toolName)
+                && !sensitiveToolGuard.hasIntent(toolName, userMessage)) {
+            logger.info("敏感工具[{}] 被意图守卫拦截（用户未明确要求）", toolName);
+            return "我没有看到你明确要求查看简历。如需查看，请直接说「查看我的简历」「帮我完善简历」等。";
+        }
         CheckResult check = governanceKernel.check(toolName, userId, args, scene);
         if (!check.allowed()) {
             logger.info("工具[{}] 被治理内核拒绝: {}", toolName, check.reason());

@@ -55,7 +55,7 @@ class ChatServiceTest {
     private final DailySummaryService dailySummaryService = mock(DailySummaryService.class);
     // 真实 ScenePolicyConfig：CHAT 场景 memory=ephemeral（验证记忆接入）；GROUP 场景 memory=none（验证不记）
     private final ScenePolicyConfig scenePolicyConfig = new ScenePolicyConfig();
-    private final ChatService service = new ChatService(llmClient, router, registry, kernel, detector, workflow, memory, scenePolicyConfig, shortTermMemory, dailySummaryService);
+    private final ChatService service = new ChatService(llmClient, router, registry, kernel, detector, workflow, memory, scenePolicyConfig, shortTermMemory, dailySummaryService, new com.star.agent.governance.SensitiveToolGuard());
 
     public ChatServiceTest() {
         Map<Scene, ScenePolicy> policies = Map.of(
@@ -181,7 +181,8 @@ class ChatServiceTest {
         };
         SkillRegistry registry2 = new SkillRegistry(List.of(weather, highRisk));
         ChatService svc = new ChatService(llmClient, router, registry2, kernel, detector, workflow,
-                memory, scenePolicyConfig, shortTermMemory, dailySummaryService);
+                memory, scenePolicyConfig, shortTermMemory, dailySummaryService,
+                new com.star.agent.governance.SensitiveToolGuard());
 
         // 第一轮：模型请求 liepin_apply → 治理内核拒绝 → 模型把拒绝转述给用户
         when(llmClient.chat(anyList(), anyList()))
@@ -198,5 +199,52 @@ class ChatServiceTest {
                 )))
                 .thenReturn(new ChatResponse("已投递岗位", List.of()));
         assertEquals("已投递岗位", svc.chat("确认", "user1", "CHAT"));
+    }
+
+    // 敏感工具意图守卫（实测事故：用户只说"你好"，模型调 mcp_liepin_resume 把简历全量展示）
+    // 无明确意图 → 拦截，技能不执行，回复不含简历内容
+    @Test
+    void sensitiveTool_withoutIntent_blocked() {
+        Skill resume = mock(Skill.class);
+        when(resume.meta()).thenReturn(new SkillMeta("mcp_liepin_resume", "读取简历", Map.of(),
+                RiskLevel.LOW, List.of("CHAT"), "MCP:liepin-mcp", SkillType.MAIN));
+        when(resume.execute(any())).thenReturn(new SkillResult(true, "姓名：陈先生 学校：某大学"));
+        SkillRegistry registry2 = new SkillRegistry(List.of(resume));
+        GovernanceKernel kernel2 = new GovernanceKernel(registry2, confirmStore, new InMemoryRateLimiter());
+        ChatService svc = new ChatService(llmClient, router, registry2, kernel2, detector, workflow,
+                memory, scenePolicyConfig, shortTermMemory, dailySummaryService,
+                new com.star.agent.governance.SensitiveToolGuard());
+
+        when(llmClient.chat(anyList(), anyList()))
+                .thenReturn(new ChatResponse("", List.of(new ToolCall("c1", "mcp_liepin_resume", "{}"))))
+                .thenReturn(new ChatResponse("你好！", List.of()));
+
+        String result = svc.chat("你好", "user1", "CHAT");
+
+        assertEquals("你好！", result);
+        verify(resume, never()).execute(any());   // 技能根本没执行，私人信息未泄露
+    }
+
+    // 用户明确要求查看简历 → 放行执行
+    @Test
+    void sensitiveTool_withIntent_executed() {
+        Skill resume = mock(Skill.class);
+        when(resume.meta()).thenReturn(new SkillMeta("mcp_liepin_resume", "读取简历", Map.of(),
+                RiskLevel.LOW, List.of("CHAT"), "MCP:liepin-mcp", SkillType.MAIN));
+        when(resume.execute(any())).thenReturn(new SkillResult(true, "姓名：陈先生"));
+        SkillRegistry registry2 = new SkillRegistry(List.of(resume));
+        GovernanceKernel kernel2 = new GovernanceKernel(registry2, confirmStore, new InMemoryRateLimiter());
+        ChatService svc = new ChatService(llmClient, router, registry2, kernel2, detector, workflow,
+                memory, scenePolicyConfig, shortTermMemory, dailySummaryService,
+                new com.star.agent.governance.SensitiveToolGuard());
+
+        when(llmClient.chat(anyList(), anyList()))
+                .thenReturn(new ChatResponse("", List.of(new ToolCall("c1", "mcp_liepin_resume", "{}"))))
+                .thenReturn(new ChatResponse("你的简历信息：姓名：陈先生", List.of()));
+
+        String result = svc.chat("帮我看看我的简历", "user1", "CHAT");
+
+        assertEquals("你的简历信息：姓名：陈先生", result);
+        verify(resume).execute(any());   // 明确要求 → 正常执行
     }
 }

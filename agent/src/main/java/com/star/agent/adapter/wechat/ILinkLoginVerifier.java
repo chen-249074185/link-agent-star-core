@@ -2,6 +2,7 @@ package com.star.agent.adapter.wechat;
 
 import com.github.wechat.ilink.sdk.ILinkClient;
 import com.star.agent.governance.GovernanceKernel;
+import com.star.agent.governance.SensitiveToolGuard;
 import com.star.agent.governance.InMemoryConfirmationStore;
 import com.star.agent.governance.InMemoryRateLimiter;
 import com.star.agent.infra.config.AppConfig;
@@ -52,7 +53,7 @@ public class ILinkLoginVerifier {
                 new HouseScoreSkill(), new RentRiskSkill()));
         RentDecisionWorkflow workflow = new RentDecisionWorkflow(workflowSkills, engine);
         ChatService chatService = new ChatService(llm, modelRouter, skillRegistry, kernel, new RentRequestDetector(), workflow,
-                null, null, null, null);   // 手动链路不进 Spring：记忆/压缩全部降级关闭
+                null, null, null, null, new SensitiveToolGuard());   // 手动链路不进 Spring：记忆/压缩降级关闭，敏感工具守卫保留
 
         BotWorker worker = new BotWorker(null, client, new ILinkMessageAdapter(), chatService, new SceneDetector(),
                 null, null, null);
