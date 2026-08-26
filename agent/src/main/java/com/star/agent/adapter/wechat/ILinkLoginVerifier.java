@@ -55,7 +55,7 @@ public class ILinkLoginVerifier {
                 null, null, null, null);   // 手动链路不进 Spring：记忆/压缩全部降级关闭
 
         BotWorker worker = new BotWorker(null, client, new ILinkMessageAdapter(), chatService, new SceneDetector(),
-                null, null);
+                null, null, null);
         Thread thread = new Thread(worker, "bot-new");
         thread.setDaemon(true);
         thread.start();

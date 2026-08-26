@@ -48,7 +48,7 @@ class MessageDispatcherTest {
         chatService = mock(ChatService.class);
         reconnectHandler = mock(ReconnectHandler.class);
         commandHandler = mock(BotCommandHandler.class);
-        dispatcher = new MessageDispatcher(adapter, sceneDetector, chatService, reconnectHandler, commandHandler);
+        dispatcher = new MessageDispatcher(adapter, sceneDetector, chatService, reconnectHandler, commandHandler, null);
         when(sceneDetector.detect(anyString())).thenReturn(com.star.agent.scene.Scene.CHAT);
     }
 

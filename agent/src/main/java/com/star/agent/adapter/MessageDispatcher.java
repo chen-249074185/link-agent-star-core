@@ -36,6 +36,7 @@ public class MessageDispatcher {
     private final ChatService chatService;
     private final ReconnectHandler reconnectHandler; // 断线重登回调（登录逻辑在实现方）
     private final BotCommandHandler commandHandler;  // 聊天命令拦截（#newbot/#logout），可空=通道不处理命令
+    private final MultimediaHandler multimediaHandler; // 多媒体消息处理（识图/语音/文生图），可空=不处理
 
     private final BlockingQueue<AgentMessage> queue = new ArrayBlockingQueue<>(QUEUE_CAPACITY);
     private final Set<String> seenMsgIds = ConcurrentHashMap.newKeySet();  // 去重登记本（消息 id → 已处理）
@@ -45,12 +46,13 @@ public class MessageDispatcher {
 
     public MessageDispatcher(MessageAdapter adapter, SceneDetector sceneDetector,
                              ChatService chatService, ReconnectHandler reconnectHandler,
-                             BotCommandHandler commandHandler) {
+                             BotCommandHandler commandHandler, MultimediaHandler multimediaHandler) {
         this.adapter = adapter;
         this.sceneDetector = sceneDetector;
         this.chatService = chatService;
         this.reconnectHandler = reconnectHandler;
         this.commandHandler = commandHandler;
+        this.multimediaHandler = multimediaHandler;
     }
 
     public void start() {
@@ -142,6 +144,16 @@ public class MessageDispatcher {
                         logger.info("命令处理[{}]: {} → {}", am.userId(), am.text(), cmdReply);
                         adapter.send(am.userId(), cmdReply);
                         continue;
+                    }
+                }
+                // 多媒体优先：图片/语音/创作消息直接处理，不走文本 chat
+                if (multimediaHandler != null) {
+                    String mmReply = multimediaHandler.handle(am, adapter);
+                    if (mmReply != null) {
+                        if (!mmReply.isBlank()) {
+                            adapter.send(am.userId(), mmReply);
+                        }
+                        continue;   // 已处理（含空串=发过图/语音，不回空消息）
                     }
                 }
                 Scene scene = sceneDetector.detect(am.text());
