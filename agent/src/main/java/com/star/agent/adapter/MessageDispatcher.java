@@ -77,8 +77,11 @@ public class MessageDispatcher {
                     continue;   // 通道暂无消息，下一轮再问
                 }
                 // 去重：同一 messageId 只处理一次（长轮询可能重复返回）；无 id 的消息不查重
+                // 重复消息也要歇口气再轮询——否则服务端反复返回同批消息时这里会无间隔死循环调 getUpdates
+                // （=高频轮询，10-17 教训：微信服务端对高频轮询限流，消息被压着不下发）
                 if (am.messageId() != null && !seenMsgIds.add(am.messageId())) {
                     logger.info("跳过重复消息 {}", am.messageId());
+                    Thread.sleep(FETCH_IDLE_SLEEP_MS);
                     continue;
                 }
                 // 入队：队满等位最多 1s（running 停止就退出不等）

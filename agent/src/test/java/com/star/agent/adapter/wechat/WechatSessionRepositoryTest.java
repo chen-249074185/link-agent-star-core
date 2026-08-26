@@ -14,8 +14,10 @@ import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 // 微信会话仓库（数据库版）集成测试：真实 MySQL wechat_session 表
 // 关键回归：resume 必须带完整 ResumeContext（cursor + 会话上下文），缺失会导致服务端 session expired
@@ -72,9 +74,8 @@ class WechatSessionRepositoryTest {
         LoginContext lc2 = new LoginContext("token-2", "user-2", "repo-bot-bbb", "https://x");
         repository.save(ResumeContext.builder(lc2).updatesCursor("cursor-2").build());
 
-        assertEquals(1, repository.count(), "同 bot 重复保存应顶号覆盖为一行");
         ResumeContext ctx = repository.load("repo-bot-bbb");
-        assertEquals("token-2", ctx.getLoginContext().getBotToken());
+        assertEquals("token-2", ctx.getLoginContext().getBotToken(), "同 bot 重复保存应顶号覆盖为最新");
         assertEquals("cursor-2", ctx.getUpdatesCursor());
     }
 
@@ -83,7 +84,7 @@ class WechatSessionRepositoryTest {
         assertNull(repository.load("no-such-bot"));
     }
 
-    // 启动扫表多 Bot 恢复的数据源
+    // 启动扫表多 Bot 恢复的数据源（表里可能有真实 bot 会话，只断言自己的测试数据在列）
     @Test
     void findAllBotIds_returnsAll() {
         repository.save(fullContext("repo-bot-aaa"));
@@ -91,7 +92,8 @@ class WechatSessionRepositoryTest {
 
         List<String> ids = repository.findAllBotIds();
 
-        assertEquals(List.of("repo-bot-aaa", "repo-bot-bbb"), ids);
+        assertTrue(ids.contains("repo-bot-aaa"), "测试数据应被扫到");
+        assertTrue(ids.contains("repo-bot-bbb"), "测试数据应被扫到");
     }
 
     @Test
@@ -101,7 +103,7 @@ class WechatSessionRepositoryTest {
         repository.delete("repo-bot-ccc");
 
         assertNull(repository.load("repo-bot-ccc"), "删除后不应能恢复");
-        assertEquals(0, repository.count());
+        assertFalse(repository.findAllBotIds().contains("repo-bot-ccc"), "删除后不应再被扫到");
     }
 
     // 过期清理：造一条 saved_at 8 天前的旧会话 → 删 7 天前的只删旧不删新

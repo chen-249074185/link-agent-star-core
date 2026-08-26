@@ -12,10 +12,15 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Queue;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 // 微信通道适配器：把 wechat-ilink-sdk 的收发翻译成系统统一的 MessageAdapter 合同
 // 收方向：getUpdates 一次可能带回一批消息，内部 pending 队列缓冲逐条吐（防丢批）
 // 发方向：send/sendImage/sendFile 直通 SDK 同名单方法
 public class ILinkMessageAdapter implements MessageAdapter {
+
+    private static final Logger logger = LoggerFactory.getLogger(ILinkMessageAdapter.class);
 
     private ILinkClient client;   // 登录完成后才绑定（attach）
     private final Queue<AgentMessage> pending = new LinkedList<>();
@@ -31,7 +36,10 @@ public class ILinkMessageAdapter implements MessageAdapter {
             throw new IllegalStateException("adapter 未绑定 client，请先 attach");
         }
         if (pending.isEmpty()) {
+            long t0 = System.currentTimeMillis();
             List<WeixinMessage> msgs = client.getUpdates();
+            long cost = System.currentTimeMillis() - t0;
+            logger.info("[取证] getUpdates 耗时 {}ms 返回 {} 条", cost, msgs == null ? 0 : msgs.size());
             if (msgs != null) {
                 for (WeixinMessage msg : msgs) {
                     pending.offer(convert(msg));
