@@ -53,4 +53,14 @@ class UserConfigRepositoryTest {
     void noConfig_returnsNull() {
         assertNull(repository.findLiepinToken("no-such-user"));
     }
+
+    // 删除配置：删后查不到（Web/小程序"删除配置"按钮的仓库支撑）
+    @Test
+    void deleteLiepinToken_removesConfig() {
+        repository.saveLiepinToken("itest:cfg1", "token-A");
+
+        repository.deleteLiepinToken("itest:cfg1");
+
+        assertNull(repository.findLiepinToken("itest:cfg1"), "删除后应查不到");
+    }
 }

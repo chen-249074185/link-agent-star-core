@@ -27,4 +27,14 @@ public class UserConfigRepository {
         UserConfigDo c = dao.findByUserId(userId);
         return c == null ? null : c.getLiepinToken();
     }
+
+    // 删除某用户的猎聘 Token（用户注销/不再使用猎聘时，Web/小程序"删除配置"按钮）
+    public void deleteLiepinToken(String userId) {
+        dao.deleteByUserId(userId);
+    }
+
+    // 查配置状态（Web/小程序"我的配置"页展示用：是否已配置 + 更新时间，不暴露 Token 明文）
+    public UserConfigDo findByUserId(String userId) {
+        return dao.findByUserId(userId);
+    }
 }
