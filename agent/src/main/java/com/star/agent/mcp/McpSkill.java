@@ -76,8 +76,9 @@ public class McpSkill implements Skill {
             args.put("user_id", ctx.userId());                // 身份从工单来，不由 LLM 填
             args.put("kb_id", ctx.userId() + "-default");     // 默认库（10-02 接口支持指定库）
             // 猎聘域：注入该用户自己的 Token（user_config 按 userId 隔离）。
-            // 未配置 → 明确拒绝并引导配置，绝不回退用别人的 Token（用户私有数据，宁缺勿串）
-            if ("liepin-mcp".equals(connection.serverName())) {
+            // 未配置 → 明确拒绝并引导配置，绝不回退用别人的 Token（用户私有数据，宁缺勿串）。
+            // 例外：liepin_doctor 是接入自检工具（无用户维度），走全局环境变量 Token，不查用户配置
+            if ("liepin-mcp".equals(connection.serverName()) && !"liepin_doctor".equals(tool.name())) {
                 String token = userConfigRepository == null ? null
                         : userConfigRepository.findLiepinToken(ctx.userId());
                 if (token == null || token.isBlank()) {

@@ -111,11 +111,13 @@ public class WechatMultimediaHandler implements MultimediaHandler {
     private String handleCreation(AgentMessage msg, MessageAdapter adapter) throws Exception {
         String url = imageGenService.generate(msg.text());
         if (!url.startsWith("http")) {
+            logger.info("创作[{}] 生成失败: {}", msg.userId(), url);
             return url;   // 降级话术
         }
         try {
             byte[] image = imageFetcher.fetch(url);
             adapter.sendImage(msg.userId(), image, "creation.png", "");
+            logger.info("创作[{}] 已发图: {}（提示词: {}）", msg.userId(), url, msg.text());
             return "";   // 已发图：空串=已处理完无需回文本（dispatcher 不回空消息）
         } catch (Exception e) {
             logger.warn("创作图片下载失败: {}", e.getMessage());

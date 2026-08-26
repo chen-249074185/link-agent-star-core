@@ -169,4 +169,24 @@ class McpSkillTest {
 
         assertFalse(properties.containsKey("user_token"), "user_token 不应暴露给 LLM");
     }
+
+    // 例外：liepin_doctor 是接入自检（无用户维度），不检查用户 Token（走全局环境变量）
+    @Test
+    void doctorTool_skipsUserTokenCheck() {
+        when(connection.serverName()).thenReturn("liepin-mcp");
+        when(connection.callTool(eq("liepin_doctor"), org.mockito.ArgumentMatchers.anyMap()))
+                .thenReturn("CLI 可用，Token 有效");
+        McpSchema.Tool doctor = McpSchema.Tool.builder()
+                .name("liepin_doctor")
+                .description("接入自检")
+                .inputSchema(new McpSchema.JsonSchema("object", Map.of(), List.of(), null, null, null))
+                .build();
+        UserConfigRepository repo = mock(UserConfigRepository.class);   // 无任何配置
+        McpSkill skill = new McpSkill(doctor, connection, repo);
+
+        SkillResult result = skill.execute(new SkillContext("u1", "{}", "t1"));
+
+        assertTrue(result.success(), "doctor 不依赖用户 Token，应正常自检");
+        verify(connection).callTool(eq("liepin_doctor"), org.mockito.ArgumentMatchers.anyMap());
+    }
 }
