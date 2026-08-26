@@ -28,8 +28,10 @@ public class MessageDispatcher {
     private static final int PROCESSOR_POLL_MS = 200;   // processor 轮询间隔
     private static final int QUEUE_CAPACITY = 100;      // 队列容量：满了 fetcher 等位（背压），不无限积压
     private static final long FETCH_OFFER_TIMEOUT_SEC = 1;  // 队满时等位上限（跑着就等，停了就退）
-    private static final long FETCH_IDLE_SLEEP_MS = 3000;     // 无消息空转间隔：微信 getUpdates 是普通轮询（非长轮询），
-                                                           // 服务端 15s 攒批；3s 轮询感知及时且频率温和，防高频限流
+    private static final long FETCH_IDLE_SLEEP_MS = 1000;     // 无消息空转间隔：getUpdates 是长轮询（服务端挂起等消息，
+                                                           // 无消息 ~18s 超时返回 0 条），超时后的空转窗口决定消息最长等待
+                                                           // （实测滞留 0s：消息下发即时，延迟只在空转窗口 → 3s 缩到 1s）
+                                                           // 频率仍由长轮询主导（~1 次/20s），不会触发高频限流
     private static final long FETCH_ERROR_SLEEP_MS = 500;   // 异常后歇息（防异常风暴空转）
     private static final long RECONNECT_COOLDOWN_MS = 5000; // 重登冷却：5 秒内只重登一次（防断线风暴打爆登录）
 
