@@ -162,25 +162,26 @@ public class MessageDispatcher {
 
     // 聚合产物 → 按正常消息链路处理（命令/多媒体/chat 复用同一套）
     private void handlePending(PendingMessage pending) {
-        // 聚合消息转 AgentMessage：拼合文本 + 含图时带第一条图片字节（走识图）
+        // 聚合消息：文本用拼合结果；媒体类型/字节取第一条媒体消息（语音/图片/文件都要保留——
+        // 只认 IMAGE 会把语音消息转成空文本走 chat，10-24 防抖接入时的 bug）
+        MediaType mediaType = MediaType.TEXT;
+        byte[] mediaBytes = null;
+        for (AgentMessage m : pending.messages()) {
+            if (m.mediaType() != MediaType.TEXT) {
+                mediaType = m.mediaType();
+                mediaBytes = m.mediaBytes();
+                break;
+            }
+        }
         AgentMessage am = new AgentMessage(
                 MessageSource.WECHAT,
                 pending.userId(),
                 pending.text(),
-                pending.hasImage() ? MediaType.IMAGE : MediaType.TEXT,
-                pending.hasImage() ? firstImageBytes(pending) : null,
+                mediaType,
+                mediaBytes,
                 null,   // 聚合消息无单一 messageId（去重已在入队前完成）
                 pending.firstAt());
         handleMessage(am);
-    }
-
-    private byte[] firstImageBytes(PendingMessage pending) {
-        for (AgentMessage m : pending.messages()) {
-            if (m.mediaType() == MediaType.IMAGE) {
-                return m.mediaBytes();
-            }
-        }
-        return null;
     }
 
     // 单条消息处理链：命令 → 多媒体 → 场景识别 → 对话 → 回复

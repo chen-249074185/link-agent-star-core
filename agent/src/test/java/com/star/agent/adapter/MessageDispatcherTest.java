@@ -161,7 +161,7 @@ class MessageDispatcherTest {
         verify(chatService, never()).chat(anyString(), anyString(), anyString());
     }
 
-    // 防抖接线：两条连续消息（触发词"直接处理"）→ 聚合后只调一次 chat，且文本拼合
+// 防抖接线：两条连续消息（触发词"直接处理"）→ 聚合后只调一次 chat，且文本拼合
     @Test
     void debounce_aggregatesThenChatsOnce() throws Exception {
         dispatcher = new MessageDispatcher(adapter, sceneDetector, chatService, reconnectHandler,
@@ -182,6 +182,36 @@ class MessageDispatcherTest {
 
         assertTrue(sent.await(5, TimeUnit.SECONDS), "聚合后应回复");
         verify(chatService).chat("第一条\n直接处理", "u1", "CHAT");   // 只调一次，文本拼合
+    }
+
+    // 防抖接线的关键回归：语音消息过防抖后必须保留 VOICE 类型（否则被转成空文本走 chat，
+    // 实测"发语音收到『您还没有输入内容』"——只认 IMAGE 把语音类型丢了）
+    @Test
+    void debounce_voiceMessage_keepsVoiceType() throws Exception {
+        MultimediaHandler mm = mock(MultimediaHandler.class);
+        dispatcher = new MessageDispatcher(adapter, sceneDetector, chatService, reconnectHandler,
+                commandHandler, mm, new DebounceProcessor());
+        AgentMessage voice = new AgentMessage(MessageSource.WECHAT, "u1", "", MediaType.VOICE,
+                new byte[]{5, 6}, "m1", Instant.now());
+        when(adapter.receive())
+                .thenReturn(voice)
+                .thenReturn(msg("m2", "直接处理"))
+                .thenReturn(null);
+        when(mm.handle(any(), eq(adapter))).thenReturn("转写后的回复");
+
+        CountDownLatch sent = new CountDownLatch(1);
+        doAnswer(inv -> {
+            sent.countDown();
+            return null;
+        }).when(adapter).send(eq("u1"), eq("转写后的回复"));
+
+        dispatcher.start();
+
+        assertTrue(sent.await(5, TimeUnit.SECONDS), "语音消息应被多媒体处理");
+        verify(mm).handle(org.mockito.ArgumentMatchers.argThat(am ->
+                am.mediaType() == MediaType.VOICE && java.util.Arrays.equals(am.mediaBytes(), new byte[]{5, 6})),
+                eq(adapter));
+        verify(chatService, never()).chat(anyString(), anyString(), anyString());
     }
 
     // per-user 隔离（两账号不串音的处理器层证据）：两个用户的消息同时进来，
