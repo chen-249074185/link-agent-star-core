@@ -2,7 +2,9 @@ package com.star.agent.adapter.wechat;
 
 import com.github.wechat.ilink.sdk.ILinkClient;
 import com.star.agent.adapter.DebounceProcessor;
+import com.star.agent.adapter.ImageFetcher;
 import com.star.agent.adapter.MultimediaHandler;
+import com.star.agent.adapter.ReplySender;
 import com.star.agent.memory.EphemeralMemory;
 import com.star.agent.memory.dao.ConversationDao;
 import com.star.agent.memory.dao.DailySummaryDao;
@@ -32,12 +34,14 @@ public class BotManager {
     private final ConversationDao conversationDao;
     private final DailySummaryDao dailySummaryDao;
     private final EphemeralMemory ephemeralMemory;
+    private final ImageFetcher imageFetcher;
 
     public BotManager(ChatService chatService, SceneDetector sceneDetector,
                       WechatSessionRepository sessionRepository, BotRegistry botRegistry,
                       MultimediaHandler multimediaHandler, UserConfigRepository userConfigRepository,
                       DebounceProcessor debounce, ConversationDao conversationDao,
-                      DailySummaryDao dailySummaryDao, EphemeralMemory ephemeralMemory) {
+                      DailySummaryDao dailySummaryDao, EphemeralMemory ephemeralMemory,
+                      ImageFetcher imageFetcher) {
         this.chatService = chatService;
         this.sceneDetector = sceneDetector;
         this.sessionRepository = sessionRepository;
@@ -48,6 +52,7 @@ public class BotManager {
         this.conversationDao = conversationDao;
         this.dailySummaryDao = dailySummaryDao;
         this.ephemeralMemory = ephemeralMemory;
+        this.imageFetcher = imageFetcher;
     }
 
     // 启动恢复：扫表逐个免扫码恢复；空表 → 起一个新 Bot 等扫码
@@ -101,7 +106,7 @@ public class BotManager {
                 .build();
         ILinkMessageAdapter adapter = new ILinkMessageAdapter();
         BotWorker worker = new BotWorker(botId, client, adapter, chatService, sceneDetector,
-                sessionRepository, this, multimediaHandler, debounce);
+                sessionRepository, this, multimediaHandler, debounce, new ReplySender(imageFetcher));
         botRegistry.start(botId == null ? "new" : botId, worker);
     }
 }

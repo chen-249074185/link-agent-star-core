@@ -42,6 +42,7 @@ public class MessageDispatcher {
     private final BotCommandHandler commandHandler;  // 聊天命令拦截（#newbot/#logout），可空=通道不处理命令
     private final MultimediaHandler multimediaHandler; // 多媒体消息处理（识图/语音/文生图），可空=不处理
     private final DebounceProcessor debounce;         // 消息防抖聚合（连续消息攒批），可空=逐条处理
+    private final ReplySender replySender;            // 回复发送编排（语音>图片>地图>文本），可空=直发文本
 
     private final BlockingQueue<AgentMessage> queue = new ArrayBlockingQueue<>(QUEUE_CAPACITY);
     private final Set<String> seenMsgIds = ConcurrentHashMap.newKeySet();  // 去重登记本（消息 id → 已处理）
@@ -52,7 +53,7 @@ public class MessageDispatcher {
     public MessageDispatcher(MessageAdapter adapter, SceneDetector sceneDetector,
                              ChatService chatService, ReconnectHandler reconnectHandler,
                              BotCommandHandler commandHandler, MultimediaHandler multimediaHandler,
-                             DebounceProcessor debounce) {
+                             DebounceProcessor debounce, ReplySender replySender) {
         this.adapter = adapter;
         this.sceneDetector = sceneDetector;
         this.chatService = chatService;
@@ -60,6 +61,7 @@ public class MessageDispatcher {
         this.commandHandler = commandHandler;
         this.multimediaHandler = multimediaHandler;
         this.debounce = debounce;
+        this.replySender = replySender;
     }
 
     public void start() {
@@ -193,7 +195,7 @@ public class MessageDispatcher {
                 String cmdReply = commandHandler.handle(am.text(), am.userId());
                 if (cmdReply != null) {
                     logger.info("命令处理[{}]: {} → {}", am.userId(), am.text(), cmdReply);
-                    adapter.send(am.userId(), cmdReply);
+                    sendText(am.userId(), cmdReply);
                     return;
                 }
             }
@@ -202,7 +204,7 @@ public class MessageDispatcher {
                 String mmReply = multimediaHandler.handle(am, adapter);
                 if (mmReply != null) {
                     if (!mmReply.isBlank()) {
-                        adapter.send(am.userId(), mmReply);
+                        sendText(am.userId(), mmReply);
                     }
                     return;   // 已处理（含空串=发过图/语音，不回空消息）
                 }
@@ -211,12 +213,21 @@ public class MessageDispatcher {
             logger.info("收到消息 来自[{}]: {}，识别场景: {}", am.userId(), am.text(), scene);
             String reply = chatService.chat(am.text(), am.userId(), scene.name());
             logger.info("回复[{}]: {}", am.userId(), reply);
-            adapter.send(am.userId(), reply);
+            sendText(am.userId(), reply);
         } catch (Exception e) {
             // 单条消息失败不影响后续：记日志继续处理下一条
             logger.error("处理消息失败 来自[{}]", am.userId(), e);
         } finally {
             MDC.remove("traceId");
+        }
+    }
+
+    // 统一发送出口：有 ReplySender 走发送编排（未来回复带图/语音自动按优先级发），否则直发文本
+    private void sendText(String userId, String text) throws Exception {
+        if (replySender != null) {
+            replySender.send(userId, Reply.text(text), adapter);
+        } else {
+            adapter.send(userId, text);
         }
     }
 }

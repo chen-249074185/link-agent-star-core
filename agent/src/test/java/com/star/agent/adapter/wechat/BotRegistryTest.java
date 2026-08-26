@@ -18,7 +18,7 @@ class BotRegistryTest {
         volatile boolean stopped = false;
 
         FakeWorker(String botId) {
-            super(botId, null, null, null, null, null, null, null, null);
+            super(botId, null, null, null, null, null, null, null, null, null);
         }
 
         @Override

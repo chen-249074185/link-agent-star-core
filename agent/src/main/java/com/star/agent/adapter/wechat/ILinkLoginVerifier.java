@@ -56,7 +56,7 @@ public class ILinkLoginVerifier {
                 null, null, null, null, new SensitiveToolGuard());   // 手动链路不进 Spring：记忆/压缩降级关闭，敏感工具守卫保留
 
         BotWorker worker = new BotWorker(null, client, new ILinkMessageAdapter(), chatService, new SceneDetector(),
-                null, null, null, null);
+                null, null, null, null, null);
         Thread thread = new Thread(worker, "bot-new");
         thread.setDaemon(true);
         thread.start();

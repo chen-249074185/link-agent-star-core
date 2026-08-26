@@ -48,7 +48,7 @@ class MessageDispatcherTest {
         chatService = mock(ChatService.class);
         reconnectHandler = mock(ReconnectHandler.class);
         commandHandler = mock(BotCommandHandler.class);
-        dispatcher = new MessageDispatcher(adapter, sceneDetector, chatService, reconnectHandler, commandHandler, null, null);
+        dispatcher = new MessageDispatcher(adapter, sceneDetector, chatService, reconnectHandler, commandHandler, null, null, null);
         when(sceneDetector.detect(anyString())).thenReturn(com.star.agent.scene.Scene.CHAT);
     }
 
@@ -165,7 +165,7 @@ class MessageDispatcherTest {
     @Test
     void debounce_aggregatesThenChatsOnce() throws Exception {
         dispatcher = new MessageDispatcher(adapter, sceneDetector, chatService, reconnectHandler,
-                commandHandler, null, new DebounceProcessor());
+                commandHandler, null, new DebounceProcessor(), null);
         when(adapter.receive())
                 .thenReturn(msg("m1", "第一条"))
                 .thenReturn(msg("m2", "直接处理"))
@@ -190,7 +190,7 @@ class MessageDispatcherTest {
     void debounce_voiceMessage_keepsVoiceType() throws Exception {
         MultimediaHandler mm = mock(MultimediaHandler.class);
         dispatcher = new MessageDispatcher(adapter, sceneDetector, chatService, reconnectHandler,
-                commandHandler, mm, new DebounceProcessor());
+                commandHandler, mm, new DebounceProcessor(), null);
         AgentMessage voice = new AgentMessage(MessageSource.WECHAT, "u1", "", MediaType.VOICE,
                 new byte[]{5, 6}, "m1", Instant.now());
         when(adapter.receive())
@@ -240,5 +240,30 @@ class MessageDispatcherTest {
         verify(chatService).chat("二号的消息", "wx_u2", "CHAT");
         verify(adapter).send("wx_u1", "一号的回复");
         verify(adapter).send("wx_u2", "二号的回复");
+    }
+
+    // ReplySender 接线：有 ReplySender → 回复走发送编排（ReplySender.send），不再直发 adapter.send
+    @Test
+    void replySender_wrapsTextReply() throws Exception {
+        ReplySender replySender = mock(ReplySender.class);
+        dispatcher = new MessageDispatcher(adapter, sceneDetector, chatService, reconnectHandler,
+                commandHandler, null, null, replySender);
+        when(adapter.receive())
+                .thenReturn(msg("m1", "你好"))
+                .thenReturn(null);
+        when(chatService.chat(eq("你好"), eq("u1"), eq("CHAT"))).thenReturn("回复");
+
+        CountDownLatch sent = new CountDownLatch(1);
+        doAnswer(inv -> {
+            sent.countDown();
+            return null;
+        }).when(replySender).send(eq("u1"), org.mockito.ArgumentMatchers.any(Reply.class), eq(adapter));
+
+        dispatcher.start();
+
+        assertTrue(sent.await(5, TimeUnit.SECONDS), "回复应走 ReplySender 发送编排");
+        verify(replySender).send(eq("u1"),
+                org.mockito.ArgumentMatchers.argThat(r -> "回复".equals(r.text())), eq(adapter));
+        verify(adapter, never()).send(eq("u1"), eq("回复"));
     }
 }
