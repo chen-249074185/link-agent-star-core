@@ -3,6 +3,7 @@ package com.star.agent.adapter.wechat;
 import com.star.agent.adapter.ImageFetcher;
 import com.star.agent.adapter.MessageAdapter;
 import com.star.agent.media.DashScopeImageGenService;
+import com.star.agent.media.DashScopeTtsService;
 import com.star.agent.media.DashScopeVisionService;
 import com.star.agent.media.MediaPreprocessor;
 import com.star.agent.message.AgentMessage;
@@ -31,6 +32,7 @@ class WechatMultimediaHandlerTest {
 
     private DashScopeVisionService vision;
     private DashScopeImageGenService imageGen;
+    private DashScopeTtsService tts;
     private MediaPreprocessor preprocessor;
     private ImageFetcher imageFetcher;
     private ChatService chatService;
@@ -42,12 +44,13 @@ class WechatMultimediaHandlerTest {
     void setUp() {
         vision = mock(DashScopeVisionService.class);
         imageGen = mock(DashScopeImageGenService.class);
+        tts = mock(DashScopeTtsService.class);
         preprocessor = mock(MediaPreprocessor.class);
         imageFetcher = mock(ImageFetcher.class);
         chatService = mock(ChatService.class);
         sceneDetector = mock(SceneDetector.class);
         adapter = mock(MessageAdapter.class);
-        handler = new WechatMultimediaHandler(vision, imageGen, preprocessor, imageFetcher, chatService, sceneDetector);
+        handler = new WechatMultimediaHandler(vision, imageGen, tts, preprocessor, imageFetcher, chatService, sceneDetector);
     }
 
     private AgentMessage msg(MediaType type, String text, byte[] bytes) {
@@ -119,5 +122,29 @@ class WechatMultimediaHandlerTest {
         when(sceneDetector.detect("你好")).thenReturn(Scene.CHAT);
 
         assertNull(handler.handle(msg(MediaType.TEXT, "你好", null), adapter));
+    }
+
+    // #tts 内容 → 合成语音发出（TTS 能力入口），返回空串表示已处理
+    @Test
+    void ttsCommand_synthesizesAndSendsVoice() throws Exception {
+        when(tts.synthesize("你好，欢迎使用星链智核", null)).thenReturn(new byte[]{7, 7, 7});
+
+        String reply = handler.handle(msg(MediaType.TEXT, "#tts 你好，欢迎使用星链智核", null), adapter);
+
+        assertEquals("", reply, "已发语音");
+        verify(adapter).sendVoice("u1", new byte[]{7, 7, 7}, "tts.wav");
+    }
+
+    // TTS 失败 → 降级话术
+    @Test
+    void ttsCommand_synthesizeFail_returnsHelp() throws Exception {
+        when(tts.synthesize(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.isNull()))
+                .thenReturn(null);
+
+        String reply = handler.handle(msg(MediaType.TEXT, "#tts 你好", null), adapter);
+
+        assertTrue(reply.contains("语音合成失败"));
+        verify(adapter, never()).sendVoice(org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyString());
     }
 }

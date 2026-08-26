@@ -1,6 +1,8 @@
 package com.star.agent.adapter;
 
 import com.star.agent.message.AgentMessage;
+import com.star.agent.message.MediaType;
+import com.star.agent.message.MessageSource;
 import com.star.agent.scene.Scene;
 import com.star.agent.scene.SceneDetector;
 import com.star.agent.service.ChatService;
@@ -37,6 +39,7 @@ public class MessageDispatcher {
     private final ReconnectHandler reconnectHandler; // 断线重登回调（登录逻辑在实现方）
     private final BotCommandHandler commandHandler;  // 聊天命令拦截（#newbot/#logout），可空=通道不处理命令
     private final MultimediaHandler multimediaHandler; // 多媒体消息处理（识图/语音/文生图），可空=不处理
+    private final DebounceProcessor debounce;         // 消息防抖聚合（连续消息攒批），可空=逐条处理
 
     private final BlockingQueue<AgentMessage> queue = new ArrayBlockingQueue<>(QUEUE_CAPACITY);
     private final Set<String> seenMsgIds = ConcurrentHashMap.newKeySet();  // 去重登记本（消息 id → 已处理）
@@ -46,13 +49,15 @@ public class MessageDispatcher {
 
     public MessageDispatcher(MessageAdapter adapter, SceneDetector sceneDetector,
                              ChatService chatService, ReconnectHandler reconnectHandler,
-                             BotCommandHandler commandHandler, MultimediaHandler multimediaHandler) {
+                             BotCommandHandler commandHandler, MultimediaHandler multimediaHandler,
+                             DebounceProcessor debounce) {
         this.adapter = adapter;
         this.sceneDetector = sceneDetector;
         this.chatService = chatService;
         this.reconnectHandler = reconnectHandler;
         this.commandHandler = commandHandler;
         this.multimediaHandler = multimediaHandler;
+        this.debounce = debounce;
     }
 
     public void start() {
@@ -122,7 +127,7 @@ public class MessageDispatcher {
         }
     }
 
-    // ===== processor：队列 → 逐条处理（场景识别 → 对话 → 回复）=====
+    // ===== processor：队列 → 防抖聚合 → 逐条处理（场景识别 → 对话 → 回复）=====
     private void processLoop() {
         while (running.get()) {
             AgentMessage am;
@@ -133,40 +138,82 @@ public class MessageDispatcher {
                 break;
             }
             if (am == null) {
+                // 无新消息：防抖静默期到期的桶该产出了
+                if (debounce != null) {
+                    for (PendingMessage pending : debounce.checkDue(System.currentTimeMillis())) {
+                        handlePending(pending);
+                    }
+                }
                 continue;
             }
-            MDC.put("traceId", UUID.randomUUID().toString().substring(0, 8));  // 每条消息一个 traceId
-            try {
-                // 命令优先：是命令就直接处理回复，不花 AI 的 token
-                if (commandHandler != null) {
-                    String cmdReply = commandHandler.handle(am.text(), am.userId());
-                    if (cmdReply != null) {
-                        logger.info("命令处理[{}]: {} → {}", am.userId(), am.text(), cmdReply);
-                        adapter.send(am.userId(), cmdReply);
-                        continue;
-                    }
+            if (debounce != null) {
+                // 防抖聚合：攒够静默期（或触发词）才产出，防 AI 回复穿插/图+文字拆散
+                PendingMessage pending = debounce.add(am.userId(), am, System.currentTimeMillis());
+                if (pending != null) {
+                    handlePending(pending);
                 }
-                // 多媒体优先：图片/语音/创作消息直接处理，不走文本 chat
-                if (multimediaHandler != null) {
-                    String mmReply = multimediaHandler.handle(am, adapter);
-                    if (mmReply != null) {
-                        if (!mmReply.isBlank()) {
-                            adapter.send(am.userId(), mmReply);
-                        }
-                        continue;   // 已处理（含空串=发过图/语音，不回空消息）
-                    }
-                }
-                Scene scene = sceneDetector.detect(am.text());
-                logger.info("收到消息 来自[{}]: {}，识别场景: {}", am.userId(), am.text(), scene);
-                String reply = chatService.chat(am.text(), am.userId(), scene.name());
-                logger.info("回复[{}]: {}", am.userId(), reply);
-                adapter.send(am.userId(), reply);
-            } catch (Exception e) {
-                // 单条消息失败不影响后续：记日志继续处理下一条
-                logger.error("处理消息失败 来自[{}]", am.userId(), e);
-            } finally {
-                MDC.remove("traceId");
+                continue;   // 还没齐：下一轮 poll 继续攒
             }
+            handleMessage(am);
+        }
+    }
+
+    // 聚合产物 → 按正常消息链路处理（命令/多媒体/chat 复用同一套）
+    private void handlePending(PendingMessage pending) {
+        // 聚合消息转 AgentMessage：拼合文本 + 含图时带第一条图片字节（走识图）
+        AgentMessage am = new AgentMessage(
+                MessageSource.WECHAT,
+                pending.userId(),
+                pending.text(),
+                pending.hasImage() ? MediaType.IMAGE : MediaType.TEXT,
+                pending.hasImage() ? firstImageBytes(pending) : null,
+                null,   // 聚合消息无单一 messageId（去重已在入队前完成）
+                pending.firstAt());
+        handleMessage(am);
+    }
+
+    private byte[] firstImageBytes(PendingMessage pending) {
+        for (AgentMessage m : pending.messages()) {
+            if (m.mediaType() == MediaType.IMAGE) {
+                return m.mediaBytes();
+            }
+        }
+        return null;
+    }
+
+    // 单条消息处理链：命令 → 多媒体 → 场景识别 → 对话 → 回复
+    private void handleMessage(AgentMessage am) {
+        MDC.put("traceId", UUID.randomUUID().toString().substring(0, 8));  // 每条消息一个 traceId
+        try {
+            // 命令优先：是命令就直接处理回复，不花 AI 的 token
+            if (commandHandler != null) {
+                String cmdReply = commandHandler.handle(am.text(), am.userId());
+                if (cmdReply != null) {
+                    logger.info("命令处理[{}]: {} → {}", am.userId(), am.text(), cmdReply);
+                    adapter.send(am.userId(), cmdReply);
+                    return;
+                }
+            }
+            // 多媒体优先：图片/语音/创作消息直接处理，不走文本 chat
+            if (multimediaHandler != null) {
+                String mmReply = multimediaHandler.handle(am, adapter);
+                if (mmReply != null) {
+                    if (!mmReply.isBlank()) {
+                        adapter.send(am.userId(), mmReply);
+                    }
+                    return;   // 已处理（含空串=发过图/语音，不回空消息）
+                }
+            }
+            Scene scene = sceneDetector.detect(am.text());
+            logger.info("收到消息 来自[{}]: {}，识别场景: {}", am.userId(), am.text(), scene);
+            String reply = chatService.chat(am.text(), am.userId(), scene.name());
+            logger.info("回复[{}]: {}", am.userId(), reply);
+            adapter.send(am.userId(), reply);
+        } catch (Exception e) {
+            // 单条消息失败不影响后续：记日志继续处理下一条
+            logger.error("处理消息失败 来自[{}]", am.userId(), e);
+        } finally {
+            MDC.remove("traceId");
         }
     }
 }

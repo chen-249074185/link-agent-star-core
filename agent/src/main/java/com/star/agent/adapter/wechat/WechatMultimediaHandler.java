@@ -4,6 +4,7 @@ import com.star.agent.adapter.ImageFetcher;
 import com.star.agent.adapter.MessageAdapter;
 import com.star.agent.adapter.MultimediaHandler;
 import com.star.agent.media.DashScopeImageGenService;
+import com.star.agent.media.DashScopeTtsService;
 import com.star.agent.media.DashScopeVisionService;
 import com.star.agent.media.MediaPreprocessor;
 import com.star.agent.message.AgentMessage;
@@ -29,6 +30,7 @@ public class WechatMultimediaHandler implements MultimediaHandler {
 
     private final DashScopeVisionService visionService;
     private final DashScopeImageGenService imageGenService;
+    private final DashScopeTtsService ttsService;
     private final MediaPreprocessor mediaPreprocessor;
     private final ImageFetcher imageFetcher;
     private final ChatService chatService;
@@ -36,12 +38,14 @@ public class WechatMultimediaHandler implements MultimediaHandler {
 
     public WechatMultimediaHandler(DashScopeVisionService visionService,
                                    DashScopeImageGenService imageGenService,
+                                   DashScopeTtsService ttsService,
                                    MediaPreprocessor mediaPreprocessor,
                                    ImageFetcher imageFetcher,
                                    ChatService chatService,
                                    SceneDetector sceneDetector) {
         this.visionService = visionService;
         this.imageGenService = imageGenService;
+        this.ttsService = ttsService;
         this.mediaPreprocessor = mediaPreprocessor;
         this.imageFetcher = imageFetcher;
         this.chatService = chatService;
@@ -56,10 +60,27 @@ public class WechatMultimediaHandler implements MultimediaHandler {
         if (msg.mediaType() == MediaType.VOICE) {
             return handleVoice(msg);
         }
+        if (msg.mediaType() == MediaType.TEXT && msg.text() != null && msg.text().trim().startsWith("#tts ")) {
+            return handleTts(msg, adapter);
+        }
         if (msg.mediaType() == MediaType.TEXT && sceneDetector.detect(msg.text()) == Scene.CREATION) {
             return handleCreation(msg, adapter);
         }
         return null;   // 纯文本非创作：走正常对话
+    }
+
+    // 语音合成：#tts 内容 → 合成语音发出去（TTS 能力入口）
+    private String handleTts(AgentMessage msg, MessageAdapter adapter) throws Exception {
+        String content = msg.text().trim().substring("#tts ".length());
+        if (content.isBlank()) {
+            return "用法：#tts 要合成的文字，例如 #tts 你好，欢迎使用星链智核";
+        }
+        byte[] voice = ttsService.synthesize(content, null);
+        if (voice == null) {
+            return "语音合成失败，请稍后再试";
+        }
+        adapter.sendVoice(msg.userId(), voice, "tts.wav");
+        return "";   // 已发语音，空串=处理完毕
     }
 
     // 图片 → 识图描述（base64 由 MediaPreprocessor 提供）

@@ -3,6 +3,7 @@ package com.star.agent.adapter.wechat;
 import com.github.wechat.ilink.sdk.ILinkClient;
 import com.github.wechat.ilink.sdk.core.context.ResumeContext;
 import com.github.wechat.ilink.sdk.core.login.LoginContext;
+import com.star.agent.adapter.DebounceProcessor;
 import com.star.agent.adapter.MessageDispatcher;
 import com.star.agent.adapter.MultimediaHandler;
 import com.star.agent.adapter.ReconnectHandler;
@@ -34,13 +35,15 @@ public class BotWorker implements Runnable, ReconnectHandler {
     private final BotManager botManager;
     // 多媒体消息处理（识图/语音/文生图）；null = 手动 main 链路不处理
     private final MultimediaHandler multimediaHandler;
+    // 消息防抖聚合（连续消息攒批）；null = 手动 main 链路不聚合
+    private final DebounceProcessor debounce;
     private final Object loginLock = new Object();   // 首次登录与断线重登可能不同线程，防并发重入
     private MessageDispatcher dispatcher;
 
     public BotWorker(String botId, ILinkClient client, ILinkMessageAdapter adapter,
                      ChatService chatService, SceneDetector sceneDetector,
                      WechatSessionRepository sessionRepository, BotManager botManager,
-                     MultimediaHandler multimediaHandler) {
+                     MultimediaHandler multimediaHandler, DebounceProcessor debounce) {
         this.botId = botId;
         this.client = client;
         this.adapter = adapter;
@@ -49,6 +52,7 @@ public class BotWorker implements Runnable, ReconnectHandler {
         this.sessionRepository = sessionRepository;
         this.botManager = botManager;
         this.multimediaHandler = multimediaHandler;
+        this.debounce = debounce;
     }
 
     @Override
@@ -58,7 +62,7 @@ public class BotWorker implements Runnable, ReconnectHandler {
             // 命令处理器绑定当前 botId（#logout 才知道停哪个）；手动链路 botManager=null 不处理命令
             MessageDispatcher dispatcher = new MessageDispatcher(adapter, sceneDetector, chatService, this,
                     botManager == null ? null : new WechatBotCommandHandler(botId, botManager),
-                    multimediaHandler);
+                    multimediaHandler, debounce);
             this.dispatcher = dispatcher;
             dispatcher.start();
         } catch (Exception e) {

@@ -2,6 +2,7 @@ package com.star.agent.adapter;
 
 import com.star.agent.message.AgentMessage;
 import com.star.agent.message.MediaType;
+import org.springframework.stereotype.Component;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -17,6 +18,7 @@ import java.util.concurrent.ConcurrentHashMap;
 // 窗口：图片/语音/文件 3s（用户可能还要补文字说明），纯文字 1.5s（一般不用等太久）
 // 立即触发：文本含"直接处理"或等于"否"→ 不等窗口立刻聚合（用户明说够了）
 // 调度：纯逻辑 + 外部 tick（checkDue(now) 由调用方周期调，如 processor 200ms 轮询），测试可控
+@Component
 public class DebounceProcessor {
 
     public static final long TEXT_WINDOW_MS = 1500;        // 纯文字 1.5s

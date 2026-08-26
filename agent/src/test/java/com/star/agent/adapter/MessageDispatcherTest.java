@@ -48,7 +48,7 @@ class MessageDispatcherTest {
         chatService = mock(ChatService.class);
         reconnectHandler = mock(ReconnectHandler.class);
         commandHandler = mock(BotCommandHandler.class);
-        dispatcher = new MessageDispatcher(adapter, sceneDetector, chatService, reconnectHandler, commandHandler, null);
+        dispatcher = new MessageDispatcher(adapter, sceneDetector, chatService, reconnectHandler, commandHandler, null, null);
         when(sceneDetector.detect(anyString())).thenReturn(com.star.agent.scene.Scene.CHAT);
     }
 
@@ -140,7 +140,7 @@ class MessageDispatcherTest {
         verify(adapter).send("u1", "正常回复");
     }
 
-    // 命令拦截：handler 返回非 null → 直接回复，不花 AI 的 token（chat 不被调）
+// 命令拦截：handler 返回非 null → 直接回复，不花 AI 的 token（chat 不被调）
     @Test
     void commandMessage_skipsChat() throws Exception {
         when(adapter.receive())
@@ -159,6 +159,29 @@ class MessageDispatcherTest {
         assertTrue(sent.await(5, TimeUnit.SECONDS), "命令回复应直接发出");
         verify(adapter).send("u1", "已登出");
         verify(chatService, never()).chat(anyString(), anyString(), anyString());
+    }
+
+    // 防抖接线：两条连续消息（触发词"直接处理"）→ 聚合后只调一次 chat，且文本拼合
+    @Test
+    void debounce_aggregatesThenChatsOnce() throws Exception {
+        dispatcher = new MessageDispatcher(adapter, sceneDetector, chatService, reconnectHandler,
+                commandHandler, null, new DebounceProcessor());
+        when(adapter.receive())
+                .thenReturn(msg("m1", "第一条"))
+                .thenReturn(msg("m2", "直接处理"))
+                .thenReturn(null);
+        when(chatService.chat(eq("第一条\n直接处理"), eq("u1"), eq("CHAT"))).thenReturn("聚合回复");
+
+        CountDownLatch sent = new CountDownLatch(1);
+        doAnswer(inv -> {
+            sent.countDown();
+            return null;
+        }).when(adapter).send(eq("u1"), eq("聚合回复"));
+
+        dispatcher.start();
+
+        assertTrue(sent.await(5, TimeUnit.SECONDS), "聚合后应回复");
+        verify(chatService).chat("第一条\n直接处理", "u1", "CHAT");   // 只调一次，文本拼合
     }
 
     // per-user 隔离（两账号不串音的处理器层证据）：两个用户的消息同时进来，

@@ -1,6 +1,7 @@
 package com.star.agent.adapter.wechat;
 
 import com.github.wechat.ilink.sdk.ILinkClient;
+import com.star.agent.adapter.DebounceProcessor;
 import com.star.agent.adapter.MultimediaHandler;
 import com.star.agent.scene.SceneDetector;
 import com.star.agent.service.ChatService;
@@ -23,17 +24,20 @@ public class BotManager {
     private final WechatSessionRepository sessionRepository;
     private final BotRegistry botRegistry;
     private final MultimediaHandler multimediaHandler;
+    private final DebounceProcessor debounce;
     private final UserConfigRepository userConfigRepository;
 
     public BotManager(ChatService chatService, SceneDetector sceneDetector,
                       WechatSessionRepository sessionRepository, BotRegistry botRegistry,
-                      MultimediaHandler multimediaHandler, UserConfigRepository userConfigRepository) {
+                      MultimediaHandler multimediaHandler, UserConfigRepository userConfigRepository,
+                      DebounceProcessor debounce) {
         this.chatService = chatService;
         this.sceneDetector = sceneDetector;
         this.sessionRepository = sessionRepository;
         this.botRegistry = botRegistry;
         this.multimediaHandler = multimediaHandler;
         this.userConfigRepository = userConfigRepository;
+        this.debounce = debounce;
     }
 
     // 启动恢复：扫表逐个免扫码恢复；空表 → 起一个新 Bot 等扫码
@@ -79,7 +83,7 @@ public class BotManager {
                 .build();
         ILinkMessageAdapter adapter = new ILinkMessageAdapter();
         BotWorker worker = new BotWorker(botId, client, adapter, chatService, sceneDetector,
-                sessionRepository, this, multimediaHandler);
+                sessionRepository, this, multimediaHandler, debounce);
         botRegistry.start(botId == null ? "new" : botId, worker);
     }
 }
