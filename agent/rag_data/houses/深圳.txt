@@ -1,0 +1,5 @@
+[
+  {"name": "南山区科技园一居", "area": 42, "price": 6500, "commute": 30, "rating": 8},
+  {"name": "福田区会展中心两居", "area": 75, "price": 7200, "commute": 40, "rating": 8},
+  {"name": "宝安区西乡单间", "area": 30, "price": 3800, "commute": 60, "rating": 6}
+]

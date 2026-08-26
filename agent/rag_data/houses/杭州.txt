@@ -1,0 +1,6 @@
+[
+  {"name": "西湖区文三路一居", "area": 40, "price": 4500, "commute": 30, "rating": 8},
+  {"name": "滨江区长河两居", "area": 80, "price": 5600, "commute": 45, "rating": 7},
+  {"name": "余杭未来科技城一居", "area": 50, "price": 4200, "commute": 50, "rating": 7},
+  {"name": "拱墅区运河开间", "area": 32, "price": 3800, "commute": 35, "rating": 7}
+]

@@ -1,0 +1,7 @@
+[
+  {"name": "海淀学院路两居", "area": 55, "price": 6500, "commute": 35, "rating": 8},
+  {"name": "朝阳望京单间", "area": 28, "price": 3800, "commute": 50, "rating": 7},
+  {"name": "昌平回龙观一居", "area": 42, "price": 4200, "commute": 60, "rating": 6},
+  {"name": "海淀知春路开间", "area": 38, "price": 4500, "commute": 30, "rating": 8},
+  {"name": "丰台科技园两居", "area": 68, "price": 5200, "commute": 45, "rating": 7}
+]

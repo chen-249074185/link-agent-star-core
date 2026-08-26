@@ -1,0 +1,5 @@
+[
+  {"name": "天河区珠江新城单间", "area": 28, "price": 4800, "commute": 40, "rating": 8},
+  {"name": "越秀区北京路两居", "area": 70, "price": 5200, "commute": 30, "rating": 7},
+  {"name": "海珠区琶洲一居", "area": 45, "price": 4600, "commute": 35, "rating": 8}
+]

@@ -1,0 +1,6 @@
+[
+  {"name": "浦东陆家嘴单间", "area": 30, "price": 5500, "commute": 40, "rating": 8},
+  {"name": "徐汇滨江一居", "area": 45, "price": 6800, "commute": 35, "rating": 9},
+  {"name": "静安寺开间", "area": 36, "price": 6000, "commute": 25, "rating": 8},
+  {"name": "闵行莘庄两居", "area": 75, "price": 5200, "commute": 55, "rating": 7}
+]
