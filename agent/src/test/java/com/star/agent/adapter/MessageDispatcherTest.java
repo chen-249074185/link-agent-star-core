@@ -160,4 +160,32 @@ class MessageDispatcherTest {
         verify(adapter).send("u1", "已登出");
         verify(chatService, never()).chat(anyString(), anyString(), anyString());
     }
+
+    // per-user 隔离（两账号不串音的处理器层证据）：两个用户的消息同时进来，
+    // chat 必须带各自 userId、回复必须发回各自 userId——userId 随消息走，不混用
+    @Test
+    void multipleUsers_isolatedPerUser() throws Exception {
+        AgentMessage u1msg = new AgentMessage(MessageSource.WECHAT, "wx_u1", "一号的消息", MediaType.TEXT, null, "m1", Instant.now());
+        AgentMessage u2msg = new AgentMessage(MessageSource.WECHAT, "wx_u2", "二号的消息", MediaType.TEXT, null, "m2", Instant.now());
+        when(adapter.receive())
+                .thenReturn(u1msg)
+                .thenReturn(u2msg)
+                .thenReturn(null);
+
+        when(chatService.chat(eq("一号的消息"), eq("wx_u1"), eq("CHAT"))).thenReturn("一号的回复");
+        when(chatService.chat(eq("二号的消息"), eq("wx_u2"), eq("CHAT"))).thenReturn("二号的回复");
+        CountDownLatch bothSent = new CountDownLatch(2);
+        doAnswer(inv -> {
+            bothSent.countDown();
+            return null;
+        }).when(adapter).send(anyString(), anyString());
+
+        dispatcher.start();
+
+        assertTrue(bothSent.await(5, TimeUnit.SECONDS), "两条回复都应发出");
+        verify(chatService).chat("一号的消息", "wx_u1", "CHAT");
+        verify(chatService).chat("二号的消息", "wx_u2", "CHAT");
+        verify(adapter).send("wx_u1", "一号的回复");
+        verify(adapter).send("wx_u2", "二号的回复");
+    }
 }

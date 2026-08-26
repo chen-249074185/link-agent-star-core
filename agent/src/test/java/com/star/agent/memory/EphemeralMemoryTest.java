@@ -28,6 +28,7 @@ class EphemeralMemoryTest {
     @AfterEach
     void cleanup() {
         redis.delete(RedisKeys.memory("itest:user1"));
+        redis.delete(RedisKeys.memory("itest:user2"));
     }
 
     @Test
@@ -51,6 +52,18 @@ class EphemeralMemoryTest {
         LlmClient llm = mock(LlmClient.class);
         EphemeralMemory memory = new EphemeralMemory(redis, new ObjectMapper(), llm);
         assertEquals(0, memory.load("itest:user1").size());
+    }
+
+    // 用户间记忆隔离（两账号不串音的记忆层证据）：u1 存的东西 u2 读不到
+    @Test
+    void userIsolation_otherUserCannotRead() {
+        LlmClient llm = mock(LlmClient.class);
+        EphemeralMemory memory = new EphemeralMemory(redis, new ObjectMapper(), llm);
+
+        memory.save("itest:user1", List.of(new ChatEntry("user", "一号的私密对话")));
+
+        assertEquals(1, memory.load("itest:user1").size(), "本人应能读到自己的记忆");
+        assertEquals(0, memory.load("itest:user2").size(), "他人读不到我的记忆（Redis key 按 userId 隔离）");
     }
 
     @Test
