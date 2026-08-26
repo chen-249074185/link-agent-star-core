@@ -6,7 +6,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-// 房源采集入库接口：管理员/初始化时调用（爬链家 → 入指定用户知识库）
+// 房源采集/索引接口：
+//   POST /api/collect  = 爬链家 → 写 rag_data/houses/{城市}.txt → 全量重建索引（管理员/初始化用）
+//   POST /api/reindex  = 只从全部数据文件重建索引（用户手动编辑 txt 后调用，不重新爬）
 // 真实模式才有意义；mock 模式（MCP 未连接）返回降级提示
 @RestController
 @RequestMapping("/api")
@@ -25,5 +27,11 @@ public class CollectController {
             @RequestParam("url") String url) {
         HouseCollectorService.CollectResult r = collector.collect(userId, city, url);
         return r.count() > 0 ? Result.ok(r) : Result.fail(500, r.message());
+    }
+
+    // 重建索引（全部城市）：用户编辑过 rag_data/houses/*.txt 后调用
+    @PostMapping("/reindex")
+    public Result<String> reindex(@RequestParam("userId") String userId) {
+        return Result.ok(collector.reindexAll(userId));
     }
 }

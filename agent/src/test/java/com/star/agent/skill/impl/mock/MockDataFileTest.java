@@ -19,8 +19,8 @@ class MockDataFileTest {
         SkillResult r = rag.execute(new SkillContext("u1", "{\"city\":\"北京\"}", ""));
 
         assertTrue(r.success());
-        assertTrue(r.content().contains("海淀学院路两居"), "北京房源应来自 北京.txt");
-        assertTrue(r.content().startsWith("["), "文件内容是 JSON 数组（下游可解析）");
+        assertTrue(r.content().contains("月租"), "北京房源应来自 北京.txt（文本格式，下游 HouseTextParser 可解析）");
+        assertTrue(r.content().contains("面积"), "文本格式含面积字段");
     }
 
     @Test

@@ -22,8 +22,8 @@ import java.nio.file.Paths;
 import java.util.List;
 
 // RAG 房源检索 Mock（MAIN 主线：Workflow 房源筛选输入源；mock 先行，后续换真实 RAG MCP）
-// 资料库 = rag_data/houses/{城市}.txt 数据文件（参照夏令营 rag_data 目录方式，不在代码里硬编码数据）：
-//   每城市一个文件，内容为房源 JSON 数组（字段与真实版对齐 name/area/price/commute/rating），
+// 资料库 = rag_data/houses/{城市}.txt 纯文本文件（与真实采集入库同一份数据源、同一格式）：
+//   每套房源一段（空行分隔），下游 HouseTextParser 负责文本→结构化转换（真实模式同款路径）
 //   新增城市/改房源 = 加文件/改文件，代码零改动
 @Component
 @ConditionalOnProperty(name = "linkagent.workflow.mock-enabled", havingValue = "true")
@@ -38,7 +38,7 @@ public class RagSearchSkill implements Skill {
     public SkillMeta meta() {
         return new SkillMeta(
                 "rag_search",
-                "检索指定城市符合条件的房源列表（Mock：读 rag_data/houses/{城市}.txt 资料库）",
+                "检索指定城市符合条件的房源列表（Mock：读 rag_data/houses/{城市}.txt 文本资料库）",
                 JsonSchemaBuilder.object()
                         .addString("city", "城市，如 北京", true)
                         .addInteger("maxPrice", "预算上限，元/月", false)

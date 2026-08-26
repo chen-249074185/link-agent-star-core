@@ -20,8 +20,9 @@ import java.util.concurrent.CountDownLatch;
 // 传输 = stdio（主进程以子进程方式拉起，JSON-RPC 对话）；EOF 感知退出（坑21 同款，零僵尸进程）
 public class CrawlMcpServer {
 
-    // static 模式返回原始 HTML 的上限（防超大页面撑爆工具结果）
+    // static 模式返回原始 HTML 的上限（默认 50k，防超大页面撑爆工具结果；采集列表页可传 maxChars 调大）
     private static final int MAX_STATIC_CHARS = 50_000;
+    private static final int MAX_STATIC_CHARS_LIMIT = 300_000;   // maxChars 参数上限（防恶意传超巨量）
 
     public static void main(String[] args) {
         McpJsonMapper jsonMapper = new JacksonMcpJsonMapper(JsonMapper.builder().build());
@@ -57,7 +58,8 @@ public class CrawlMcpServer {
                 .inputSchema(new McpSchema.JsonSchema("object",
                         Map.of(
                                 "url", Map.of("type", "string", "description", "要抓取的完整 URL"),
-                                "mode", Map.of("type", "string", "description", "auto|json|static，缺省 auto")
+                                "mode", Map.of("type", "string", "description", "auto|json|static，缺省 auto"),
+                                "maxChars", Map.of("type", "integer", "description", "static 模式返回上限（缺省 50000，最大 300000）")
                         ),
                         List.of("url"), null, null, null))
                 .build();
@@ -71,13 +73,18 @@ public class CrawlMcpServer {
                     try {
                         UrlGuard.check(url);   // SSRF 防护：内网地址先拦（抓取前最后一道闸）
                         String html = fetcher.fetch(url);
+                        int maxChars = MAX_STATIC_CHARS;
+                        if (args.get("maxChars") != null) {
+                            maxChars = Math.min(Math.max(1, Integer.parseInt(String.valueOf(args.get("maxChars")))),
+                                    MAX_STATIC_CHARS_LIMIT);
+                        }
                         String result = switch (mode) {
                             case "json" -> {
                                 String j = jsonExtractor.extractJson(html);
                                 yield j == null ? "未找到内嵌 JSON" : j;
                             }
-                            case "static" -> html.length() > MAX_STATIC_CHARS
-                                    ? html.substring(0, MAX_STATIC_CHARS) + "\n...(截断)"
+                            case "static" -> html.length() > maxChars
+                                    ? html.substring(0, maxChars) + "\n...(截断)"
                                     : html;
                             default -> {
                                 String main = extractor.extractMainText(html);

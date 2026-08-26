@@ -14,7 +14,7 @@ import java.util.List;
 // 失败回滚：任一块入库失败，清掉本次已入库的块，库回到上传前状态，不留半截数据
 public class UploadService {
 
-    private static final int EMBED_BATCH = 25;   // 批量向量化 batch 上限（对齐 EmbeddingClient 限制）
+    private static final int EMBED_BATCH = 10;   // 批量向量化 batch 上限（对齐 EmbeddingClient 限制，text-embedding-v3 实测≤10）
     private static final int MAX_FILE_BYTES = 10 * 1024 * 1024;   // 单文件 10MB 上限（10-01 安全加固）
     private static final List<String> ALLOWED_TYPES = List.of("pdf", "txt", "md", "markdown");  // 类型白名单
 

@@ -41,3 +41,7 @@ sessions/
 
 # 反编译的 SDK 源码，仅供阅读参考
 sdk-src/
+
+# rag-mcp 运行时数据（rag.db 用户知识库索引 / vec0.dll 运行复制），不入库
+rag_data/rag.db
+rag_data/vec0.dll

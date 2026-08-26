@@ -6,27 +6,28 @@ import com.star.rag.document.TextChunker;
 import com.star.rag.embedding.EmbeddingClient;
 import com.star.rag.security.KnowledgeBaseGuard;
 import com.star.rag.store.KnowledgeBaseRepository;
-import com.star.rag.store.KnowledgeBaseRepository;
 import com.star.rag.store.SQLiteVecStore;
 import com.star.rag.store.VectorStore;
 import com.star.rag.upload.UploadService;
 import io.modelcontextprotocol.json.McpJsonMapper;
 import io.modelcontextprotocol.json.jackson3.JacksonMcpJsonMapper;
 import io.modelcontextprotocol.server.McpServer;
-import io.modelcontextprotocol.server.McpServerFeatures.SyncToolSpecification;
-import io.modelcontextprotocol.server.transport.StdioServerTransportProvider;
-import io.modelcontextprotocol.spec.McpSchema;
-import io.modelcontextprotocol.spec.McpServerTransportProvider;
 import tools.jackson.databind.json.JsonMapper;
 
 import java.io.FilterInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
+import io.modelcontextprotocol.server.McpServerFeatures.SyncToolSpecification;
+import io.modelcontextprotocol.server.transport.StdioServerTransportProvider;
+import io.modelcontextprotocol.spec.McpSchema;
+import io.modelcontextprotocol.spec.McpServerTransportProvider;
+
+import java.nio.charset.StandardCharsets;
 
 // RAG MCP Server：每用户私有知识库（上传切片入库 + 向量检索 + 删库）
 // 传输 = stdio（主进程以子进程方式拉起，通过 stdin/stdout JSON-RPC 对话）
@@ -43,7 +44,8 @@ public class RagMcpServer {
             System.exit(1);
         }
 
-        // 从 jar 位置推导资源目录：foo.jar 在 X/ 下 → 资源在 X/rag.db 和 X/vec0.dll
+        // 数据目录：优先环境变量 RAG_DATA_DIR（主程序指定稳定目录，如 运行目录/rag_data），
+        // 缺省回退 jar 同目录——但 target/ 是构建产物会被 clean 删除，正式运行必须显式指定！
         Path jarDir;
         try {
             jarDir = Path.of(RagMcpServer.class.getProtectionDomain()
@@ -54,8 +56,34 @@ public class RagMcpServer {
             System.exit(1);
             return;
         }
-        Path dbPath = jarDir.resolve(DB_PATH);
-        Path vecDll = jarDir.resolve(VEC_DLL);
+        String dataDirEnv = System.getenv("RAG_DATA_DIR");
+        Path dataDir = dataDirEnv != null && !dataDirEnv.isBlank() ? Path.of(dataDirEnv) : jarDir;
+        Path dbPath = dataDir.resolve(DB_PATH);
+        // vec0.dll 是运行时依赖（native 库，被 mvn clean 会删，git 管理的稳定副本在模块根）：
+        // 按 数据目录 → jar 目录 → 模块根（jar 的父目录）三级找，找到后复制到数据目录
+        Path vecDll = dataDir.resolve(VEC_DLL);
+        try {
+            Files.createDirectories(dataDir);
+            Path[] candidates = {jarDir.resolve(VEC_DLL), jarDir.getParent().resolve(VEC_DLL)};
+            if (!Files.exists(vecDll)) {
+                for (Path candidate : candidates) {
+                    if (Files.exists(candidate)) {
+                        Files.copy(candidate, vecDll);
+                        break;
+                    }
+                }
+            }
+        } catch (IOException e) {
+            System.err.println("初始化数据目录失败: " + e.getMessage());
+            System.exit(1);
+            return;
+        }
+        if (!Files.exists(vecDll)) {
+            System.err.println("找不到 vec0.dll（数据目录/jar 目录/模块根都没有）");
+            System.exit(1);
+            return;
+        }
+        System.err.println("数据目录: " + dataDir);
 
         McpJsonMapper jsonMapper = new JacksonMcpJsonMapper(JsonMapper.builder().build());
         EofAwareInputStream eofAware = new EofAwareInputStream(System.in);

@@ -40,7 +40,7 @@ class RentDecisionWorkflowTest {
 
         String report = workflow.execute("u1", "t1", "北京", 6000);
 
-        assertTrue(report.contains("海淀学院路两居"));  // rag mock 房源出现
+        assertTrue(report.contains("【二、候选房源】"), "rag mock 房源段出现");   // 数据来源 rag_data/houses 文件，断言只查段落不绑具体房源
         assertTrue(report.contains("打分排行"));        // house_score 输出出现
     }
 

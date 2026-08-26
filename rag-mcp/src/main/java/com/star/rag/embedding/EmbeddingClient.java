@@ -18,7 +18,7 @@ public class EmbeddingClient {
     private static final String DEFAULT_URL =
             "https://dashscope.aliyuncs.com/compatible-mode/v1/embeddings";
     private static final String MODEL = "text-embedding-v3";
-    private static final int MAX_BATCH = 25;      // DashScope 单次请求 batch 上限
+    private static final int MAX_BATCH = 10;      // DashScope text-embedding-v3 单次请求 batch 上限（实测 400: should not be larger than 10）
     private static final int MAX_ATTEMPTS = 3;    // 每批发失败最多尝试次数
 
     private final String apiKey;
