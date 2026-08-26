@@ -81,6 +81,10 @@ public class BotWorker implements Runnable, ReconnectHandler {
                 if ("LOGGED_IN".equals(resumeClient.getConnectionStatus().name())) {
                     this.client = resumeClient;
                     adapter.attach(resumeClient);   // 恢复登录换了 client，必须重新绑定（坑7 同类）
+                    // 恢复成功=会话仍有效：重存一份刷新 saved_at 续期（否则 7 天清理会误删还在跑的 bot）
+                    if (sessionRepository != null) {
+                        sessionRepository.save(saved);
+                    }
                     System.out.println("会话恢复成功，免扫码登录");
                     return;
                 }
