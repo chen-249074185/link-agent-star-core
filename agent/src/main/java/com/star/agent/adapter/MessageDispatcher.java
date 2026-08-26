@@ -35,6 +35,7 @@ public class MessageDispatcher {
     private final SceneDetector sceneDetector;
     private final ChatService chatService;
     private final ReconnectHandler reconnectHandler; // 断线重登回调（登录逻辑在实现方）
+    private final BotCommandHandler commandHandler;  // 聊天命令拦截（#newbot/#logout），可空=通道不处理命令
 
     private final BlockingQueue<AgentMessage> queue = new ArrayBlockingQueue<>(QUEUE_CAPACITY);
     private final Set<String> seenMsgIds = ConcurrentHashMap.newKeySet();  // 去重登记本（消息 id → 已处理）
@@ -43,11 +44,13 @@ public class MessageDispatcher {
     private Thread processorThread;
 
     public MessageDispatcher(MessageAdapter adapter, SceneDetector sceneDetector,
-                             ChatService chatService, ReconnectHandler reconnectHandler) {
+                             ChatService chatService, ReconnectHandler reconnectHandler,
+                             BotCommandHandler commandHandler) {
         this.adapter = adapter;
         this.sceneDetector = sceneDetector;
         this.chatService = chatService;
         this.reconnectHandler = reconnectHandler;
+        this.commandHandler = commandHandler;
     }
 
     public void start() {
@@ -132,6 +135,15 @@ public class MessageDispatcher {
             }
             MDC.put("traceId", UUID.randomUUID().toString().substring(0, 8));  // 每条消息一个 traceId
             try {
+                // 命令优先：是命令就直接处理回复，不花 AI 的 token
+                if (commandHandler != null) {
+                    String cmdReply = commandHandler.handle(am.text(), am.userId());
+                    if (cmdReply != null) {
+                        logger.info("命令处理[{}]: {} → {}", am.userId(), am.text(), cmdReply);
+                        adapter.send(am.userId(), cmdReply);
+                        continue;
+                    }
+                }
                 Scene scene = sceneDetector.detect(am.text());
                 logger.info("收到消息 来自[{}]: {}，识别场景: {}", am.userId(), am.text(), scene);
                 String reply = chatService.chat(am.text(), am.userId(), scene.name());

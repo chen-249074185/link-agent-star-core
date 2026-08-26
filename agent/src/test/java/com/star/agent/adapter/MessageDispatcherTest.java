@@ -34,6 +34,7 @@ class MessageDispatcherTest {
     private SceneDetector sceneDetector;
     private ChatService chatService;
     private ReconnectHandler reconnectHandler;
+    private BotCommandHandler commandHandler;
     private MessageDispatcher dispatcher;
 
     private AgentMessage msg(String id, String text) {
@@ -46,7 +47,8 @@ class MessageDispatcherTest {
         sceneDetector = mock(SceneDetector.class);
         chatService = mock(ChatService.class);
         reconnectHandler = mock(ReconnectHandler.class);
-        dispatcher = new MessageDispatcher(adapter, sceneDetector, chatService, reconnectHandler);
+        commandHandler = mock(BotCommandHandler.class);
+        dispatcher = new MessageDispatcher(adapter, sceneDetector, chatService, reconnectHandler, commandHandler);
         when(sceneDetector.detect(anyString())).thenReturn(com.star.agent.scene.Scene.CHAT);
     }
 
@@ -136,5 +138,26 @@ class MessageDispatcherTest {
 
         assertTrue(sent.await(5, TimeUnit.SECONDS), "失败后的消息仍应被处理");
         verify(adapter).send("u1", "正常回复");
+    }
+
+    // 命令拦截：handler 返回非 null → 直接回复，不花 AI 的 token（chat 不被调）
+    @Test
+    void commandMessage_skipsChat() throws Exception {
+        when(adapter.receive())
+                .thenReturn(msg("m1", "#logout"))
+                .thenReturn(null);
+        when(commandHandler.handle(eq("#logout"), eq("u1"))).thenReturn("已登出");
+
+        CountDownLatch sent = new CountDownLatch(1);
+        doAnswer(inv -> {
+            sent.countDown();
+            return null;
+        }).when(adapter).send(eq("u1"), eq("已登出"));
+
+        dispatcher.start();
+
+        assertTrue(sent.await(5, TimeUnit.SECONDS), "命令回复应直接发出");
+        verify(adapter).send("u1", "已登出");
+        verify(chatService, never()).chat(anyString(), anyString(), anyString());
     }
 }

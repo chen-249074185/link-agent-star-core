@@ -54,7 +54,8 @@ public class ILinkLoginVerifier {
         ChatService chatService = new ChatService(llm, modelRouter, skillRegistry, kernel, new RentRequestDetector(), workflow,
                 null, null, null, null);   // 手动链路不进 Spring：记忆/压缩全部降级关闭
 
-        BotWorker worker = new BotWorker(null, client, new ILinkMessageAdapter(), chatService, new SceneDetector(), null);
+        BotWorker worker = new BotWorker(null, client, new ILinkMessageAdapter(), chatService, new SceneDetector(),
+                null, null);
         Thread thread = new Thread(worker, "bot-new");
         thread.setDaemon(true);
         thread.start();

@@ -1,0 +1,58 @@
+package com.star.agent.adapter.wechat;
+
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+
+// 微信聊天命令单测：#newbot 新增 / #logout 登出（带 botId）/ 普通消息放行
+class WechatBotCommandHandlerTest {
+
+    private final BotManager botManager = mock(BotManager.class);
+
+    @Test
+    void newbot_launchesNewBot() {
+        WechatBotCommandHandler handler = new WechatBotCommandHandler("bot-1", botManager);
+
+        String reply = handler.handle("#newbot", "u1");
+
+        assertTrue(reply.contains("新机器人"), "应提示已发起新 Bot 登录");
+        verify(botManager).launchNew();
+    }
+
+    @Test
+    void logout_stopsAndDeletesCurrentBot() {
+        WechatBotCommandHandler handler = new WechatBotCommandHandler("bot-1", botManager);
+
+        String reply = handler.handle("#logout", "u1");
+
+        assertTrue(reply.contains("已登出"), "应提示已登出");
+        verify(botManager).logout("bot-1");
+    }
+
+    // 未绑定 botId 的实例（新扫码中的 bot）登出无意义 → 提示但不操作
+    @Test
+    void logout_withoutBotId_noop() {
+        WechatBotCommandHandler handler = new WechatBotCommandHandler(null, botManager);
+
+        String reply = handler.handle("#logout", "u1");
+
+        assertTrue(reply.contains("未绑定"), "应提示未绑定机器人");
+        verify(botManager, never()).logout(org.mockito.ArgumentMatchers.anyString());
+    }
+
+    // 普通消息不是命令 → null（放行进正常对话）
+    @Test
+    void normalMessage_returnsNull() {
+        WechatBotCommandHandler handler = new WechatBotCommandHandler("bot-1", botManager);
+
+        assertNull(handler.handle("你好", "u1"));
+        assertNull(handler.handle("#abc", "u1"), "未识别的 # 开头词不是命令");
+        assertEquals("已登出".length() > 0, true);
+        verify(botManager, never()).launchNew();
+    }
+}

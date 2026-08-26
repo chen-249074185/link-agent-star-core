@@ -29,25 +29,31 @@ public class BotWorker implements Runnable, ReconnectHandler {
     private final SceneDetector sceneDetector;
     // 会话仓库（数据库版）；null = 手动 main 链路，回退文件版 SessionStore
     private final WechatSessionRepository sessionRepository;
+    // Bot 生命周期管理（#newbot/#logout 命令用）；null = 手动 main 链路不处理命令
+    private final BotManager botManager;
     private final Object loginLock = new Object();   // 首次登录与断线重登可能不同线程，防并发重入
     private MessageDispatcher dispatcher;
 
     public BotWorker(String botId, ILinkClient client, ILinkMessageAdapter adapter,
                      ChatService chatService, SceneDetector sceneDetector,
-                     WechatSessionRepository sessionRepository) {
+                     WechatSessionRepository sessionRepository, BotManager botManager) {
         this.botId = botId;
         this.client = client;
         this.adapter = adapter;
         this.chatService = chatService;
         this.sceneDetector = sceneDetector;
         this.sessionRepository = sessionRepository;
+        this.botManager = botManager;
     }
 
     @Override
     public void run() {
         try {
             login();
-            dispatcher = new MessageDispatcher(adapter, sceneDetector, chatService, this);
+            // 命令处理器绑定当前 botId（#logout 才知道停哪个）；手动链路 botManager=null 不处理命令
+            MessageDispatcher dispatcher = new MessageDispatcher(adapter, sceneDetector, chatService, this,
+                    botManager == null ? null : new WechatBotCommandHandler(botId, botManager));
+            this.dispatcher = dispatcher;
             dispatcher.start();
         } catch (Exception e) {
             logger.error("机器人启动失败", e);
