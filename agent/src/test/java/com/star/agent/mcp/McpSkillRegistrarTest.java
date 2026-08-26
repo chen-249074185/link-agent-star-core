@@ -28,7 +28,7 @@ class McpSkillRegistrarTest {
         when(connection.serverName()).thenReturn("rag-mcp");
         when(connection.connect()).thenReturn(List.of(searchTool(), deleteTool()));
         SkillRegistry registry = new SkillRegistry(List.of());   // 空技能起步
-        McpSkillRegistrar registrar = new McpSkillRegistrar(List.of(connection), registry);
+        McpSkillRegistrar registrar = new McpSkillRegistrar(List.of(connection), registry, null);
 
         registrar.registerMcpSkills();
 
@@ -42,7 +42,7 @@ class McpSkillRegistrarTest {
     void registerMcpSkills_connectionDown_registersNothing() {
         when(connection.connect()).thenReturn(List.of());
         SkillRegistry registry = new SkillRegistry(List.of());
-        McpSkillRegistrar registrar = new McpSkillRegistrar(List.of(connection), registry);
+        McpSkillRegistrar registrar = new McpSkillRegistrar(List.of(connection), registry, null);
 
         registrar.registerMcpSkills();
 

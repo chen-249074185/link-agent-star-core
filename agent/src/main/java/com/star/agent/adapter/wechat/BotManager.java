@@ -4,6 +4,7 @@ import com.github.wechat.ilink.sdk.ILinkClient;
 import com.star.agent.adapter.MultimediaHandler;
 import com.star.agent.scene.SceneDetector;
 import com.star.agent.service.ChatService;
+import com.star.agent.user.UserConfigRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -22,15 +23,17 @@ public class BotManager {
     private final WechatSessionRepository sessionRepository;
     private final BotRegistry botRegistry;
     private final MultimediaHandler multimediaHandler;
+    private final UserConfigRepository userConfigRepository;
 
     public BotManager(ChatService chatService, SceneDetector sceneDetector,
                       WechatSessionRepository sessionRepository, BotRegistry botRegistry,
-                      MultimediaHandler multimediaHandler) {
+                      MultimediaHandler multimediaHandler, UserConfigRepository userConfigRepository) {
         this.chatService = chatService;
         this.sceneDetector = sceneDetector;
         this.sessionRepository = sessionRepository;
         this.botRegistry = botRegistry;
         this.multimediaHandler = multimediaHandler;
+        this.userConfigRepository = userConfigRepository;
     }
 
     // 启动恢复：扫表逐个免扫码恢复；空表 → 起一个新 Bot 等扫码
@@ -58,6 +61,16 @@ public class BotManager {
         botRegistry.stop(botId);
         sessionRepository.delete(botId);
         logger.info("Bot 已登出并删除会话: {}", botId);
+    }
+
+    // 保存某用户的猎聘 Token（#token/JWT 自动识别）：只写该用户自己的配置行
+    public void saveUserToken(String userId, String token) {
+        userConfigRepository.saveLiepinToken(userId, token);
+    }
+
+    // 取某用户的猎聘 Token（McpSkill 注入用）；未配置返回 null
+    public String findUserToken(String userId) {
+        return userConfigRepository.findLiepinToken(userId);
     }
 
     private void startBot(String botId) {

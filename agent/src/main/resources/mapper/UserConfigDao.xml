@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.star.agent.user.dao.UserConfigDao">
+
+    <!-- 存/更新：user_id 主键冲突 → 覆盖 -->
+    <insert id="upsert" parameterType="com.star.agent.user.domain.UserConfigDo">
+        INSERT INTO user_config (user_id, liepin_token, updated_at)
+        VALUES (#{userId}, #{liepinToken}, NOW())
+        ON DUPLICATE KEY UPDATE liepin_token = VALUES(liepin_token), updated_at = NOW()
+    </insert>
+
+    <!-- 查某用户的配置 -->
+    <select id="findByUserId" resultType="com.star.agent.user.domain.UserConfigDo">
+        SELECT user_id, liepin_token, updated_at
+        FROM user_config
+        WHERE user_id = #{userId}
+    </select>
+
+    <!-- 删某用户的配置（测试清理用） -->
+    <delete id="deleteByUserId">
+        DELETE FROM user_config WHERE user_id = #{userId}
+    </delete>
+
+</mapper>

@@ -9,6 +9,7 @@ import com.star.agent.skill.SkillContext;
 import com.star.agent.skill.SkillMeta;
 import com.star.agent.skill.SkillResult;
 import com.star.agent.skill.SkillType;
+import com.star.agent.user.UserConfigRepository;
 import io.modelcontextprotocol.spec.McpSchema;
 
 import java.util.Iterator;
@@ -25,11 +26,17 @@ public class McpSkill implements Skill {
     private final McpSchema.Tool tool;                        // 原始 MCP 工具说明（名字/描述/Schema）
     private final McpConnection connection;                   // 调子进程的唯一通道
     private final SkillMeta meta;                             // 预构建（构造时算好，避免每次 execute 重算）
+    private final UserConfigRepository userConfigRepository;  // 用户配置（liepin 域取每用户自己的 Token）；null=手动链路
     private final ObjectMapper mapper = new ObjectMapper();
 
     public McpSkill(McpSchema.Tool tool, McpConnection connection) {
+        this(tool, connection, null);
+    }
+
+    public McpSkill(McpSchema.Tool tool, McpConnection connection, UserConfigRepository userConfigRepository) {
         this.tool = tool;
         this.connection = connection;
+        this.userConfigRepository = userConfigRepository;
         this.meta = buildMeta();
     }
 
@@ -44,7 +51,9 @@ public class McpSkill implements Skill {
         Map<String, Object> params = toParameters(tool.inputSchema());
         Object propsObj = params.get("properties");
         if (propsObj instanceof Map<?, ?> props) {
-            props.keySet().removeIf(k -> k.equals("user_id") || k.equals("kb_id") || k.equals("is_base64"));
+            // user_id/kb_id/is_base64/user_token 均由上下文/上层注入，不暴露给 LLM（防乱填他人身份）
+            props.keySet().removeIf(k -> k.equals("user_id") || k.equals("kb_id")
+                    || k.equals("is_base64") || k.equals("user_token"));
         }
 
         return new SkillMeta(
@@ -66,6 +75,17 @@ public class McpSkill implements Skill {
             Map<String, Object> args = new LinkedHashMap<>();
             args.put("user_id", ctx.userId());                // 身份从工单来，不由 LLM 填
             args.put("kb_id", ctx.userId() + "-default");     // 默认库（10-02 接口支持指定库）
+            // 猎聘域：注入该用户自己的 Token（user_config 按 userId 隔离）。
+            // 未配置 → 明确拒绝并引导配置，绝不回退用别人的 Token（用户私有数据，宁缺勿串）
+            if ("liepin-mcp".equals(connection.serverName())) {
+                String token = userConfigRepository == null ? null
+                        : userConfigRepository.findLiepinToken(ctx.userId());
+                if (token == null || token.isBlank()) {
+                    return new SkillResult(false,
+                            "你还没配置猎聘 Token。请直接把你的猎聘 Token 发给我（获取：猎聘官网 https://www.liepin.com/mcp/auth 登录生成），我会自动为你保存，之后查岗位/简历都走你自己的猎聘账号。");
+                }
+                args.put("user_token", token);
+            }
             mergeLlmArgs(args, ctx.args());
 
             String content = connection.callTool(tool.name(), args);

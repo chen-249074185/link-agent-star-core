@@ -25,14 +25,20 @@ public class LiepinCliRunner {
     }
 
     // 执行一条命令（业务参数已拼好），返回 stdout 全文；失败抛 RuntimeException
+    // 用构造时的 Token（默认/环境变量）
     public String run(String... args) {
+        return runAs(this.token, args);
+    }
+
+    // 执行一条命令，用指定 Token（多用户支持：每人自己的 Token，参数优先于环境变量）
+    public String runAs(String token, String... args) {
         List<String> cmd = new ArrayList<>();
         cmd.add(cliPath);
         cmd.addAll(List.of(args));
         try {
             ProcessBuilder pb = new ProcessBuilder(cmd);
             // Token 只进子进程环境变量（--token 会出现在进程命令行里，环境变量更隐蔽）
-            pb.environment().put("LIEPIN_USER_TOKEN", token);
+            pb.environment().put("LIEPIN_USER_TOKEN", token == null ? "" : token);
             // 关键坑：Windows 下 Python 默认按控制台编码(GBK)输出，必须强制 UTF-8，否则中文全乱码
             pb.environment().put("PYTHONIOENCODING", "utf-8");
             pb.redirectErrorStream(true);

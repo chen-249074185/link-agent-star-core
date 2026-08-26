@@ -83,7 +83,8 @@ public class LiepinMcpServer {
                         sb.append("CLI 执行: 失败(").append(e.getMessage()).append(")\n");
                     }
                     try {
-                        JsonNode r = parse(mapper, runner.run("resume", "get", "--output", "json"));
+                        String userToken = userToken(request.arguments());
+                        JsonNode r = parse(mapper, runner.runAs(userToken, "resume", "get", "--output", "json"));
                         boolean ok = r.path("errCode").asInt() == 0;
                         sb.append("Token 有效性: ").append(ok ? "有效" : "无效").append("\n");
                         if (ok) {
@@ -107,7 +108,8 @@ public class LiepinMcpServer {
                                 "keyword", Map.of("type", "string", "description", "职位关键词，如 Java开发"),
                                 "address", Map.of("type", "string", "description", "城市，如 北京"),
                                 "salaryFloor", Map.of("type", "integer", "description", "薪资下限(k/月)，如 10"),
-                                "page", Map.of("type", "integer", "description", "页码，0 起")
+                                "page", Map.of("type", "integer", "description", "页码，0 起"),
+                                "user_token", Map.of("type", "string", "description", "用户猎聘 Token（系统注入，无需用户提供）")
                         ),
                         List.of("keyword"), null, null, null))
                 .build();
@@ -116,7 +118,8 @@ public class LiepinMcpServer {
                 .callHandler((exchange, request) -> {
                     Map<String, Object> a = request.arguments();
                     try {
-                        JsonNode r = doSearch(runner,
+                        String userToken = userToken(a);
+                        JsonNode r = doSearch(runner, userToken,
                                 String.valueOf(a.get("keyword")),
                                 a.get("address") == null ? "" : String.valueOf(a.get("address")),
                                 a.get("salaryFloor") == null ? 0 : ((Number) a.get("salaryFloor")).intValue(),
@@ -165,7 +168,8 @@ public class LiepinMcpServer {
                                 // 覆盖参数解析失败：忽略，用默认画像（坏参数不挂工具）
                             }
                         }
-                        JsonNode r = doSearch(runner,
+                        String userToken = userToken(a);
+                        JsonNode r = doSearch(runner, userToken,
                                 String.valueOf(a.get("keyword")),
                                 a.get("address") == null ? "" : String.valueOf(a.get("address")),
                                 0,
@@ -221,7 +225,8 @@ public class LiepinMcpServer {
                 .inputSchema(new McpSchema.JsonSchema("object",
                         Map.of(
                                 "jobId", Map.of("type", "integer", "description", "职位 ID（从搜索结果取）"),
-                                "jobType", Map.of("type", "string", "description", "职位类型（从搜索结果取，jobKind）")
+                                "jobType", Map.of("type", "string", "description", "职位类型（从搜索结果取，jobKind）"),
+                                "user_token", Map.of("type", "string", "description", "用户猎聘 Token（系统注入，无需用户提供）")
                         ),
                         List.of("jobId", "jobType"), null, null, null))
                 .build();
@@ -247,7 +252,8 @@ public class LiepinMcpServer {
                         long delay = MIN_APPLY_INTERVAL_MS
                                 + (long) (Math.random() * (MAX_APPLY_INTERVAL_MS - MIN_APPLY_INTERVAL_MS));
                         Thread.sleep(delay);
-                        JsonNode r = mapper.readTree(runner.run("job", "apply",
+                        String userToken = userToken(a);
+                        JsonNode r = mapper.readTree(runner.runAs(userToken, "job", "apply",
                                 "--job-id", String.valueOf(jobId),
                                 "--job-kind", jobType, "--output", "json"));
                         if (r.path("errCode").asInt() != 0) {
@@ -266,6 +272,12 @@ public class LiepinMcpServer {
                 .build();
     }
 
+    // 从工具参数取用户 Token（多用户：主程序按 userId 注入 user_token，人人用自己的猎聘账号）
+    private static String userToken(Map<String, Object> a) {
+        Object t = a == null ? null : a.get("user_token");
+        return t == null || String.valueOf(t).isBlank() ? null : String.valueOf(t);
+    }
+
     private static volatile ApplyLimiter applyLimiter;
 
     // 单例限次器（工具 handler 是静态的，进程内共享一个计数）
@@ -281,14 +293,14 @@ public class LiepinMcpServer {
     }
 
     // 共用：拼命令 → 跑 CLI → 解析成 data 节点（list 或 result 的容器）
-    private static JsonNode doSearch(LiepinCliRunner runner, String keyword, String address, int salary, int page) throws Exception {
+    private static JsonNode doSearch(LiepinCliRunner runner, String userToken, String keyword, String address, int salary, int page) throws Exception {
         List<String> cmd = new java.util.ArrayList<>(List.of(
                 "job", "search", "--job-name", keyword, "--output", "json"));
         if (!address.isBlank()) cmd.addAll(List.of("--address", address));
         if (salary > 0) cmd.addAll(List.of("--salary-floor", String.valueOf(salary)));
         cmd.addAll(List.of("--page", String.valueOf(page)));
 
-        JsonNode r = mapper.readTree(runner.run(cmd.toArray(new String[0])));
+        JsonNode r = mapper.readTree(runner.runAs(userToken, cmd.toArray(new String[0])));
         if (r.path("errCode").asInt() != 0) {
             throw new RuntimeException("猎聘返回错误: " + r.path("data").path("result").asText());
         }
@@ -317,7 +329,8 @@ public class LiepinMcpServer {
                 .tool(tool)
                 .callHandler((exchange, request) -> {
                     try {
-                        JsonNode r = parse(mapper, runner.run("resume", "get", "--output", "json"));
+                        String userToken = userToken(request.arguments());
+                        JsonNode r = parse(mapper, runner.runAs(userToken, "resume", "get", "--output", "json"));
                         if (r.path("errCode").asInt() != 0) {
                             return error("猎聘返回错误: " + r.path("data").path("result").asText());
                         }

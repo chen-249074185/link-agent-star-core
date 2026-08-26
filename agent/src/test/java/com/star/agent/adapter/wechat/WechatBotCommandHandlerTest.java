@@ -52,7 +52,29 @@ class WechatBotCommandHandlerTest {
 
         assertNull(handler.handle("你好", "u1"));
         assertNull(handler.handle("#abc", "u1"), "未识别的 # 开头词不是命令");
-        assertEquals("已登出".length() > 0, true);
         verify(botManager, never()).launchNew();
+    }
+
+    // 用户直接发猎聘 Token（JWT 格式）→ 自动保存到发送者自己的配置（不依赖命令前缀）
+    @Test
+    void jwtMessage_autoSavesToken() {
+        WechatBotCommandHandler handler = new WechatBotCommandHandler("bot-1", botManager);
+        String jwt = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ1c2VyIn0.dGhpc2lzYXRlc3R0b2tlbnN0cmluZzEyMzQ1Ng";
+
+        String reply = handler.handle(jwt, "wx_u1");
+
+        assertTrue(reply.contains("已保存你的猎聘 Token"), "应确认保存");
+        verify(botManager).saveUserToken("wx_u1", jwt);   // 存发送者自己的 userId
+    }
+
+    // 普通中文消息不是 JWT → 放行（格式特征区分，不误判）
+    @Test
+    void nonJwtMessage_notSaved() {
+        WechatBotCommandHandler handler = new WechatBotCommandHandler("bot-1", botManager);
+
+        assertNull(handler.handle("今天天气怎么样", "u1"));
+        assertNull(handler.handle("帮我看看我的简历", "u1"));
+        verify(botManager, never()).saveUserToken(org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.anyString());
     }
 }

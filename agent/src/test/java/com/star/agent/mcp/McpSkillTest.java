@@ -5,6 +5,7 @@ import com.star.agent.skill.SkillContext;
 import com.star.agent.skill.SkillMeta;
 import com.star.agent.skill.SkillResult;
 import com.star.agent.skill.SkillType;
+import com.star.agent.user.UserConfigRepository;
 import io.modelcontextprotocol.spec.McpSchema;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -18,7 +19,10 @@ import java.util.Map;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -118,5 +122,51 @@ class McpSkillTest {
                         Map.of("user_id", Map.of("type", "string"), "kb_id", Map.of("type", "string")),
                         List.of("user_id", "kb_id"), null, null, null))
                 .build();
+    }
+
+    // 猎聘域：未配置 Token → 明确拒绝并引导配置，技能不执行（用户私有数据，绝不回退用别人的）
+    @Test
+    void liepinTool_withoutUserToken_denied() {
+        when(connection.serverName()).thenReturn("liepin-mcp");
+        UserConfigRepository repo = mock(UserConfigRepository.class);
+        when(repo.findLiepinToken("u1")).thenReturn(null);
+        McpSkill liepin = new McpSkill(searchTool(), connection, repo);
+
+        SkillResult result = liepin.execute(new SkillContext("u1", "{}", "t1"));
+
+        assertFalse(result.success());
+        assertTrue(result.content().contains("还没配置猎聘 Token"), "应引导配置");
+        verify(connection, never()).callTool(anyString(), org.mockito.ArgumentMatchers.anyMap());
+    }
+
+    // 猎聘域：已配置 → 注入该用户自己的 Token（user_token 参数，LLM 不可见）
+    @Test
+    void liepinTool_withUserToken_injected() {
+        when(connection.serverName()).thenReturn("liepin-mcp");
+        when(connection.callTool(eq("rag_search"), org.mockito.ArgumentMatchers.anyMap()))
+                .thenReturn("ok");
+        UserConfigRepository repo = mock(UserConfigRepository.class);
+        when(repo.findLiepinToken("u1")).thenReturn("userA-token");
+        when(repo.findLiepinToken("u2")).thenReturn("userB-token");
+        McpSkill liepin = new McpSkill(searchTool(), connection, repo);
+
+        liepin.execute(new SkillContext("u1", "{}", "t1"));
+        liepin.execute(new SkillContext("u2", "{}", "t2"));
+
+        verify(connection).callTool(eq("rag_search"),
+                org.mockito.ArgumentMatchers.argThat(args -> "userA-token".equals(args.get("user_token"))));
+        verify(connection).callTool(eq("rag_search"),
+                org.mockito.ArgumentMatchers.argThat(args -> "userB-token".equals(args.get("user_token"))));
+    }
+
+    // 猎聘工具参数过滤：user_token 不暴露给 LLM（防乱填他人 Token）
+    @Test
+    void liepinTool_metaHidesUserToken() {
+        when(connection.serverName()).thenReturn("liepin-mcp");
+        McpSkill liepin = new McpSkill(searchTool(), connection, null);
+
+        Map<?, ?> properties = (Map<?, ?>) liepin.meta().parameters().get("properties");
+
+        assertFalse(properties.containsKey("user_token"), "user_token 不应暴露给 LLM");
     }
 }

@@ -1,6 +1,7 @@
 package com.star.agent.mcp;
 
 import com.star.agent.skill.SkillRegistry;
+import com.star.agent.user.UserConfigRepository;
 import io.modelcontextprotocol.spec.McpSchema;
 import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
@@ -20,10 +21,13 @@ public class McpSkillRegistrar {
 
     private final List<McpConnection> connections;   // 全部 MCP server 连接（按 server 配置装配）
     private final SkillRegistry skillRegistry;
+    private final UserConfigRepository userConfigRepository;   // 猎聘域注入每用户自己的 Token
 
-    public McpSkillRegistrar(List<McpConnection> connections, SkillRegistry skillRegistry) {
+    public McpSkillRegistrar(List<McpConnection> connections, SkillRegistry skillRegistry,
+                             UserConfigRepository userConfigRepository) {
         this.connections = connections;
         this.skillRegistry = skillRegistry;
+        this.userConfigRepository = userConfigRepository;
     }
 
     @PostConstruct
@@ -31,7 +35,7 @@ public class McpSkillRegistrar {
         for (McpConnection connection : connections) {
             List<McpSchema.Tool> tools = connection.connect();   // 握手失败返回空表（R9 不崩）
             for (McpSchema.Tool tool : tools) {
-                skillRegistry.register(new McpSkill(tool, connection));
+                skillRegistry.register(new McpSkill(tool, connection, userConfigRepository));
                 logger.info("MCP 技能注册: mcp_{} (来源 {})", tool.name(), connection.serverName());
             }
             if (tools.isEmpty()) {
