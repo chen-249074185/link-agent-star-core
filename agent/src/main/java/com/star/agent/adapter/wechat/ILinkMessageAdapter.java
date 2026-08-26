@@ -45,6 +45,14 @@ public class ILinkMessageAdapter implements MessageAdapter {
             long cost = System.currentTimeMillis() - t0;
             logger.info("[取证] getUpdates 耗时 {}ms 返回 {} 条", cost, msgs == null ? 0 : msgs.size());
             if (msgs != null) {
+                long now = System.currentTimeMillis();
+                for (WeixinMessage m : msgs) {
+                    // 消息服务端创建时间 vs 现在：差值=消息在服务端滞留时长（定位延迟在服务端还是拉取环节）
+                    if (m.getCreate_time_ms() != null) {
+                        logger.info("[取证] 消息 {} 服务端滞留 {}s（创建于 {} 前）", m.getMessage_id(),
+                                (now - m.getCreate_time_ms()) / 1000, (now - m.getCreate_time_ms()) / 1000);
+                    }
+                }
                 for (WeixinMessage msg : msgs) {
                     pending.offer(convert(msg));
                 }
