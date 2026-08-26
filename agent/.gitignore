@@ -45,3 +45,6 @@ sdk-src/
 # rag-mcp 运行时数据（rag.db 用户知识库索引 / vec0.dll 运行复制），不入库
 rag_data/rag.db
 rag_data/vec0.dll
+
+# 稳定性监控产物（GC日志/堆采样），不入库
+logs/
