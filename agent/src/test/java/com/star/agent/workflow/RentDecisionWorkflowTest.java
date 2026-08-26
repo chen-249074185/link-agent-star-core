@@ -15,7 +15,8 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doReturn;
 
 // 租房决策主线编排测试：EXT 拦截 + 全链路跑通出报告
-@SpringBootTest
+// 显式锁 mock 模式：本测试测编排逻辑，不依赖真实 MCP（真实模式由 M3WorkflowAcceptanceTest 手动验收覆盖）
+@SpringBootTest(properties = "linkagent.workflow.mock-enabled=true")
 class RentDecisionWorkflowTest {
 
     @Autowired
