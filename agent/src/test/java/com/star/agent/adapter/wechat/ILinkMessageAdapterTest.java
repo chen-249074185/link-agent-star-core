@@ -16,6 +16,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -229,5 +230,33 @@ class ILinkMessageAdapterTest {
         assertEquals(1, ILinkMessageAdapter.split("短文本").size());
         assertEquals(3, ILinkMessageAdapter.split("字".repeat(450)).size());
         assertEquals(1, ILinkMessageAdapter.split("字".repeat(200)).size(), "正好 200 字一片");
+    }
+
+    // 边界感知：句子在句号后断，不能把一句话从中间切断（用户反馈的"断句丑"问题）
+    @Test
+    void split_prefersSentenceBoundary() {
+        String text = "这是第一句话。这是第二句话！这是第三句话？" + "这是第四句话。".repeat(30);
+        List<String> chunks = ILinkMessageAdapter.split(text);
+
+        for (String chunk : chunks) {
+            if (chunk.length() == ILinkMessageAdapter.CHUNK_SIZE) {
+                continue;   // 无边界时硬切是兜底（本用例有标点，不应出现硬切）
+            }
+            assertTrue(chunk.endsWith("。") || chunk.endsWith("！") || chunk.endsWith("？") || chunk.endsWith("……（内容过长已截断）"),
+                    "分片应在句子边界断开，不能切在句子中间");
+        }
+    }
+
+    // 边界感知：段落（换行）优先于句子——每片尽量在换行处断
+    @Test
+    void split_prefersLineBreak() {
+        String line = "这是一行一百字的内容。" + "好".repeat(90);
+        String text = (line + "\n").repeat(5) + "最后一行。";
+        List<String> chunks = ILinkMessageAdapter.split(text);
+
+        // 每片若超过 200 字说明吞了换行（不该发生）；换行不应出现在片首
+        for (String chunk : chunks) {
+            assertFalse(chunk.startsWith("\n"), "换行不应出现在片首（切在换行后）");
+        }
     }
 }

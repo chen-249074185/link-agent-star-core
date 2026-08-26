@@ -130,24 +130,60 @@ public class ILinkMessageAdapter implements MessageAdapter {
         }
     }
 
-    // 长文本分片：按 CHUNK_SIZE 切块；超 MAX_CHUNKS 截断并追加提示（截断保护）
-    static List<String> split(String text) {
-        List<String> chunks = new LinkedList<>();
-        int total = text.length();
-        boolean truncated = false;
-        for (int start = 0; start < total; start += CHUNK_SIZE) {
-            if (chunks.size() >= MAX_CHUNKS) {
-                truncated = true;
-                break;
+    // 长文本分片（边界感知）：每片尽量接近 CHUNK_SIZE，但优先在段落/句子边界断开，
+// 避免把一句话从中间切断（硬切 200 字会让下一条开头是半句话，阅读很丑）
+// 边界优先级：换行 > 句子标点（。！？!）> 逗号/空格；无任何边界才硬切兜底
+// 超 MAX_CHUNKS 截断并追加提示（截断保护）
+static List<String> split(String text) {
+    List<String> chunks = new LinkedList<>();
+    int total = text.length();
+    int start = 0;
+    boolean truncated = false;
+    while (start < total) {
+        if (chunks.size() >= MAX_CHUNKS) {
+            truncated = true;
+            break;
+        }
+        int end = Math.min(start + CHUNK_SIZE, total);
+        if (end < total) {
+            int boundary = findBoundary(text, start, end);
+            if (boundary > start) {
+                end = boundary + 1;   // 边界字符（句号等）留在本片尾部
             }
-            int end = Math.min(start + CHUNK_SIZE, total);
-            chunks.add(text.substring(start, end));
         }
-        if (truncated) {
-            String last = chunks.get(chunks.size() - 1);
-            chunks.set(chunks.size() - 1, last + "……（内容过长已截断）");
-            logger.warn("长消息分片截断：原文 {} 字，只发前 {} 片", total, MAX_CHUNKS);
-        }
-        return chunks;
+        chunks.add(text.substring(start, end));
+        start = end;
     }
+    if (truncated) {
+        String last = chunks.get(chunks.size() - 1);
+        chunks.set(chunks.size() - 1, last + "……（内容过长已截断）");
+        logger.warn("长消息分片截断：原文 {} 字，只发前 {} 片", total, MAX_CHUNKS);
+    }
+    return chunks;
+}
+
+// 在 [from, to) 范围内找最后一个"语义边界"位置（返回边界字符索引）
+// 同等级边界取靠后的（每片尽量装满）；返回 -1 = 无边界（调用方硬切）
+static int findBoundary(String text, int from, int to) {
+    int found = -1;
+    int bestRank = -1;
+    for (int i = from; i < to; i++) {
+        int rank;
+        char c = text.charAt(i);
+        if (c == '\n' || c == '\r') {
+            rank = 3;                       // 换行 = 最强边界（段落/行）
+        } else if (c == '。' || c == '！' || c == '？' || c == '!') {
+            rank = 2;                       // 句子结尾标点
+        } else if (c == '；' || c == ';' || c == '.' || c == '，' || c == ',' || c == '、' || c == ' ') {
+            rank = 1;                       // 逗号/空格类
+        } else {
+            rank = 0;
+        }
+        if (rank >= bestRank && rank > 0) {
+            bestRank = rank;
+            found = i;
+        }
+    }
+    return found;
+}
 }
