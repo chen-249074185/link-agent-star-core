@@ -1,17 +1,17 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
-<mapper namespace="com.star.agent.memory.DailySummaryMapper">
+<mapper namespace="com.star.agent.memory.DailySummaryDao">
 
     <!-- 存一条摘要；UNIQUE(user_id, summary_date) 兜底防重复 -->
-    <insert id="insert" parameterType="com.star.agent.memory.DailySummary"
+    <insert id="insert" parameterType="com.star.agent.memory.DailySummaryDo"
             useGeneratedKeys="true" keyProperty="id">
         INSERT INTO daily_summary (user_id, summary_date, content)
         VALUES (#{userId}, #{summaryDate}, #{content})
     </insert>
 
     <!-- 查某用户最近 limit 条摘要：时间倒序 -->
-    <select id="findByUserId" resultType="com.star.agent.memory.DailySummary">
+    <select id="findByUserId" resultType="com.star.agent.memory.DailySummaryDo">
         SELECT id, user_id, summary_date, content, created_at
         FROM daily_summary
         WHERE user_id = #{userId}

@@ -6,18 +6,18 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
-// 短期记忆 Mapper：conversation 表的增查（SQL 写在 resources/mapper/ConversationMapper.xml）
+// 短期记忆 Mapper：conversation 表的增查（SQL 写在 resources/mapper/ConversationDao.xml）
 @Mapper
-public interface ConversationMapper {
+public interface ConversationDao {
 
     // 存一条对话（user/assistant 都要落库）
-    int insert(Conversation conversation);
+    int insert(ConversationDo conversation);
 
     // 查某用户最近的对话（按时间倒序，limit 条；用户端历史记录也用这个）
-    List<Conversation> findByUserId(String userId, int limit);
+    List<ConversationDo> findByUserId(String userId, int limit);
 
     // 查某用户某一天的对话（当日压缩取料用）
-    List<Conversation> findByUserIdAndDate(String userId, LocalDate date);
+    List<ConversationDo> findByUserIdAndDate(String userId, LocalDate date);
 
     // 查所有有对话记录的用户 id（补压时遍历用）
     List<String> findDistinctUserIds();

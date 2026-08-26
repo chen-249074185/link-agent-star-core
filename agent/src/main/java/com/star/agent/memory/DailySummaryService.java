@@ -19,14 +19,14 @@ public class DailySummaryService {
 
     private static final Logger logger = LoggerFactory.getLogger(DailySummaryService.class);
 
-    private final ConversationMapper conversationMapper;
-    private final DailySummaryMapper summaryMapper;
+    private final ConversationDao conversationDao;
+    private final DailySummaryDao summaryMapper;
     private final LlmClient llmClient;
 
-    public DailySummaryService(ConversationMapper conversationMapper,
-                               DailySummaryMapper summaryMapper,
+    public DailySummaryService(ConversationDao conversationDao,
+                               DailySummaryDao summaryMapper,
                                @Qualifier("deepSeekLlmClient") LlmClient llmClient) {
-        this.conversationMapper = conversationMapper;
+        this.conversationDao = conversationDao;
         this.summaryMapper = summaryMapper;
         this.llmClient = llmClient;
     }
@@ -56,7 +56,7 @@ public class DailySummaryService {
     // 压一天：取流水 → LLM 提炼（含闲聊遗忘过滤）→ 存摘要；任何一步失败只记日志不崩
     void compressDay(String userId, LocalDate date) {
         try {
-            List<Conversation> day = conversationMapper.findByUserIdAndDate(userId, date);
+            List<ConversationDo> day = conversationDao.findByUserIdAndDate(userId, date);
             if (day.isEmpty()) {
                 logger.info("{} 当天无对话，跳过压缩", date);
                 return;
@@ -66,7 +66,7 @@ public class DailySummaryService {
                 logger.warn("{} 压缩摘要为空，跳过", date);
                 return;
             }
-            DailySummary s = new DailySummary();
+            DailySummaryDo s = new DailySummaryDo();
             s.setUserId(userId);
             s.setSummaryDate(date);
             s.setContent(summary);
@@ -78,9 +78,9 @@ public class DailySummaryService {
     }
 
     // 把一天的流水交给 LLM：只留关键决定/偏好/待办/事实，寒暄闲聊全忘（无效闲聊遗忘规则）
-    String summarize(List<Conversation> day) {
+    String summarize(List<ConversationDo> day) {
         StringBuilder sb = new StringBuilder();
-        for (Conversation c : day) {
+        for (ConversationDo c : day) {
             sb.append(c.getRole()).append(": ").append(c.getContent()).append("\n");
         }
         List<ChatMessage> messages = List.of(

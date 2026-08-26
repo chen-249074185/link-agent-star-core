@@ -17,25 +17,25 @@ public class MemoryCompressionScheduler implements ApplicationRunner {
     private static final Logger logger = LoggerFactory.getLogger(MemoryCompressionScheduler.class);
 
     private final DailySummaryService dailySummaryService;
-    private final ConversationMapper conversationMapper;
+    private final ConversationDao conversationDao;
 
     public MemoryCompressionScheduler(DailySummaryService dailySummaryService,
-                                      ConversationMapper conversationMapper) {
+                                      ConversationDao conversationDao) {
         this.dailySummaryService = dailySummaryService;
-        this.conversationMapper = conversationMapper;
+        this.conversationDao = conversationDao;
     }
 
     // ① 启动补压：Spring 起来后自动跑一次，把缺口日期全补上
     @Override
     public void run(ApplicationArguments args) {
         logger.info("启动补偿：检查每日摘要缺口...");
-        dailySummaryService.compressMissing(conversationMapper.findDistinctUserIds());
+        dailySummaryService.compressMissing(conversationDao.findDistinctUserIds());
     }
 
     // ② 定时 00:30：程序刚好开着就顺手压，错过也无妨（启动/惰性会补）
     @Scheduled(cron = "0 30 0 * * ?")
     public void scheduledCompress() {
         logger.info("定时压缩：00:30 例行检查");
-        dailySummaryService.compressMissing(conversationMapper.findDistinctUserIds());
+        dailySummaryService.compressMissing(conversationDao.findDistinctUserIds());
     }
 }

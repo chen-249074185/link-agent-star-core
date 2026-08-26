@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
-<mapper namespace="com.star.agent.adapter.wechat.WechatSessionMapper">
+<mapper namespace="com.star.agent.adapter.wechat.WechatSessionDao">
 
     <!-- 存/更新：bot_id 唯一键冲突 → 覆盖旧会话（顶号）并刷新 saved_at -->
-    <insert id="upsert" parameterType="com.star.agent.adapter.wechat.WechatSession">
+    <insert id="upsert" parameterType="com.star.agent.adapter.wechat.WechatSessionDo">
         INSERT INTO wechat_session (bot_id, user_id, bot_token, resume_json, saved_at)
         VALUES (#{botId}, #{userId}, #{botToken}, #{resumeJson}, NOW())
         ON DUPLICATE KEY UPDATE
@@ -15,14 +15,14 @@
     </insert>
 
     <!-- 按 botId 查会话（免扫码恢复用） -->
-    <select id="findByBotId" resultType="com.star.agent.adapter.wechat.WechatSession">
+    <select id="findByBotId" resultType="com.star.agent.adapter.wechat.WechatSessionDo">
         SELECT id, bot_id, user_id, bot_token, resume_json, saved_at
         FROM wechat_session
         WHERE bot_id = #{botId}
     </select>
 
     <!-- 查全部会话（启动扫表多 Bot 恢复用） -->
-    <select id="findAll" resultType="com.star.agent.adapter.wechat.WechatSession">
+    <select id="findAll" resultType="com.star.agent.adapter.wechat.WechatSessionDo">
         SELECT id, bot_id, user_id, bot_token, resume_json, saved_at
         FROM wechat_session
         ORDER BY saved_at

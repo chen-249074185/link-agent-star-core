@@ -20,7 +20,7 @@ class ShortTermMemoryTest {
     private ShortTermMemory memory;
 
     @Autowired
-    private ConversationMapper mapper;
+    private ConversationDao mapper;
 
     private final String userId = "itest:user" + System.currentTimeMillis();  // 唯一用户，避免脏数据
 
@@ -43,12 +43,12 @@ class ShortTermMemoryTest {
         memory.saveAsync(userId, "assistant", "好的，杭州哪个区？");
         awaitCount(2);
 
-        List<Conversation> history = memory.findHistory(userId, 10);
+        List<ConversationDo> history = memory.findHistory(userId, 10);
         assertEquals(2, history.size());
         // 两条都落库：user 一条 + assistant 一条（顺序不定，按集合断言）
-        Set<String> roles = history.stream().map(Conversation::getRole).collect(Collectors.toSet());
+        Set<String> roles = history.stream().map(ConversationDo::getRole).collect(Collectors.toSet());
         assertEquals(Set.of("user", "assistant"), roles);
-        Set<String> contents = history.stream().map(Conversation::getContent).collect(Collectors.toSet());
+        Set<String> contents = history.stream().map(ConversationDo::getContent).collect(Collectors.toSet());
         assertEquals(Set.of("我想在杭州租房", "好的，杭州哪个区？"), contents);
     }
 
@@ -59,10 +59,10 @@ class ShortTermMemoryTest {
         }
         awaitCount(5);
 
-        List<Conversation> history = memory.findHistory(userId, 3);
+        List<ConversationDo> history = memory.findHistory(userId, 3);
         assertEquals(3, history.size());   // LIMIT 生效：5 条里只取 3 条
         // 取出的 3 条都来自这 5 条（异步并发写入顺序不定，不断言具体哪 3 条）
-        Set<String> contents = history.stream().map(Conversation::getContent).collect(Collectors.toSet());
+        Set<String> contents = history.stream().map(ConversationDo::getContent).collect(Collectors.toSet());
         assertTrue(contents.stream().allMatch(c -> c.startsWith("问题")));
         assertEquals(3, contents.size());
         assertTrue(history.stream().allMatch(c -> c.getCreatedAt() != null));  // 时间自动填上
@@ -70,7 +70,7 @@ class ShortTermMemoryTest {
 
     @Test
     void findHistory_unknownUser_returnsEmpty() {
-        List<Conversation> history = memory.findHistory("no-such-user", 10);
+        List<ConversationDo> history = memory.findHistory("no-such-user", 10);
         assertEquals(0, history.size());
     }
 }

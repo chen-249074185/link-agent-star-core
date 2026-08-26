@@ -5,18 +5,18 @@ import org.apache.ibatis.annotations.Mapper;
 import java.time.LocalDateTime;
 import java.util.List;
 
-// 微信会话 Mapper：wechat_session 表的增删查（SQL 写在 resources/mapper/WechatSessionMapper.xml）
+// 微信会话 Mapper：wechat_session 表的增删查（SQL 写在 resources/mapper/WechatSessionDao.xml）
 @Mapper
-public interface WechatSessionMapper {
+public interface WechatSessionDao {
 
     // 存/更新一条会话（bot_id 唯一键冲突=覆盖旧会话：同 bot 重新登录顶号）
-    int upsert(WechatSession session);
+    int upsert(WechatSessionDo session);
 
     // 按 botId 查会话（免扫码恢复用）
-    WechatSession findByBotId(String botId);
+    WechatSessionDo findByBotId(String botId);
 
     // 查全部会话（启动扫表多 Bot 恢复用）
-    List<WechatSession> findAll();
+    List<WechatSessionDo> findAll();
 
     // 删某 bot 的会话（登出命令/测试清理用）
     int deleteByBotId(String botId);

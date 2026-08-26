@@ -14,16 +14,16 @@ import java.util.List;
 @Component
 public class WechatSessionRepository {
 
-    private final WechatSessionMapper mapper;
+    private final WechatSessionDao mapper;
 
-    public WechatSessionRepository(WechatSessionMapper mapper) {
+    public WechatSessionRepository(WechatSessionDao mapper) {
         this.mapper = mapper;
     }
 
     // 保存会话（登录后调用）：bot_id 唯一键，同 bot 重复登录=顶号覆盖
     public void save(ResumeContext ctx) {
         LoginContext lc = ctx.getLoginContext();
-        WechatSession s = new WechatSession();
+        WechatSessionDo s = new WechatSessionDo();
         s.setBotId(lc.getBotId());
         s.setUserId(lc.getUserId());
         s.setBotToken(lc.getBotToken());
@@ -37,7 +37,7 @@ public class WechatSessionRepository {
 
     // 恢复会话（免扫码用）；无记录或 JSON 损坏 → null（调用方转扫码）
     public ResumeContext load(String botId) {
-        WechatSession s = mapper.findByBotId(botId);
+        WechatSessionDo s = mapper.findByBotId(botId);
         if (s == null) {
             return null;
         }
@@ -46,7 +46,7 @@ public class WechatSessionRepository {
 
     // 全部 botId（启动扫表多 Bot 恢复用）
     public List<String> findAllBotIds() {
-        return mapper.findAll().stream().map(WechatSession::getBotId).toList();
+        return mapper.findAll().stream().map(WechatSessionDo::getBotId).toList();
     }
 
     // 删除某 bot 的会话（登出命令/测试清理用）

@@ -5,7 +5,7 @@ import java.time.LocalDateTime;
 // 微信会话持久化：wechat_session 表（会话恢复数据库版，替代 sessions/ 文件版）
 // 关键：resume 必须带完整 ResumeContext（cursor + 会话上下文），否则服务端不认
 // → 表里除 bot_token/user_id/bot_id/saved_at 基础字段外，额外存 resume_json 全量上下文
-public class WechatSession {
+public class WechatSessionDo {
 
     private Long id;
     private String botId;      // 登录上下文里的 botId（唯一键，同 bot 重复登录=顶号覆盖）

@@ -14,9 +14,9 @@ public class ShortTermMemory {
 
     private static final Logger logger = LoggerFactory.getLogger(ShortTermMemory.class);
 
-    private final ConversationMapper mapper;
+    private final ConversationDao mapper;
 
-    public ShortTermMemory(ConversationMapper mapper) {
+    public ShortTermMemory(ConversationDao mapper) {
         this.mapper = mapper;
     }
 
@@ -24,7 +24,7 @@ public class ShortTermMemory {
     public void saveAsync(String userId, String role, String content) {
         CompletableFuture.runAsync(() -> {
             try {
-                Conversation c = new Conversation();
+                ConversationDo c = new ConversationDo();
                 c.setUserId(userId);
                 c.setRole(role);
                 c.setContent(content);
@@ -36,7 +36,7 @@ public class ShortTermMemory {
     }
 
     // 查某用户最近的历史（倒序，最新的在前）；用户端历史记录页用
-    public List<Conversation> findHistory(String userId, int limit) {
+    public List<ConversationDo> findHistory(String userId, int limit) {
         return mapper.findByUserId(userId, limit);
     }
 }
