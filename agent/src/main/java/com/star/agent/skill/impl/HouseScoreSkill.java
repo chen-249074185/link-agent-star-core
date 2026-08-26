@@ -39,6 +39,13 @@ public class HouseScoreSkill implements Skill {
         try {
             JsonNode node = mapper.readTree(ctx.args());
             JsonNode houses = node.path("houses");
+            // 兼容两种传法：meta 把 houses 声明为 String（JSON Schema 无数组对象类型），
+            // 模型按规范传 {"houses":"[...]"} 字符串 → 需再解析一层；直接传数组也能用
+            if (houses.isTextual()) {
+                houses = mapper.readTree(houses.asText());
+            } else if (node.isArray()) {
+                houses = node;
+            }
             if (!houses.isArray() || houses.isEmpty()) {
                 return new SkillResult(false, "请提供房源列表");
             }

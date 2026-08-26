@@ -126,6 +126,7 @@ public class ChatService {
     private String executeTool(String toolName, String args, String userId, String scene) {
         CheckResult check = governanceKernel.check(toolName, userId, args, scene);
         if (!check.allowed()) {
+            logger.info("工具[{}] 被治理内核拒绝: {}", toolName, check.reason());
             return check.reason();
         }
         Skill skill = skillRegistry.getSkill(toolName);
@@ -133,6 +134,8 @@ public class ChatService {
             return "没有这个技能: " + toolName;
         }
         SkillResult result = skill.execute(new SkillContext(userId, args, ""));
+        logger.info("工具[{}] 执行: 参数{} 结果{}",
+                toolName, args, result.success() ? "成功" : "失败: " + result.content());
         return result.content();
     }
 

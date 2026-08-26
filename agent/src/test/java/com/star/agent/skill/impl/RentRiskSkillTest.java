@@ -27,4 +27,13 @@ class RentRiskSkillTest {
         assertTrue(result.success());
         assertTrue(result.content().contains("未发现明显风险"));
     }
+
+    // LLM 按 meta 规范把 houses 传成字符串（{"houses":"[...]"}"）也必须能检测——同 HouseScoreSkill 同款 bug
+    @Test
+    void housesAsJsonString_stillDetects() {
+        String args = "{\"houses\":\"[{\\\"name\\\":\\\"A\\\",\\\"price\\\":800,\\\"area\\\":15,\\\"commute\\\":90,\\\"rating\\\":3}]\"}";
+        var result = skill.execute(new SkillContext("user1", args, ""));
+        assertTrue(result.success(), "字符串形式的房源列表也应能检测");
+        assertTrue(result.content().contains("价格异常"));
+    }
 }
