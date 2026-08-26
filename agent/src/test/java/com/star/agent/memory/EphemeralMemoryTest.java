@@ -76,6 +76,18 @@ class EphemeralMemoryTest {
         assertTrue(ttl != null && ttl > 1700 && ttl <= 1800);  // 约 30 分钟
     }
 
+    // 删除：清空某用户的瞬时记忆（删除聊天记录命令用）——删了再读应为空
+    @Test
+    void delete_clearsUserMemory() {
+        LlmClient llm = mock(LlmClient.class);
+        EphemeralMemory memory = new EphemeralMemory(redis, new ObjectMapper(), llm);
+        memory.save("itest:user1", List.of(new ChatEntry("user", "要删的对话")));
+
+        memory.delete("itest:user1");
+
+        assertEquals(0, memory.load("itest:user1").size(), "删除后读回应为空");
+    }
+
     @Test
     void append_thenCompressWhenOverLimit() {
         LlmClient llm = mock(LlmClient.class);

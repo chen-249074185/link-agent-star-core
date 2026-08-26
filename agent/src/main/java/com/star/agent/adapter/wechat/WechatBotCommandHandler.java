@@ -8,6 +8,7 @@ import java.util.regex.Pattern;
 
 // 微信聊天命令/自动配置处理：
 //   JWT 格式消息（猎聘 Token）→ 自动保存为发送者自己的猎聘 Token（不依赖命令前缀）
+//   "删除聊天记录" → 清空发送者自己的历史聊天记录（MySQL 对话+摘要+Redis 瞬时记忆）
 //   #newbot → 新增一个 Bot（扫码）；#logout → 登出当前 Bot（删会话）
 // 每次实例绑定一个 botId（由 BotWorker 创建时传入），#logout 才知道停哪个
 public class WechatBotCommandHandler implements BotCommandHandler {
@@ -38,6 +39,12 @@ public class WechatBotCommandHandler implements BotCommandHandler {
             logger.info("用户 {} 已配置猎聘 Token（JWT 自动识别）", userId);
             return "已保存你的猎聘 Token，之后查岗位/简历都走你自己的猎聘账号。"
                     + "（Token 仅本人可用；如需更换，直接再发一次新的即可）";
+        }
+        // ② 删除聊天记录（自然语言，无命令前缀）：清空发送者自己的 MySQL 历史 + Redis 瞬时记忆
+        if (cmd.contains("聊天记录") && (cmd.contains("删除") || cmd.contains("清空"))) {
+            botManager.clearChatHistory(userId);
+            logger.info("用户 {} 删除聊天记录", userId);
+            return "已清空你的聊天记录（对话历史、每日摘要与上下文记忆）";
         }
         if (cmd.startsWith("#newbot")) {
             botManager.launchNew();

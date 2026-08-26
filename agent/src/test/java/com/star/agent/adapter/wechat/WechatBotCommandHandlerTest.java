@@ -77,4 +77,36 @@ class WechatBotCommandHandlerTest {
         verify(botManager, never()).saveUserToken(org.mockito.ArgumentMatchers.anyString(),
                 org.mockito.ArgumentMatchers.anyString());
     }
+
+    // "删除聊天记录"（自然语言，无命令前缀）→ 清空发送者自己的历史聊天记录
+    @Test
+    void deleteChatHistory_clearsUserHistory() {
+        WechatBotCommandHandler handler = new WechatBotCommandHandler("bot-1", botManager);
+
+        String reply = handler.handle("删除聊天记录", "wx_u1");
+
+        assertTrue(reply.contains("已清空"), "应提示已清空");
+        verify(botManager).clearChatHistory("wx_u1");   // 清发送者自己的 userId
+    }
+
+    // "清空聊天记录"变体同样触发
+    @Test
+    void deleteChatHistory_variantTriggers() {
+        WechatBotCommandHandler handler = new WechatBotCommandHandler("bot-1", botManager);
+
+        String reply = handler.handle("帮我清空一下聊天记录", "u1");
+
+        assertTrue(reply.contains("已清空"), "清空变体也应触发");
+        verify(botManager).clearChatHistory("u1");
+    }
+
+    // 普通消息不含触发词 → 放行不误删
+    @Test
+    void deleteChatHistory_notTriggeredByOrdinaryMessages() {
+        WechatBotCommandHandler handler = new WechatBotCommandHandler("bot-1", botManager);
+
+        assertNull(handler.handle("聊天记录里说了什么", "u1"), "只问不删 → 放行");
+        assertNull(handler.handle("把昨天的对话删了", "u1"), "未说'聊天记录' → 放行");
+        verify(botManager, never()).clearChatHistory(org.mockito.ArgumentMatchers.anyString());
+    }
 }

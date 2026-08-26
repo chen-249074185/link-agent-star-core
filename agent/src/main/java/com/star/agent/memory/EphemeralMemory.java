@@ -62,6 +62,15 @@ public class EphemeralMemory {
         }
     }
 
+    // 清空某用户的瞬时记忆（删除聊天记录命令用；只删 MySQL 不删这个，对话里还能"回忆"到旧内容）
+    public void delete(String userId) {
+        try {
+            redis.delete(RedisKeys.memory(userId));
+        } catch (Exception e) {
+            logger.warn("瞬时记忆删除失败: {}", e.getMessage());
+        }
+    }
+
     // 追加一轮对话（用户说 + AI 答），超限自动压缩后入库
     public void append(String userId, String userMessage, String assistantMessage) {
         List<ChatEntry> entries = load(userId);

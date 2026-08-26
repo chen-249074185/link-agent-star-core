@@ -3,6 +3,9 @@ package com.star.agent.adapter.wechat;
 import com.github.wechat.ilink.sdk.ILinkClient;
 import com.star.agent.adapter.DebounceProcessor;
 import com.star.agent.adapter.MultimediaHandler;
+import com.star.agent.memory.EphemeralMemory;
+import com.star.agent.memory.dao.ConversationDao;
+import com.star.agent.memory.dao.DailySummaryDao;
 import com.star.agent.scene.SceneDetector;
 import com.star.agent.service.ChatService;
 import com.star.agent.user.UserConfigRepository;
@@ -26,11 +29,15 @@ public class BotManager {
     private final MultimediaHandler multimediaHandler;
     private final DebounceProcessor debounce;
     private final UserConfigRepository userConfigRepository;
+    private final ConversationDao conversationDao;
+    private final DailySummaryDao dailySummaryDao;
+    private final EphemeralMemory ephemeralMemory;
 
     public BotManager(ChatService chatService, SceneDetector sceneDetector,
                       WechatSessionRepository sessionRepository, BotRegistry botRegistry,
                       MultimediaHandler multimediaHandler, UserConfigRepository userConfigRepository,
-                      DebounceProcessor debounce) {
+                      DebounceProcessor debounce, ConversationDao conversationDao,
+                      DailySummaryDao dailySummaryDao, EphemeralMemory ephemeralMemory) {
         this.chatService = chatService;
         this.sceneDetector = sceneDetector;
         this.sessionRepository = sessionRepository;
@@ -38,6 +45,9 @@ public class BotManager {
         this.multimediaHandler = multimediaHandler;
         this.userConfigRepository = userConfigRepository;
         this.debounce = debounce;
+        this.conversationDao = conversationDao;
+        this.dailySummaryDao = dailySummaryDao;
+        this.ephemeralMemory = ephemeralMemory;
     }
 
     // 启动恢复：扫表逐个免扫码恢复；空表 → 起一个新 Bot 等扫码
@@ -75,6 +85,14 @@ public class BotManager {
     // 取某用户的猎聘 Token（McpSkill 注入用）；未配置返回 null
     public String findUserToken(String userId) {
         return userConfigRepository.findLiepinToken(userId);
+    }
+
+    // 清空某用户的聊天记录（"删除聊天记录"命令）：MySQL 短期记忆 + 每日摘要 + Redis 瞬时记忆三处全清
+    public void clearChatHistory(String userId) {
+        int conversations = conversationDao.deleteByUserId(userId);
+        int summaries = dailySummaryDao.deleteByUserId(userId);
+        ephemeralMemory.delete(userId);
+        logger.info("用户 {} 聊天记录已清空：对话 {} 条、每日摘要 {} 条、瞬时记忆已删", userId, conversations, summaries);
     }
 
     private void startBot(String botId) {
