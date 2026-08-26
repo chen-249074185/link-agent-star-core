@@ -182,4 +182,52 @@ class ILinkMessageAdapterTest {
         assertEquals(MediaType.IMAGE, am.mediaType());
         assertNull(am.mediaBytes());
     }
+
+    // 分片模拟流式：超长回复按 200 字逐片发送（收集全部 sendText 拼回原文）+ typing 状态包裹
+    @Test
+    void send_longText_chunkedWithTyping() throws Exception {
+        adapter.attach(client);
+        String longText = "字".repeat(500);
+        java.util.List<String> sent = new java.util.ArrayList<>();
+        org.mockito.ArgumentCaptor<String> captor = org.mockito.ArgumentCaptor.forClass(String.class);
+        org.mockito.Mockito.doAnswer(inv -> {
+            sent.add(inv.getArgument(1));
+            return null;
+        }).when(client).sendText(org.mockito.ArgumentMatchers.eq("u1"), captor.capture());
+
+        adapter.send("u1", longText);
+
+        verify(client).startTyping("u1");
+        verify(client).stopTyping("u1");
+        assertEquals(3, sent.size(), "500 字应切 200+200+100 三片");
+        assertTrue(sent.get(0).length() <= ILinkMessageAdapter.CHUNK_SIZE, "每片不超过分片大小");
+        assertEquals(longText, String.join("", sent), "分片拼回应与原文一致");
+    }
+
+    // 长消息截断保护：超过 MAX_CHUNKS 片 → 截断 + 尾部提示
+    @Test
+    void send_overLimit_truncates() throws Exception {
+        adapter.attach(client);
+        String huge = "字".repeat(ILinkMessageAdapter.CHUNK_SIZE * ILinkMessageAdapter.MAX_CHUNKS + 1);
+
+        java.util.List<String> sent = new java.util.ArrayList<>();
+        org.mockito.Mockito.doAnswer(inv -> {
+            sent.add(inv.getArgument(1));
+            return null;
+        }).when(client).sendText(org.mockito.ArgumentMatchers.eq("u1"), org.mockito.ArgumentMatchers.anyString());
+
+        adapter.send("u1", huge);
+
+        assertEquals(ILinkMessageAdapter.MAX_CHUNKS, sent.size(), "最多发 MAX_CHUNKS 片");
+        assertTrue(sent.get(sent.size() - 1).contains("已截断"), "末片应带截断提示");
+    }
+
+    // 分片工具：空串/短文本不分片，长文本按 200 字切
+    @Test
+    void split_chunksBySize() {
+        assertEquals(0, ILinkMessageAdapter.split("").size());
+        assertEquals(1, ILinkMessageAdapter.split("短文本").size());
+        assertEquals(3, ILinkMessageAdapter.split("字".repeat(450)).size());
+        assertEquals(1, ILinkMessageAdapter.split("字".repeat(200)).size(), "正好 200 字一片");
+    }
 }
