@@ -1,4 +1,6 @@
 package com.star.agent.memory;
+import com.star.agent.memory.dao.ConversationDao;
+import com.star.agent.memory.domain.ConversationDo;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;

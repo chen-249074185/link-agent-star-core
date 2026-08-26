@@ -1,4 +1,4 @@
-package com.star.agent.adapter.wechat;
+package com.star.agent.adapter.wechat.domain;
 
 import java.time.LocalDateTime;
 

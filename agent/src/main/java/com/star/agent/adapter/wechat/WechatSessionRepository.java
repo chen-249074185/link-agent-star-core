@@ -1,4 +1,6 @@
 package com.star.agent.adapter.wechat;
+import com.star.agent.adapter.wechat.dao.WechatSessionDao;
+import com.star.agent.adapter.wechat.domain.WechatSessionDo;
 
 import com.github.wechat.ilink.sdk.core.context.ResumeContext;
 import com.github.wechat.ilink.sdk.core.login.LoginContext;

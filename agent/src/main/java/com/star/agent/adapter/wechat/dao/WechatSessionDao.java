@@ -1,4 +1,5 @@
-package com.star.agent.adapter.wechat;
+package com.star.agent.adapter.wechat.dao;
+import com.star.agent.adapter.wechat.domain.WechatSessionDo;
 
 import org.apache.ibatis.annotations.Mapper;
 

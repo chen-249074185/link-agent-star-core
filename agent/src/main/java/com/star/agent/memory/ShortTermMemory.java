@@ -1,4 +1,6 @@
 package com.star.agent.memory;
+import com.star.agent.memory.dao.ConversationDao;
+import com.star.agent.memory.domain.ConversationDo;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

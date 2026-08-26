@@ -1,4 +1,8 @@
 package com.star.agent.memory;
+import com.star.agent.memory.dao.ConversationDao;
+import com.star.agent.memory.dao.DailySummaryDao;
+import com.star.agent.memory.domain.ConversationDo;
+import com.star.agent.memory.domain.DailySummaryDo;
 
 import com.star.agent.llm.ChatResponse;
 import com.star.agent.llm.LlmClient;

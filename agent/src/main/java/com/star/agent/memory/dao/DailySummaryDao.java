@@ -1,4 +1,5 @@
-package com.star.agent.memory;
+package com.star.agent.memory.dao;
+import com.star.agent.memory.domain.DailySummaryDo;
 
 import org.apache.ibatis.annotations.Mapper;
 

@@ -1,16 +1,15 @@
-package com.star.agent.memory;
+package com.star.agent.memory.domain;
 
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 
-// 每日压缩摘要：某用户某天的对话要点（LLM 提炼，跨天恢复记忆时给 AI 看）
-public class DailySummaryDo {
+// 短期记忆：一条永久落库的对话记录（conversation 表）
+public class ConversationDo {
 
     private Long id;
-    private String userId;
-    private LocalDate summaryDate;    // 哪天对话的摘要
-    private String content;           // 摘要正文（LLM 输出）
-    private LocalDateTime createdAt;
+    private String userId;    // 谁说的（多用户隔离）
+    private String role;      // user / assistant / system
+    private String content;   // 消息正文
+    private LocalDateTime createdAt;   // 入库时间
 
     public Long getId() {
         return id;
@@ -28,12 +27,12 @@ public class DailySummaryDo {
         this.userId = userId;
     }
 
-    public LocalDate getSummaryDate() {
-        return summaryDate;
+    public String getRole() {
+        return role;
     }
 
-    public void setSummaryDate(LocalDate summaryDate) {
-        this.summaryDate = summaryDate;
+    public void setRole(String role) {
+        this.role = role;
     }
 
     public String getContent() {
