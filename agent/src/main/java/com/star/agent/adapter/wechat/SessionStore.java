@@ -20,6 +20,7 @@ import java.util.Map;
 // 登录信息存储 → 文件存储（完整序列化 ResumeContext）
 // 关键：resume 必须带 updatesCursor + conversationContexts，否则服务端不认（session expired）。
 // 旧版只存 4 个 LoginContext 字段导致 resume 必炸——本版补全，旧格式文件解析失败按无会话处理（转扫码）
+// 编解码（toJson/fromJson）抽成静态方法，文件版与数据库版（WechatSessionRepository）共用同一份序列化逻辑
 public class SessionStore {
 
     private static final Path SESSION_DIR = Paths.get("sessions");
@@ -36,6 +37,18 @@ public class SessionStore {
 
     // 完整保存 ResumeContext（login + updatesCursor + 各会话上下文）
     public static void save(String botId, ResumeContext ctx) throws IOException {
+        Files.writeString(SESSION_DIR.resolve(botId + ".session"), toJson(ctx));
+    }
+
+    // 完整还原 ResumeContext；文件不存在/格式非法（旧版 4 字段格式）→ 返回 null（调用方转扫码）
+    public static ResumeContext load(String botId) throws IOException {
+        Path file = SESSION_DIR.resolve(botId + ".session");
+        if (!Files.exists(file)) return null;
+        return fromJson(Files.readString(file));
+    }
+
+    // ResumeContext → JSON 字符串（login + cursor + conversations 全字段）
+    public static String toJson(ResumeContext ctx) throws IOException {
         LoginContext lc = ctx.getLoginContext();
         ObjectNode root = MAPPER.createObjectNode();
         ObjectNode login = root.putObject("login");
@@ -56,16 +69,14 @@ public class SessionStore {
             if (cc.getSourceMessageId() != null) n.put("msgId", cc.getSourceMessageId());
             if (cc.getSourceMessageTime() != null) n.put("msgTime", cc.getSourceMessageTime());
         }
-        Files.writeString(SESSION_DIR.resolve(botId + ".session"), MAPPER.writeValueAsString(root));
+        return MAPPER.writeValueAsString(root);
     }
 
-    // 完整还原 ResumeContext；文件不存在/格式非法（旧版 4 字段格式）→ 返回 null（调用方转扫码）
-    public static ResumeContext load(String botId) throws IOException {
-        Path file = SESSION_DIR.resolve(botId + ".session");
-        if (!Files.exists(file)) return null;
+    // JSON 字符串 → ResumeContext；缺失 login 字段/格式非法 → null（调用方转扫码）
+    public static ResumeContext fromJson(String json) {
         JsonNode root;
         try {
-            root = MAPPER.readTree(Files.readString(file));
+            root = MAPPER.readTree(json);
         } catch (Exception e) {
             return null;   // 旧格式/损坏：视为无会话
         }

@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.star.agent.adapter.wechat.WechatSessionMapper">
+
+    <!-- 存/更新：bot_id 唯一键冲突 → 覆盖旧会话（顶号）并刷新 saved_at -->
+    <insert id="upsert" parameterType="com.star.agent.adapter.wechat.WechatSession">
+        INSERT INTO wechat_session (bot_id, user_id, bot_token, resume_json, saved_at)
+        VALUES (#{botId}, #{userId}, #{botToken}, #{resumeJson}, NOW())
+        ON DUPLICATE KEY UPDATE
+            user_id = VALUES(user_id),
+            bot_token = VALUES(bot_token),
+            resume_json = VALUES(resume_json),
+            saved_at = NOW()
+    </insert>
+
+    <!-- 按 botId 查会话（免扫码恢复用） -->
+    <select id="findByBotId" resultType="com.star.agent.adapter.wechat.WechatSession">
+        SELECT id, bot_id, user_id, bot_token, resume_json, saved_at
+        FROM wechat_session
+        WHERE bot_id = #{botId}
+    </select>
+
+    <!-- 查全部会话（启动扫表多 Bot 恢复用） -->
+    <select id="findAll" resultType="com.star.agent.adapter.wechat.WechatSession">
+        SELECT id, bot_id, user_id, bot_token, resume_json, saved_at
+        FROM wechat_session
+        ORDER BY saved_at
+    </select>
+
+    <!-- 删某 bot 的会话（登出命令/测试清理用） -->
+    <delete id="deleteByBotId">
+        DELETE FROM wechat_session WHERE bot_id = #{botId}
+    </delete>
+
+    <!-- 删 saved_at 早于截止时间的会话（过期清理） -->
+    <delete id="deleteOlderThan">
+        DELETE FROM wechat_session WHERE saved_at &lt; #{cutoff}
+    </delete>
+
+    <!-- 改某条会话的保存时间（测试造"旧数据"用） -->
+    <update id="updateSavedAt">
+        UPDATE wechat_session SET saved_at = #{savedAt} WHERE bot_id = #{botId}
+    </update>
+
+    <!-- 会话总数（统计/调试） -->
+    <select id="count" resultType="long">
+        SELECT COUNT(*) FROM wechat_session
+    </select>
+
+</mapper>

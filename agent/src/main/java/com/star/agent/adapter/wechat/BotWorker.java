@@ -27,16 +27,20 @@ public class BotWorker implements Runnable, ReconnectHandler {
     private final ILinkMessageAdapter adapter;
     private final ChatService chatService;
     private final SceneDetector sceneDetector;
+    // 会话仓库（数据库版）；null = 手动 main 链路，回退文件版 SessionStore
+    private final WechatSessionRepository sessionRepository;
     private final Object loginLock = new Object();   // 首次登录与断线重登可能不同线程，防并发重入
     private MessageDispatcher dispatcher;
 
     public BotWorker(String botId, ILinkClient client, ILinkMessageAdapter adapter,
-                     ChatService chatService, SceneDetector sceneDetector) {
+                     ChatService chatService, SceneDetector sceneDetector,
+                     WechatSessionRepository sessionRepository) {
         this.botId = botId;
         this.client = client;
         this.adapter = adapter;
         this.chatService = chatService;
         this.sceneDetector = sceneDetector;
+        this.sessionRepository = sessionRepository;
     }
 
     @Override
@@ -65,9 +69,10 @@ public class BotWorker implements Runnable, ReconnectHandler {
     }
 
     private void login() throws Exception {
-        // 首次启动允许 resume（会话文件可能仍有效）；重登（forceScan）跳过 resume 直接扫码
+        // 首次启动允许 resume（会话仍可能有效）；重登（forceScan）跳过 resume 直接扫码
         if (!forceScan && botId != null) {
-            ResumeContext saved = SessionStore.load(botId);
+            ResumeContext saved = sessionRepository != null
+                    ? sessionRepository.load(botId) : SessionStore.load(botId);
             if (saved != null) {
                 ILinkClient resumeClient = ILinkClient.builder()
                         .config(ILinkConfigFactory.create())
@@ -93,7 +98,13 @@ public class BotWorker implements Runnable, ReconnectHandler {
         adapter.attach(client);   // 扫码登录完成，绑定 adapter
 
         ResumeContext rc = client.exportResumeContext();
-        if (rc != null) SessionStore.save(newBotId, rc);
+        if (rc != null) {
+            if (sessionRepository != null) {
+                sessionRepository.save(rc);
+            } else {
+                SessionStore.save(newBotId, rc);
+            }
+        }
     }
 
     public void stop() {
