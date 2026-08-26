@@ -40,10 +40,7 @@ public class ILinkMessageAdapter implements MessageAdapter {
             throw new IllegalStateException("adapter 未绑定 client，请先 attach");
         }
         if (pending.isEmpty()) {
-            long t0 = System.currentTimeMillis();
             List<WeixinMessage> msgs = client.getUpdates();
-            long cost = System.currentTimeMillis() - t0;
-            logger.info("[取证] getUpdates 耗时 {}ms 返回 {} 条", cost, msgs == null ? 0 : msgs.size());
             if (msgs != null) {
                 for (WeixinMessage msg : msgs) {
                     pending.offer(convert(msg));
