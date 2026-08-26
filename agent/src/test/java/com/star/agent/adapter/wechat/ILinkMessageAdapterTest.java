@@ -147,7 +147,28 @@ class ILinkMessageAdapterTest {
         assertArrayEquals(downloaded, am.mediaBytes());
     }
 
-    // 多媒体识别：语音消息 → mediaType=VOICE + 下载字节
+    // 多媒体识别：语音消息带微信自带转文字 → 直接当文本，不下载语音（微信转文字优先）
+    @Test
+    void convert_voiceMessage_withAutoText_usesText() throws Exception {
+        WeixinMessage msg = new WeixinMessage();
+        msg.setFrom_user_id("u1");
+        MessageItem item = new MessageItem();
+        VoiceItem voice = new VoiceItem();
+        voice.setText("微信转写好的文字");
+        item.setVoice_item(voice);
+        msg.setItem_list(List.of(item));
+
+        adapter.attach(client);
+
+        AgentMessage am = adapter.convert(msg);
+
+        assertEquals(MediaType.TEXT, am.mediaType(), "有微信转文字 → 当普通文本消息");
+        assertEquals("微信转写好的文字", am.text());
+        assertNull(am.mediaBytes());
+        verify(client, org.mockito.Mockito.never()).downloadVoiceFromMessageItem(item);
+    }
+
+    // 多媒体识别：语音消息无微信转文字 → mediaType=VOICE + 下载字节（走自有 ASR 兜底）
     @Test
     void convert_voiceMessage_downloadsBytes() throws Exception {
         WeixinMessage msg = new WeixinMessage();

@@ -110,9 +110,15 @@ public class ILinkMessageAdapter implements MessageAdapter {
                     mediaType = MediaType.IMAGE;
                     mediaBytes = downloadSafely(item);
                 } else if (item.getVoice_item() != null) {
-                    mediaType = MediaType.VOICE;
-                    // 语音必须走 SDK 专用下载（downloadMediaFromMessageItem 通用方法对语音拉不到）
-                    mediaBytes = downloadVoiceSafely(item);
+                    // 优先用微信服务端自带的语音转文字（voice_item.text）——实测我们自己 ASR 常识别不了格式
+                    String autoText = item.getVoice_item().getText();
+                    if (autoText != null && !autoText.isBlank()) {
+                        text.append(autoText);
+                    } else {
+                        mediaType = MediaType.VOICE;
+                        // 无转写文本才走我们自己的 ASR：语音必须用 SDK 专用下载（通用方法拉不到）
+                        mediaBytes = downloadVoiceSafely(item);
+                    }
                 } else if (item.getFile_item() != null) {
                     mediaType = MediaType.FILE;
                     mediaBytes = downloadSafely(item);
