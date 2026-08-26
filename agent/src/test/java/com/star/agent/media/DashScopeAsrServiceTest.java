@@ -4,16 +4,19 @@ import com.alibaba.dashscope.audio.asr.recognition.Recognition;
 import com.alibaba.dashscope.audio.asr.recognition.RecognitionParam;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 
 import java.io.File;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-// 语音识别服务单测：解析纯函数（真实 JSON）+ 异常降级（mock SDK 边界）
+// 语音识别服务单测：解析纯函数（真实 JSON）+ format/sampleRate 参数 + 异常降级（mock SDK 边界）
 class DashScopeAsrServiceTest {
 
     private Recognition recognition;
@@ -22,7 +25,7 @@ class DashScopeAsrServiceTest {
     @BeforeEach
     void setUp() {
         recognition = mock(Recognition.class);
-        service = new DashScopeAsrService("test-key", recognition);
+        service = new DashScopeAsrService("test-key", recognition, new AudioFormatDetector());
     }
 
     // 解析纯函数：sentences[].text 逗号拼接
@@ -37,6 +40,25 @@ class DashScopeAsrServiceTest {
     void parseSentences_blankOrBroken_returnsEmpty() {
         assertEquals("", DashScopeAsrService.parseSentences("{\"sentences\":[{\"text\":\"  \"}]}"));
         assertEquals("", DashScopeAsrService.parseSentences("not json"));
+    }
+
+    // 关键回归（参照 our-project）：RecognitionParam 必须带 format + sampleRate，
+    // 临时文件扩展名按魔数检测（AMR 语音 → .amr）
+    @Test
+    void transcribe_setsFormatAndSampleRate() throws Exception {
+        when(recognition.call(any(RecognitionParam.class), any(File.class)))
+                .thenReturn("{\"sentences\":[{\"text\":\"我想在北京租房\"}]}");
+        byte[] amr = "#!AMR".getBytes();
+
+        String text = service.transcribe(amr);
+
+        assertEquals("我想在北京租房", text);
+        ArgumentCaptor<RecognitionParam> captor = ArgumentCaptor.forClass(RecognitionParam.class);
+        ArgumentCaptor<File> fileCaptor = ArgumentCaptor.forClass(File.class);
+        verify(recognition).call(captor.capture(), fileCaptor.capture());
+        assertEquals("amr", captor.getValue().getFormat(), "paraformer 必须知道音频格式");
+        assertEquals(16000, captor.getValue().getSampleRate());
+        assertTrue(fileCaptor.getValue().getName().endsWith(".amr"), "临时文件扩展名按检测格式");
     }
 
     // SDK 调用异常 → null 降级信号

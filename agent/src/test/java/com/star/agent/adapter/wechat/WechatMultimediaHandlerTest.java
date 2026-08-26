@@ -57,7 +57,7 @@ class WechatMultimediaHandlerTest {
         return new AgentMessage(MessageSource.WECHAT, "u1", text, type, bytes, "m1", Instant.now());
     }
 
-    // 图片消息 → 识图 → 回复描述
+    // 图片消息 → 先回"已收到"即时反馈 → 识图 → 回复描述
     @Test
     void imageMessage_returnsDescription() throws Exception {
         when(vision.analyzeImage(any(), any(), any())).thenReturn("一只橘猫");
@@ -65,6 +65,7 @@ class WechatMultimediaHandlerTest {
         String reply = handler.handle(msg(MediaType.IMAGE, "", new byte[]{1, 2, 3}), adapter);
 
         assertTrue(reply.contains("一只橘猫"));
+        verify(adapter).send("u1", "已收到图片，正在识别，请稍候…");
         verify(chatService, never()).chat(anyString(), anyString(), anyString());
     }
 
@@ -92,7 +93,7 @@ class WechatMultimediaHandlerTest {
         verify(chatService, never()).chat(anyString(), anyString(), anyString());
     }
 
-    // 创作场景文本 → 文生图 → 下载发图 → 返回空串（已处理完）
+    // 创作场景文本 → 先回"已收到"即时反馈 → 文生图 → 下载发图 → 返回空串（已处理完）
     @Test
     void creationText_generatesAndSendsImage() throws Exception {
         when(sceneDetector.detect("画一只猫")).thenReturn(Scene.CREATION);
@@ -102,6 +103,7 @@ class WechatMultimediaHandlerTest {
         String reply = handler.handle(msg(MediaType.TEXT, "画一只猫", null), adapter);
 
         assertEquals("", reply, "已发图，空串表示处理完毕");
+        verify(adapter).send("u1", "已收到，正在为你生成图片，请稍候…");   // 长任务即时反馈（wanx 生成几十秒）
         verify(adapter).sendImage("u1", new byte[]{9, 9, 9}, "creation.png", "");
     }
 
@@ -124,7 +126,7 @@ class WechatMultimediaHandlerTest {
         assertNull(handler.handle(msg(MediaType.TEXT, "你好", null), adapter));
     }
 
-    // #tts 内容 → 合成语音发出（TTS 能力入口），返回空串表示已处理
+    // #tts 内容 → 先回"已收到"即时反馈 → 合成语音发出（TTS 能力入口），返回空串表示已处理
     @Test
     void ttsCommand_synthesizesAndSendsVoice() throws Exception {
         when(tts.synthesize("你好，欢迎使用星链智核", null)).thenReturn(new byte[]{7, 7, 7});
@@ -132,6 +134,7 @@ class WechatMultimediaHandlerTest {
         String reply = handler.handle(msg(MediaType.TEXT, "#tts 你好，欢迎使用星链智核", null), adapter);
 
         assertEquals("", reply, "已发语音");
+        verify(adapter).send("u1", "已收到，正在合成语音，请稍候…");
         verify(adapter).sendVoice("u1", new byte[]{7, 7, 7}, "tts.wav");
     }
 

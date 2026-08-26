@@ -53,6 +53,17 @@ class MediaPreprocessorTest {
         assertTrue(result.contains("转码失败"), "ffmpeg 缺失应降级话术");
     }
 
+    // 参照 our-project：转码失败用原始字节兜底直调 ASR（部分格式可直识别，不因缺 ffmpeg 直接放弃）
+    @Test
+    void voice_transcodeFailure_retriesWithRawBytes() {
+        when(transcoder.to16kWav(any())).thenReturn(null);
+        when(transcriber.transcribe(any())).thenReturn("我想租房");   // 原始字节兜底识别成功
+
+        String result = pre.voiceToText(amrVoice());
+
+        assertEquals("我想租房", result, "转码失败但原字节兜底识别成功应返回文本");
+    }
+
     @Test
     void voice_transcribeFailure_degrades() {
         when(transcoder.to16kWav(any())).thenReturn(new byte[]{9, 9});

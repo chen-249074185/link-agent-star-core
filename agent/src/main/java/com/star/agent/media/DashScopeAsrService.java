@@ -14,7 +14,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 // 语音转文字真实实现（paraformer-realtime-v2，DashScope 官方 SDK）：
-// 16k WAV → 临时文件 → recognition.call → 解析 sentences 拼文本
+// 魔数检测格式 → 写临时文件（带正确扩展名）→ recognition.call → 解析 sentences 拼文本
+// 参照 our-project VoiceRecognitionService：RecognitionParam 必须带 format/sampleRate（否则 paraformer 拒收/识别差）
 // 失败返回 null（VoiceTranscriber 合同：降级信号，调用方换话术，不崩）
 @Component
 public class DashScopeAsrService implements VoiceTranscriber {
@@ -25,25 +26,38 @@ public class DashScopeAsrService implements VoiceTranscriber {
     private final ObjectMapper mapper = new ObjectMapper();
     private final String apiKey;
     private final Recognition recognition;
+    private final AudioFormatDetector formatDetector;
 
     @Autowired
     public DashScopeAsrService(AppConfig config) {
-        this(config.dashScopeApiKey(), new Recognition());
+        this(config.dashScopeApiKey(), new Recognition(), new AudioFormatDetector());
     }
 
-    DashScopeAsrService(String apiKey, Recognition recognition) {
+    DashScopeAsrService(String apiKey, Recognition recognition, AudioFormatDetector formatDetector) {
         this.apiKey = apiKey;
         this.recognition = recognition;
+        this.formatDetector = formatDetector;
     }
 
     @Override
-    public String transcribe(byte[] wavBytes) {
+    public String transcribe(byte[] audioBytes) {
         Path tmp = null;
         try {
-            tmp = Files.createTempFile("voice_", ".wav");
-            Files.write(tmp, wavBytes);
+            AudioFormat format = formatDetector.detect(audioBytes);
+            String ext = switch (format) {
+                case WAV -> "wav";
+                case MP3 -> "mp3";
+                case OGG -> "ogg";
+                case AMR -> "amr";
+                default -> "silk";   // SILK/未知：paraformer 不认也会尽量按原样传
+            };
+            tmp = Files.createTempFile("voice_", "." + ext);
+            Files.write(tmp, audioBytes);
+            // 关键：format/sampleRate 必须声明（参照 our-project，缺了 paraformer 不知道音频格式）
             RecognitionParam param = RecognitionParam.builder()
                     .model(MODEL)
+                    .format("wav".equals(ext) ? "wav" : ext)
+                    .sampleRate(16000)
                     .apiKey(apiKey)
                     .build();
             String result = recognition.call(param, tmp.toFile());

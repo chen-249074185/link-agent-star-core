@@ -157,7 +157,7 @@ class ILinkMessageAdapterTest {
         msg.setItem_list(List.of(item));
 
         byte[] downloaded = new byte[]{1, 2, 3};
-        when(client.downloadMediaFromMessageItem(item)).thenReturn(downloaded);
+        when(client.downloadVoiceFromMessageItem(item)).thenReturn(downloaded);   // 语音必须走专用下载（参照）
         adapter.attach(client);
 
         AgentMessage am = adapter.convert(msg);

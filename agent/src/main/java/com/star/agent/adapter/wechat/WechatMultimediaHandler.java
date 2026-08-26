@@ -55,7 +55,7 @@ public class WechatMultimediaHandler implements MultimediaHandler {
     @Override
     public String handle(AgentMessage msg, MessageAdapter adapter) throws Exception {
         if (msg.mediaType() == MediaType.IMAGE) {
-            return handleImage(msg);
+            return handleImage(msg, adapter);
         }
         if (msg.mediaType() == MediaType.VOICE) {
             return handleVoice(msg);
@@ -69,12 +69,13 @@ public class WechatMultimediaHandler implements MultimediaHandler {
         return null;   // 纯文本非创作：走正常对话
     }
 
-    // 语音合成：#tts 内容 → 合成语音发出去（TTS 能力入口）
+    // 语音合成：#tts 内容 → 先回"已收到"即时反馈 → 合成语音发出去（TTS 能力入口）
     private String handleTts(AgentMessage msg, MessageAdapter adapter) throws Exception {
         String content = msg.text().trim().substring("#tts ".length());
         if (content.isBlank()) {
             return "用法：#tts 要合成的文字，例如 #tts 你好，欢迎使用星链智核";
         }
+        adapter.send(msg.userId(), "已收到，正在合成语音，请稍候…");
         byte[] voice = ttsService.synthesize(content, null);
         if (voice == null) {
             return "语音合成失败，请稍后再试";
@@ -83,14 +84,15 @@ public class WechatMultimediaHandler implements MultimediaHandler {
         return "";   // 已发语音，空串=处理完毕
     }
 
-    // 图片 → 识图描述（base64 由 MediaPreprocessor 提供）
-    private String handleImage(AgentMessage msg) {
+    // 图片 → 识图描述（先回"已收到"即时反馈）
+    private String handleImage(AgentMessage msg, MessageAdapter adapter) throws Exception {
         if (msg.mediaBytes() == null) {
             return "收到图片但下载失败，请重发或改发文字";
         }
+        adapter.send(msg.userId(), "已收到图片，正在识别，请稍候…");
         String description = visionService.analyzeImage(msg.mediaBytes(), "image/png", null);
         logger.info("识图[{}]: {}", msg.userId(), description);
-        return "看到图片了：\n" + description;
+        return "识别结果：\n" + description;
     }
 
     // 语音 → 转写 → 走正常对话（转写失败由 MediaPreprocessor 返回降级话术）
@@ -107,8 +109,9 @@ public class WechatMultimediaHandler implements MultimediaHandler {
         return text;   // 降级话术原样回
     }
 
-    // 创作场景 → 文生图 → 下载图片发图（附说明文本）
+    // 创作场景 → 文生图（先回"已收到"即时反馈——wanx 异步生成要几十秒，不能让用户干等）
     private String handleCreation(AgentMessage msg, MessageAdapter adapter) throws Exception {
+        adapter.send(msg.userId(), "已收到，正在为你生成图片，请稍候…");
         String url = imageGenService.generate(msg.text());
         if (!url.startsWith("http")) {
             logger.info("创作[{}] 生成失败: {}", msg.userId(), url);

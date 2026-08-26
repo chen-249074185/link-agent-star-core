@@ -111,7 +111,8 @@ public class ILinkMessageAdapter implements MessageAdapter {
                     mediaBytes = downloadSafely(item);
                 } else if (item.getVoice_item() != null) {
                     mediaType = MediaType.VOICE;
-                    mediaBytes = downloadSafely(item);
+                    // 语音必须走 SDK 专用下载（downloadMediaFromMessageItem 通用方法对语音拉不到）
+                    mediaBytes = downloadVoiceSafely(item);
                 } else if (item.getFile_item() != null) {
                     mediaType = MediaType.FILE;
                     mediaBytes = downloadSafely(item);
@@ -133,6 +134,15 @@ public class ILinkMessageAdapter implements MessageAdapter {
     private byte[] downloadSafely(com.github.wechat.ilink.sdk.core.model.MessageItem item) {
         try {
             return client == null ? null : client.downloadMediaFromMessageItem(item);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    // 下载语音字节：SDK 专用 downloadVoiceFromMessageItem（参照：语音消息必须用专用下载）
+    private byte[] downloadVoiceSafely(com.github.wechat.ilink.sdk.core.model.MessageItem item) {
+        try {
+            return client == null ? null : client.downloadVoiceFromMessageItem(item);
         } catch (Exception e) {
             return null;
         }
