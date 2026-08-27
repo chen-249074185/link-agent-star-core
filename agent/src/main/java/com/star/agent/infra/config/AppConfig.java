@@ -31,6 +31,12 @@ public class AppConfig {
 
     private final String liepinUserToken = firstOf("LIEPIN_USER_TOKEN");   // 猎聘授权 Token（.env 已 gitignore）
 
+    private final String mailUser = firstOf("MAIL_USER");            // 发信 QQ 邮箱（需开启 SMTP 服务）
+
+    private final String mailAuthCode = firstOf("MAIL_AUTH_CODE");   // QQ 邮箱授权码（非登录密码）
+
+    private final String jwtSecret = firstOf("JWT_SECRET");          // JWT 签名密钥（HS256 ≥32 字节）
+
     // 构造自检：各 key 是否就位 + 脱敏指纹（后4位，对比 .env/环境变量是否同 key；纯 main 扫码链路也走这个构造器）
     public AppConfig() {
         logger.info("配置自检: DEEPSEEK={} SENIVERSE={} AMAP={} AMAP指纹={} (长度, 0=缺失, 来源={})",
@@ -86,5 +92,11 @@ public class AppConfig {
     public String amapApiKey(){ return amapApiKey; }
 
     public String liepinUserToken(){ return liepinUserToken; }
+
+    public String mailUser(){ return mailUser; }
+
+    public String mailAuthCode(){ return mailAuthCode; }
+
+    public String jwtSecret(){ return jwtSecret; }
 
 }

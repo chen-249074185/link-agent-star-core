@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.star.agent.user.dao.UserDao">
+
+    <!-- 建账号 -->
+    <insert id="insert" parameterType="com.star.agent.user.domain.UserDo">
+        INSERT INTO users (user_id, username, password_hash, email)
+        VALUES (#{userId}, #{username}, #{passwordHash}, #{email})
+    </insert>
+
+    <!-- 按唯一身份查 -->
+    <select id="findByUserId" resultType="com.star.agent.user.domain.UserDo">
+        SELECT user_id, username, password_hash, email, created_at, updated_at
+        FROM users
+        WHERE user_id = #{userId}
+    </select>
+
+    <!-- 按用户名查 -->
+    <select id="findByUsername" resultType="com.star.agent.user.domain.UserDo">
+        SELECT user_id, username, password_hash, email, created_at, updated_at
+        FROM users
+        WHERE username = #{username}
+    </select>
+
+    <!-- 按邮箱查 -->
+    <select id="findByEmail" resultType="com.star.agent.user.domain.UserDo">
+        SELECT user_id, username, password_hash, email, created_at, updated_at
+        FROM users
+        WHERE email = #{email}
+    </select>
+
+    <!-- 绑定/换绑邮箱 -->
+    <update id="updateEmail">
+        UPDATE users SET email = #{email} WHERE user_id = #{userId}
+    </update>
+
+    <!-- 删除账号（测试清理/注销用） -->
+    <delete id="deleteByUserId">
+        DELETE FROM users WHERE user_id = #{userId}
+    </delete>
+
+</mapper>
