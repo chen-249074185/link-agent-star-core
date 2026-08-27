@@ -21,4 +21,7 @@ public interface DailySummaryDao {
 
     // 删某用户全部摘要（测试清理用）
     int deleteByUserId(String userId);
+
+    // 账号合并：某用户全部摘要改归另一用户
+    int transferUserId(String fromUserId, String toUserId);
 }

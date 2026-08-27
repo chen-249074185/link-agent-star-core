@@ -71,6 +71,23 @@ public class EphemeralMemory {
         }
     }
 
+    // 账号合并：from 的瞬时记忆并入 to（追加后压缩），然后清空 from；失败仅记日志不阻断合并
+    public void mergeFrom(String fromUserId, String toUserId) {
+        try {
+            List<ChatEntry> fromEntries = load(fromUserId);
+            if (fromEntries.isEmpty()) {
+                return;
+            }
+            List<ChatEntry> toEntries = new ArrayList<>(load(toUserId));
+            toEntries.addAll(fromEntries);
+            save(toUserId, compress(toEntries));
+            redis.delete(RedisKeys.memory(fromUserId));
+            logger.info("瞬时记忆合并: {} → {}", fromUserId, toUserId);
+        } catch (Exception e) {
+            logger.warn("瞬时记忆合并失败: {}", e.getMessage());
+        }
+    }
+
     // 追加一轮对话（用户说 + AI 答），超限自动压缩后入库
     public void append(String userId, String userMessage, String assistantMessage) {
         List<ChatEntry> entries = load(userId);

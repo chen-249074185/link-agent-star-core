@@ -37,4 +37,9 @@ public class UserConfigRepository {
     public UserConfigDo findByUserId(String userId) {
         return dao.findByUserId(userId);
     }
+
+    // 账号合并：猎聘 Token 改归另一用户（调用方先判目标有无，有则删源，无则迁）
+    public void transferLiepinToken(String fromUserId, String toUserId) {
+        dao.transferUserId(fromUserId, toUserId);
+    }
 }

@@ -28,4 +28,7 @@ public interface ConversationDao {
 
     // 删某用户的全部对话（测试清理用）
     int deleteByUserId(String userId);
+
+    // 账号合并：某用户全部对话改归另一用户（B 并入 A 后 B 删，历史保留）
+    int transferUserId(String fromUserId, String toUserId);
 }

@@ -15,4 +15,7 @@ public interface UserConfigDao {
 
     // 删某用户的配置（测试清理用）
     int deleteByUserId(String userId);
+
+    // 账号合并：配置改归另一用户（目标已有配置时由仓库先删再迁，避免主键冲突）
+    int transferUserId(String fromUserId, String toUserId);
 }
