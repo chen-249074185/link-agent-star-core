@@ -176,6 +176,29 @@ public class AuthService {
         return new BindResult(true, true, null);
     }
 
+    // 个人资料（个人信息页展示用）：邮箱脱敏（a***@qq.com），不泄露明文
+    public Map<String, Object> profile(String userId) {
+        UserDo me = userRepository.findByUserId(userId);
+        if (me == null) {
+            throw new BizException(401, "账号不存在，请重新登录");
+        }
+        Map<String, Object> data = new java.util.LinkedHashMap<>();
+        data.put("userId", me.getUserId());
+        data.put("username", me.getUsername());
+        data.put("email", me.getEmail() == null ? null : maskEmail(me.getEmail()));
+        data.put("emailBound", me.getEmail() != null);
+        return data;
+    }
+
+    // 邮箱脱敏：a***@qq.com（首字母保留 + 星号 + 域名）
+    static String maskEmail(String email) {
+        int at = email.indexOf('@');
+        if (at <= 0) {
+            return email;
+        }
+        return email.charAt(0) + "***" + email.substring(at);
+    }
+
     private static void checkEmail(String email) {
         if (email == null || !EMAIL.matcher(email).matches()) {
             throw new BizException(400, "邮箱格式不正确");

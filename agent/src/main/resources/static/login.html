@@ -1224,7 +1224,14 @@ async function doReg(){
   try{
     const res=await api('/api/user/register',{type:'username',username:u,password:p});
     if(res.code!==0){showToast(res.msg,'error');return;}
-    showDone('注册成功','即将跳转登录…','login.html',2000);
+    showDone('注册成功','建议绑定 QQ 邮箱，可免密码登录','',0);
+    // 绑定引导：遮罩上加按钮（2 秒内可选择去绑定或稍后）
+    const nav=document.createElement('div');
+    nav.style.cssText='display:flex;gap:12px;margin-top:6px';
+    nav.innerHTML='<button class="btn ghost" style="flex:1;margin:0;background:rgba(74,43,43,.08);color:var(--ink);box-shadow:none" onclick="location.href=\'profile.html\'">去绑定邮箱</button>'+
+                  '<button class="btn" style="flex:1;margin:0" onclick="location.href=\'login.html\'">稍后再说</button>';
+    $('done').appendChild(nav);
+    setTimeout(()=>{if(!$('done').contains(nav))return;location.href='login.html';},8000);   // 8 秒未选择自动去登录
   }catch(e){showToast('网络异常，请稍后重试','error');}
   finally{ld($('r_btn'),false,'注册');}
 }

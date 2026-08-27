@@ -3,6 +3,7 @@ package com.star.agent.user;
 import com.star.agent.infra.web.AuthContext;
 import com.star.agent.infra.web.Result;
 import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -42,6 +43,16 @@ public class AuthController {
     @PostMapping("/login")
     public Result<AuthResult> login(@RequestBody AuthRequest req) {
         return Result.ok(authService.login(req.type(), req.username(), req.password(), req.email(), req.code()));
+    }
+
+    // 个人资料（个人信息页）：用户名 + 邮箱脱敏状态；userId 从 JWT 取
+    @GetMapping("/me")
+    public Result<Map<String, Object>> me(HttpServletRequest request) {
+        String userId = AuthContext.userId(request);
+        if (userId == null) {
+            return Result.fail(401, "未登录或登录已过期");
+        }
+        return Result.ok(authService.profile(userId));
     }
 
     // 绑定/换绑邮箱：userId 从 JWT 取（AuthContext），不信任请求参数

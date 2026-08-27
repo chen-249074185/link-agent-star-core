@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>个人信息 - 星链智核</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#f3f1ec;--ink:#4a2b2b;--ink-soft:#8a7070;--ink-faint:#c4b3b3;
+  --pink-deep:#e07878;--red:#d94f4f;--green:#5aa87a;--white:#fffdf9;
+}
+body{min-height:100vh;background:var(--bg);font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Segoe UI',system-ui,sans-serif;color:var(--ink);display:flex;justify-content:center;padding:24px 16px}
+.card{width:420px;max-width:100%}
+.top{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
+.top h1{font-size:20px}
+.top a{font-size:13px;color:var(--pink-deep);text-decoration:none;font-weight:600}
+.box{background:var(--white);border-radius:14px;padding:20px;box-shadow:0 6px 24px rgba(74,43,43,.06);margin-bottom:16px}
+.box h2{font-size:15px;margin-bottom:14px}
+.row{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid rgba(74,43,43,.06);font-size:14px}
+.row:last-child{border-bottom:none}
+.row .k{color:var(--ink-soft)}
+.row .v{font-weight:600}
+.row .v.muted{color:var(--ink-faint);font-weight:400}
+.field{margin-bottom:14px}
+.field input{width:100%;padding:12px 13px;background:#fff;border:2px solid rgba(74,43,43,.1);border-radius:10px;font-size:14px;outline:none;color:var(--ink);transition:all .25s}
+.field input:focus{border-color:var(--pink-deep);box-shadow:0 0 0 3px rgba(224,120,120,.1)}
+.field input.err{border-color:var(--red)!important}
+.field .msg{font-size:11px;color:var(--red);margin-top:5px;display:none}
+.field .msg.show{display:block}
+.code-row{display:flex;gap:10px;align-items:flex-start}
+.code-row .field{flex:1;margin-bottom:0}
+.code-btn{padding:12px 14px;background:#fff;border:2px solid rgba(74,43,43,.1);border-radius:10px;color:var(--ink-soft);font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap}
+.code-btn:hover:not(:disabled){border-color:var(--pink-deep);color:var(--pink-deep)}
+.code-btn:disabled{opacity:.4;cursor:not-allowed}
+.btn{width:100%;padding:13px;margin-top:8px;background:var(--ink);color:#fff;border:none;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer;transition:all .25s;letter-spacing:1px}
+.btn:hover:not(:disabled){transform:translateY(-1px);background:var(--pink-deep)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn.ghost{background:transparent;border:2px solid rgba(74,43,43,.15);color:var(--ink-soft)}
+.btn.ghost:hover{background:rgba(74,43,43,.04)}
+.toast{width:100%;padding:10px 14px;border-radius:10px;font-size:12px;margin-bottom:14px;display:none;text-align:center}
+.toast.error{display:block;background:rgba(217,79,79,.08);color:var(--red);border:1px solid rgba(217,79,79,.2)}
+.toast.success{display:block;background:rgba(90,168,122,.08);color:var(--green);border:1px solid rgba(90,168,122,.2)}
+.sp{display:inline-block;width:13px;height:13px;border:2px solid transparent;border-top-color:currentColor;border-radius:50%;animation:spin .5s linear infinite;vertical-align:middle;margin-right:5px}
+@keyframes spin{to{transform:rotate(360deg)}}
+/* 合并确认弹窗 */
+.mask{position:fixed;inset:0;background:rgba(74,43,43,.35);display:none;align-items:center;justify-content:center;z-index:99;padding:20px}
+.mask.show{display:flex}
+.dlg{background:#fffdf9;border-radius:14px;padding:22px;max-width:360px;width:100%;text-align:center}
+.dlg h3{font-size:16px;margin-bottom:10px}
+.dlg p{font-size:12.5px;color:var(--ink-soft);line-height:1.7;margin-bottom:18px;text-align:left}
+.dlg .btns{display:flex;gap:10px}
+.dlg .btns button{flex:1;padding:11px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;border:none}
+.dlg .cancel{background:rgba(74,43,43,.08);color:var(--ink-soft)}
+.dlg .ok{background:var(--red);color:#fff}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="top">
+    <h1>个人信息</h1>
+    <a href="index.html">返回对话 →</a>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <div class="box">
+    <h2>账号资料</h2>
+    <div class="row"><span class="k">用户名</span><span class="v" id="vUsername">-</span></div>
+    <div class="row"><span class="k">邮箱</span><span class="v muted" id="vEmail">未绑定</span></div>
+  </div>
+
+  <!-- 未绑定：绑定表单 -->
+  <div class="box" id="boxBind">
+    <h2>绑定 QQ 邮箱</h2>
+    <p style="font-size:12px;color:var(--ink-soft);margin-bottom:14px">绑定后可用「邮箱 + 验证码」免密码登录</p>
+    <div class="field">
+      <input type="email" id="em" placeholder="QQ 邮箱">
+      <div class="msg" id="em_e"></div>
+    </div>
+    <div class="code-row">
+      <div class="field">
+        <input type="text" id="cd" placeholder="验证码" maxlength="6" inputmode="numeric">
+        <div class="msg" id="cd_e"></div>
+      </div>
+      <button class="code-btn" id="snd" onclick="sendCode()">获取验证码</button>
+    </div>
+    <button class="btn" id="bindBtn" onclick="bindEmail()">绑定邮箱</button>
+  </div>
+
+  <!-- 已绑定：换绑表单 -->
+  <div class="box" id="boxRebind" style="display:none">
+    <h2>换绑邮箱</h2>
+    <div class="field">
+      <input type="email" id="em2" placeholder="新 QQ 邮箱">
+      <div class="msg" id="em2_e"></div>
+    </div>
+    <div class="code-row">
+      <div class="field">
+        <input type="text" id="cd2" placeholder="验证码" maxlength="6" inputmode="numeric">
+        <div class="msg" id="cd2_e"></div>
+      </div>
+      <button class="code-btn" id="snd2" onclick="sendCode2()">获取验证码</button>
+    </div>
+    <button class="btn" id="rebindBtn" onclick="bindEmail2()">换绑</button>
+  </div>
+</div>
+
+<!-- 合并确认弹窗 -->
+<div class="mask" id="mask">
+  <div class="dlg">
+    <h3>检测到账号合并</h3>
+    <p id="mergeDesc">该邮箱已被另一个账号使用（纯邮箱账号）。确认后将把该账号的对话记录、知识库、配置全部并入当前账号，并删除原账号。此操作不可撤销。</p>
+    <div class="btns">
+      <button class="cancel" onclick="closeMask()">取消</button>
+      <button class="ok" id="okBtn" onclick="doMerge()">确认合并</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const $=id=>document.getElementById(id);
+let mergeToken=null;
+const token=localStorage.getItem('token');
+if(!token){location.href='login.html';}
+
+function showToast(msg,type){const t=$('toast');t.textContent=msg;t.className='toast '+type;if(type==='error')setTimeout(()=>t.className='toast',4000);}
+function err(inp,msg){inp.classList.add('err');const el=inp.parentElement.querySelector('.msg');if(el){el.textContent=msg;el.classList.add('show');}inp.focus();}
+function clr(inp){inp.classList.remove('err');const el=inp.parentElement.querySelector('.msg');if(el)el.classList.remove('show');}
+function ld(btn,on,txt){btn.disabled=on;btn.innerHTML=on?'<span class="sp"></span>'+txt:txt;}
+const isEm=v=>/^[a-zA-Z0-9._%+-]+@qq\.com$/.test(v);
+
+async function api(path,body){
+  const r=await fetch(path,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify(body)});
+  return r.json();
+}
+
+// 加载个人资料
+(async()=>{
+  try{
+    const r=await fetch('/api/user/me',{headers:{'Authorization':'Bearer '+token}});
+    const j=await r.json();
+    if(j.code!==0){location.href='login.html';return;}
+    $('vUsername').textContent=j.data.username||'(邮箱账号)';
+    if(j.data.emailBound){
+      $('vEmail').textContent=j.data.email;
+      $('vEmail').classList.remove('muted');
+      $('boxBind').style.display='none';
+      $('boxRebind').style.display='block';
+    }
+  }catch(e){showToast('加载失败，请稍后重试','error');}
+})();
+
+function cd(btn){let s=60;btn.disabled=true;btn.textContent=s+'s';const t=setInterval(()=>{s--;if(s<=0){clearInterval(t);btn.disabled=false;btn.textContent='获取验证码';}else btn.textContent=s+'s';},1000);}
+
+async function sendCode(){const em=$('em').value.trim();if(!em)return err($('em'),'请输入邮箱');if(!isEm(em))return err($('em'),'需为 QQ 邮箱');clr($('em'));ld($('snd'),true,'发送中');try{const r=await api('/api/user/send-code',{email:em});if(r.code!==0){showToast(r.msg,'error');return;}showToast('验证码已发送至邮箱','success');cd($('snd'));}catch(e){showToast('网络异常，请稍后重试','error');}finally{ld($('snd'),false,'获取验证码');}}
+async function sendCode2(){const em=$('em2').value.trim();if(!em)return err($('em2'),'请输入邮箱');if(!isEm(em))return err($('em2'),'需为 QQ 邮箱');clr($('em2'));ld($('snd2'),true,'发送中');try{const r=await api('/api/user/send-code',{email:em});if(r.code!==0){showToast(r.msg,'error');return;}showToast('验证码已发送至邮箱','success');cd($('snd2'));}catch(e){showToast('网络异常，请稍后重试','error');}finally{ld($('snd2'),false,'获取验证码');}}
+
+function check(em,c,emEl,cdEl){
+  if(!em)return err(emEl,'请输入邮箱');
+  if(!isEm(em))return err(emEl,'需为 QQ 邮箱');clr(emEl);
+  if(!c)return err(cdEl,'请输入验证码');
+  if(!/^\d{6}$/.test(c))return err(cdEl,'6 位数字');clr(cdEl);
+  return true;
+}
+
+async function bindEmail(){
+  const em=$('em').value.trim(),c=$('cd').value.trim();
+  if(!check(em,c,$('em'),$('cd')))return;
+  ld($('bindBtn'),true,'绑定中');
+  try{
+    const r=await api('/api/user/bind-email',{email:em,code:c});
+    if(r.code!==0){showToast(r.msg,'error');return;}
+    if(r.data.mergeToken){mergeToken=r.data.mergeToken;$('mask').classList.add('show');return;}
+    showToast('绑定成功，可用邮箱登录了','success');
+    setTimeout(()=>location.reload(),1200);
+  }catch(e){showToast('网络异常，请稍后重试','error');}
+  finally{ld($('bindBtn'),false,'绑定邮箱');}
+}
+
+async function bindEmail2(){
+  const em=$('em2').value.trim(),c=$('cd2').value.trim();
+  if(!check(em,c,$('em2'),$('cd2')))return;
+  ld($('rebindBtn'),true,'换绑中');
+  try{
+    const r=await api('/api/user/bind-email',{email:em,code:c});
+    if(r.code!==0){showToast(r.msg,'error');return;}
+    if(r.data.mergeToken){mergeToken=r.data.mergeToken;$('mask').classList.add('show');return;}
+    showToast('换绑成功','success');
+    setTimeout(()=>location.reload(),1200);
+  }catch(e){showToast('网络异常，请稍后重试','error');}
+  finally{ld($('rebindBtn'),false,'换绑');}
+}
+
+function closeMask(){$('mask').classList.remove('show');}
+
+async function doMerge(){
+  ld($('okBtn'),true,'合并中');
+  try{
+    const r=await api('/api/user/confirm-merge',{mergeToken});
+    if(r.code!==0){closeMask();showToast(r.msg,'error');return;}
+    closeMask();
+    showToast('合并成功，账号已绑定新邮箱','success');
+    setTimeout(()=>location.reload(),1500);
+  }catch(e){closeMask();showToast('网络异常，请稍后重试','error');}
+  finally{ld($('okBtn'),false,'确认合并');}
+}
+
+document.querySelectorAll('.field input').forEach(i=>i.addEventListener('input',()=>clr(i)));
+</script>
+</body>
+</html>
