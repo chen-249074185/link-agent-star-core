@@ -105,7 +105,8 @@ McpServer.sync(transport)
                             uploadTool(uploader, guard, kbRepo),
                             searchTool(store, embedding, guard, kbRepo),
                             listKbsTool(kbRepo),
-                            deleteTool(store, guard, kbRepo)
+                            deleteTool(store, guard, kbRepo),
+                            transferTool(store, guard, kbRepo)
                     )
                     .build();
             System.err.println("rag-mcp-server 就绪，等待客户端...");
@@ -256,6 +257,38 @@ McpServer.sync(transport)
                     kbRepo.deleteKb(userId, kbId);   // 删库 + 库内全部切片
                     return McpSchema.CallToolResult.builder()
                             .content(List.of(new McpSchema.TextContent("已删除知识库: " + kbId)))
+                            .build();
+                })
+                .build();
+    }
+
+    // 工具5：账号合并——from 用户的全部知识库并入 to 用户（默认库内容并入 to 默认库，非默认库改归属）
+    // 主程序账号合并（bind-email 触发）用；迁移失败抛异常 → 主程序事务回滚不删被并入账号（补偿语义）
+    private static SyncToolSpecification transferTool(VectorStore store, KnowledgeBaseGuard guard,
+                                                      KnowledgeBaseRepository kbRepo) {
+        McpSchema.Tool tool = McpSchema.Tool.builder()
+                .name("rag_transfer_kb")
+                .description("账号合并：把某用户的全部知识库内容并入另一用户（默认库内容并入对方默认库）")
+                .inputSchema(new McpSchema.JsonSchema("object",
+                        Map.of(
+                                "user_id", Map.of("type", "string", "description", "被并入方（将删除的知识库身份）"),
+                                "to_user_id", Map.of("type", "string", "description", "接收方（保留的账号）")
+                        ),
+                        List.of("user_id", "to_user_id"), null, null, null))
+                .build();
+        return SyncToolSpecification.builder()
+                .tool(tool)
+                .callHandler((exchange, request) -> {
+                    Map<String, Object> args = request.arguments();
+                    String fromUserId = String.valueOf(args.get("user_id"));
+                    String toUserId = String.valueOf(args.get("to_user_id"));
+                    if (fromUserId.equals(toUserId)) {
+                        return errorResult("合并双方不能是同一用户");
+                    }
+                    kbRepo.transferTo(fromUserId, toUserId);
+                    return McpSchema.CallToolResult.builder()
+                            .content(List.of(new McpSchema.TextContent(
+                                    "知识库已迁移: " + fromUserId + " → " + toUserId)))
                             .build();
                 })
                 .build();

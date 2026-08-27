@@ -18,6 +18,10 @@ public interface KnowledgeBaseRepository {
     // 删库：删 knowledge_base 行 + 库内全部切片
     void deleteKb(String userId, String kbId);
 
+    // 账号合并：fromUserId 的全部知识库并入 toUserId——
+    // 默认库内容并入 to 的默认库（kb_id 冲突）；非默认库改归属保留 kb_id（全局唯一不撞名）
+    void transferTo(String fromUserId, String toUserId);
+
     // 知识库元数据
     record KnowledgeBase(String kbId, String userId, String name) {
     }

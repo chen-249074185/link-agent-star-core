@@ -240,4 +240,29 @@ class SQLiteVecStoreTest {
         long dupCount = hits.stream().filter(h -> h.content().equals("重复块A")).count();
         assertEquals(1, dupCount, "重复块A 只出现一次");
     }
+
+    // 账号合并：from 默认库内容并入 to 默认库、非默认库改归属、越权隔离仍生效、from 身份清理
+    @Test
+    void transferTo_mergesKbsIntoToUser() {
+        store.ensureUserWithDefaultKb("u1");
+        store.ensureUserWithDefaultKb("u2");
+        store.insertChunk("u2", "u2-default", "B默认库内容", axis(0), "{}");
+        String customKb = store.createKb("u2", "自定义库").kbId();
+        store.insertChunk("u2", customKb, "B自定义库内容", axis(1), "{}");
+
+        store.transferTo("u2", "u1");
+
+        // 默认库内容并入 u1-default，u1 能搜到
+        List<VectorStore.SearchHit> hits = store.search("u1", "u1-default", axis(0), 5, 1.5);
+        assertEquals(1, hits.size(), "u1 默认库应含迁移来的内容");
+        assertEquals("B默认库内容", hits.get(0).content());
+        // 非默认库改归属保留 kb_id，u1 能搜到
+        List<VectorStore.SearchHit> custom = store.search("u1", customKb, axis(1), 5, 1.5);
+        assertEquals(1, custom.size(), "非默认库改归属后可被 u1 检索");
+        // u2 已无知识库（身份清理）
+        assertEquals(0, store.listByUser("u2").size(), "u2 知识库应清空");
+        // 越权隔离仍生效：u2 搜 u1 的库被拒
+        String denied = new KnowledgeBaseGuard(store).checkAccess("u2", "u1-default");
+        org.junit.jupiter.api.Assertions.assertNotNull(denied, "迁移后 u2 仍无权访问 u1 的库");
+    }
 }

@@ -269,6 +269,90 @@ public class SQLiteVecStore implements VectorStore, KnowledgeBaseRepository {
         }
     }
 
+    // 账号合并：from 的全部知识库并入 to——
+    // 默认库内容并入 to 默认库（kb_id 冲突）；非默认库改归属保留 kb_id（全局唯一不撞名）
+    // vec_chunks 是虚拟表分区列不可 UPDATE → 逐行 DELETE+INSERT（rowid 不变，embedding 从 chunks 表取回）
+    @Override
+    public void transferTo(String fromUserId, String toUserId) {
+        try {
+            String fromDefault = fromUserId + "-default";
+            String toDefault = toUserId + "-default";
+            ensureUserWithDefaultKb(toUserId);   // 合并目标必须有默认库
+
+            // 1) 读 from 的全部行（id + 原 kb_id + embedding JSON，用于重建 vec 行）
+            List<Long> rowIds = new ArrayList<>();
+            List<String> newKbIds = new ArrayList<>();
+            List<String> vecJsons = new ArrayList<>();
+            try (PreparedStatement ps = conn.prepareStatement(
+                    "SELECT id, kb_id, embedding FROM chunks WHERE user_id = ?")) {
+                ps.setString(1, fromUserId);
+                try (ResultSet rs = ps.executeQuery()) {
+                    while (rs.next()) {
+                        String oldKb = rs.getString("kb_id");
+                        rowIds.add(rs.getLong("id"));
+                        newKbIds.add(oldKb.equals(fromDefault) ? toDefault : oldKb);
+                        vecJsons.add(rs.getString("embedding"));
+                    }
+                }
+            }
+
+            // 2) chunks 普通表直接 UPDATE：默认库内容并入 to 默认库，非默认库只改归属
+            try (PreparedStatement ps = conn.prepareStatement(
+                    "UPDATE chunks SET user_id = ?, kb_id = ? WHERE user_id = ? AND kb_id = ?")) {
+                ps.setString(1, toUserId);
+                ps.setString(2, toDefault);
+                ps.setString(3, fromUserId);
+                ps.setString(4, fromDefault);
+                ps.executeUpdate();
+            }
+            try (PreparedStatement ps = conn.prepareStatement(
+                    "UPDATE chunks SET user_id = ? WHERE user_id = ? AND kb_id <> ?")) {
+                ps.setString(1, toUserId);
+                ps.setString(2, fromUserId);
+                ps.setString(3, fromDefault);
+                ps.executeUpdate();
+            }
+
+            // 3) vec_chunks 虚拟表：分区列不可 UPDATE → 逐行 DELETE + INSERT（rowid 不变）
+            for (int i = 0; i < rowIds.size(); i++) {
+                try (PreparedStatement del = conn.prepareStatement("DELETE FROM vec_chunks WHERE rowid = ?")) {
+                    del.setLong(1, rowIds.get(i));
+                    del.executeUpdate();
+                }
+                try (PreparedStatement ins = conn.prepareStatement(
+                        "INSERT INTO vec_chunks (rowid, user_id, kb_id, chunk_embedding) VALUES (?,?,?,?)")) {
+                    ins.setLong(1, rowIds.get(i));
+                    ins.setString(2, toUserId);
+                    ins.setString(3, newKbIds.get(i));
+                    ins.setString(4, vecJsons.get(i));
+                    ins.executeUpdate();
+                }
+            }
+
+            // 4) knowledge_base：from 默认库行删（内容已并入 to 默认库），非默认库行改归属
+            try (PreparedStatement ps = conn.prepareStatement(
+                    "DELETE FROM knowledge_base WHERE user_id = ? AND kb_id = ?")) {
+                ps.setString(1, fromUserId);
+                ps.setString(2, fromDefault);
+                ps.executeUpdate();
+            }
+            try (PreparedStatement ps = conn.prepareStatement(
+                    "UPDATE knowledge_base SET user_id = ? WHERE user_id = ? AND kb_id <> ?")) {
+                ps.setString(1, toUserId);
+                ps.setString(2, fromUserId);
+                ps.setString(3, fromDefault);
+                ps.executeUpdate();
+            }
+            // 5) users：from 身份清理（账号已并入）
+            try (PreparedStatement ps = conn.prepareStatement("DELETE FROM users WHERE user_id = ?")) {
+                ps.setString(1, fromUserId);
+                ps.executeUpdate();
+            }
+        } catch (Exception e) {
+            throw new RuntimeException("知识库迁移失败: " + e.getMessage(), e);
+        }
+    }
+
     // float[] → "[0.1, 0.2, ...]"（vec0 接受 JSON 数组字符串）
     private String toJson(float[] arr) {
         StringBuilder sb = new StringBuilder("[");
