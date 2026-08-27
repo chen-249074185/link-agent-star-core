@@ -1,7 +1,10 @@
 # 星链智核 REST API 文档（W12 统一梳理）
 
 > 统一响应格式：`{code, msg, data}`，`code=0` 成功，非 0 失败（msg 可直接展示给用户）。
-> 鉴权演进：W12 开发中——用户端接口将逐步接入 JWT（请求头 `Authorization: Bearer <token>`），管理端 `/api/admin/*` 用 `X-Admin-Token`。当前阶段 userId 仍走请求参数。
+> 鉴权（W12 10-27 已启用）：
+> - 用户端：`/api/**`（除登录注册/采集白名单）必须带 `Authorization: Bearer <JWT>`，401 未登录；token 的 userId 与请求参数 userId 不一致 → 403（R10）
+> - SSE 特例：`EventSource` 不能带请求头，token 走 query 参数 `?token=xxx` 兜底
+> - 管理端：`/api/admin/**` 必须带 `X-Admin-Token: <ADMIN_TOKEN>`，不一致 401
 
 ## 一、用户认证 `/api/user`（W12 新增）
 
@@ -50,10 +53,14 @@
 | POST | /api/collect | userId + city + url | 爬链家→解析→写 rag_data/houses/{城市}.txt→重建索引 |
 | POST | /api/reindex | userId + city(可空) | 手动编辑 txt 后只重建索引；city 空=全量重建 |
 
-## 六、管理端 `/api/admin/*`（W10-27 开发）
+## 六、管理端 `/api/admin/*`（鉴权：X-Admin-Token）
 
-- 鉴权：请求头 `X-Admin-Token: <ADMIN_TOKEN>`（.env，gitignore），Filter 比对不一致 → 401
-- 规划 Tab：RAG 管理 / 技能开关 / 调用统计 / 日志审计（traceId 查询）
+| 方法 | 路径 | 说明 |
+|---|---|---|
+| GET | /api/admin/health | 管理端连通性自检（Filter 校验通过才能到这） |
+
+- 鉴权：请求头 `X-Admin-Token: <ADMIN_TOKEN>`（.env，gitignore），AdminAuthFilter 恒定时间比对，不一致 401
+- 规划 Tab（10-30 开发）：RAG 管理 / 技能开关 / 调用统计 / 日志审计（traceId 查询）
 
 ## 规划中（W12 后续）
 
