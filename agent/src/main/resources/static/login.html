@@ -1,0 +1,1284 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>星链智核</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+
+:root{
+  --bg:#f3f1ec;
+  --card:#fbfaf7;
+  --ink:#4a2b2b;
+  --ink-soft:#8a7070;
+  --ink-faint:#c4b3b3;
+  --brown:#7a4a2b;
+  --pink:#f2a0a0;
+  --pink-deep:#e07878;
+  --red:#d94f4f;
+  --green:#5aa87a;
+  --white:#fffdf9;
+  --horn:#8a5a3b;
+}
+
+body{
+  height:100vh;
+  background:var(--bg);
+  font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','PingFang SC','Segoe UI',system-ui,sans-serif;
+  -webkit-font-smoothing:antialiased;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  overflow:hidden;
+  color:var(--ink);
+  position:relative;
+  transition:background .8s ease;
+}
+
+body.reg-mode{
+  background:#f6ecea;
+}
+
+/* 背景装饰光斑 */
+.blob{
+  position:fixed;
+  border-radius:50%;
+  pointer-events:none;
+  filter:blur(60px);
+  transition:all 1s ease;
+}
+.blob-1{
+  width:420px;height:420px;
+  top:-120px;left:-100px;
+  background:rgba(242,160,160,.14);
+}
+.blob-2{
+  width:360px;height:360px;
+  bottom:-100px;right:-80px;
+  background:rgba(122,74,43,.08);
+}
+body.reg-mode .blob-1{background:rgba(217,79,79,.12)}
+body.reg-mode .blob-2{background:rgba(242,160,160,.16)}
+
+/* ===== 主容器 ===== */
+.card{
+  width:400px;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  position:relative;
+  z-index:1;
+}
+
+/* ================= 小恶魔角色 ================= */
+.devil{
+  position:relative;
+  width:170px;
+  height:170px;
+  margin-bottom:26px;
+  animation:idle 3.5s ease-in-out infinite;
+  cursor:pointer;
+}
+
+.devil.hidden{display:none}
+
+/* 待机浮动 */
+@keyframes idle{
+  0%,100%{transform:translateY(0)}
+  50%{transform:translateY(-6px)}
+}
+
+/* 跳跃 */
+.devil.hop{animation:hop .55s cubic-bezier(.34,1.56,.64,1)}
+@keyframes hop{
+  0%,100%{transform:translateY(0)}
+  30%{transform:translateY(-20px) scale(1.04,.96)}
+  55%{transform:translateY(-6px) scale(.97,1.03)}
+  80%{transform:translateY(-2px)}
+}
+
+/* 身体 */
+.d-body{
+  position:absolute;
+  top:28px;
+  left:50%;
+  transform:translateX(-50%);
+  width:120px;
+  height:126px;
+  background:#fff;
+  border:3px solid var(--ink);
+  border-radius:52% 48% 55% 45% / 50% 52% 48% 50%;
+  transition:all .5s cubic-bezier(.4,0,.2,1);
+  box-shadow:0 10px 30px rgba(74,43,43,.08);
+}
+
+/* ===== 角 ===== */
+.devil .horn{
+  position:absolute;
+  top:6px;
+  width:26px;
+  height:34px;
+  background:var(--brown);
+  border:3px solid var(--ink);
+  transition:all .5s;
+  z-index:2;
+}
+.horn-l{
+  left:38px;
+  border-radius:80% 20% 60% 40% / 90% 10% 70% 30%;
+  transform:rotate(-18deg);
+}
+.horn-r{
+  right:38px;
+  border-radius:20% 80% 40% 60% / 10% 90% 30% 70%;
+  transform:rotate(18deg);
+}
+
+.devil.hop .horn-l{transform:rotate(-28deg) translateY(-2px)}
+.devil.hop .horn-r{transform:rotate(28deg) translateY(-2px)}
+
+/* ===== 耳朵 ===== */
+.ear{
+  position:absolute;
+  top:34px;
+  width:26px;
+  height:22px;
+  background:#fff;
+  border:3px solid var(--ink);
+  z-index:1;
+  transition:all .5s;
+}
+.ear-l{
+  left:14px;
+  border-radius:60% 40% 20% 80%;
+  transform:rotate(-30deg);
+}
+.ear-r{
+  right:14px;
+  border-radius:40% 60% 80% 20%;
+  transform:rotate(30deg);
+}
+
+/* ===== 翅膀 ===== */
+.devil .wing{
+  position:absolute;
+  top:66px;
+  width:44px;
+  height:34px;
+  background:#241d1d;
+  border:3px solid var(--ink);
+  z-index:0;
+}
+.wing-l{
+  left:-16px;
+  border-radius:10% 60% 20% 80%;
+  clip-path:polygon(100% 0, 0 15%, 25% 45%, 0 60%, 30% 75%, 15% 100%, 100% 85%);
+  transform-origin:right center;
+  animation:flapL 3.5s ease-in-out infinite;
+}
+.wing-r{
+  right:-16px;
+  border-radius:60% 10% 80% 20%;
+  clip-path:polygon(0 0, 100% 15%, 75% 45%, 100% 60%, 70% 75%, 85% 100%, 0 85%);
+  transform-origin:left center;
+  animation:flapR 3.5s ease-in-out infinite;
+}
+
+@keyframes flapL{
+  0%,100%{transform:rotate(0)}
+  50%{transform:rotate(-8deg)}
+}
+@keyframes flapR{
+  0%,100%{transform:rotate(0)}
+  50%{transform:rotate(8deg)}
+}
+
+/* 跳跃时大扇动 */
+.devil.hop .wing-l{animation:flapL2 .55s ease}
+.devil.hop .wing-r{animation:flapR2 .55s ease}
+@keyframes flapL2{
+  0%,100%{transform:rotate(0)}
+  40%{transform:rotate(-25deg)}
+}
+@keyframes flapR2{
+  0%,100%{transform:rotate(0)}
+  40%{transform:rotate(25deg)}
+}
+
+/* ===== 眼睛 ===== */
+.d-eyes{
+  position:absolute;
+  top:34px;
+  left:50%;
+  transform:translateX(-50%);
+  display:flex;
+  gap:26px;
+  z-index:3;
+}
+
+.d-eye{
+  width:16px;
+  height:16px;
+  background:var(--ink);
+  border-radius:50%;
+  transition:all .25s cubic-bezier(.4,0,.2,1);
+}
+
+/* 闭眼（输密码时） */
+.devil.shy .d-eye{
+  height:3px;
+  border-radius:3px;
+  margin-top:7px;
+  background:var(--ink);
+  transform:none;
+}
+
+/* 开心眼（成功时） */
+.devil.happy .d-eye{
+  background:transparent;
+  height:9px;
+  border-radius:9px 9px 0 0;
+  border-top:3px solid var(--ink);
+  margin-top:5px;
+  transform:none;
+}
+
+/* ===== 腮红 ===== */
+.d-blush{
+  position:absolute;
+  top:52px;
+  width:18px;
+  height:10px;
+  border-radius:50%;
+  background:var(--pink);
+  opacity:.7;
+  z-index:3;
+  transition:all .4s;
+}
+.d-blush-l{left:26px}
+.d-blush-r{right:26px}
+
+.d-blush::before,.d-blush::after{
+  content:'';
+  position:absolute;
+  top:2px;
+  width:2px;
+  height:6px;
+  background:var(--pink-deep);
+  border-radius:2px;
+  transform:rotate(20deg);
+}
+.d-blush::before{left:5px}
+.d-blush::after{left:10px}
+
+.devil.shy .d-blush{opacity:1;transform:scale(1.15)}
+
+/* ===== 嘴 ===== */
+.d-mouth{
+  position:absolute;
+  top:56px;
+  left:50%;
+  transform:translateX(-50%);
+  width:14px;
+  height:12px;
+  background:var(--pink-deep);
+  border:2.5px solid var(--ink);
+  border-radius:40% 40% 60% 60%;
+  z-index:3;
+  transition:all .3s;
+}
+
+/* 开心嘴 */
+.devil.happy .d-mouth{
+  width:18px;
+  height:14px;
+  border-radius:30% 30% 70% 70%;
+}
+
+/* ===== 手 ===== */
+.d-arm{
+  position:absolute;
+  top:78px;
+  width:18px;
+  height:24px;
+  border:3px solid var(--ink);
+  border-radius:50%;
+  z-index:3;
+  transition:all .35s cubic-bezier(.34,1.56,.64,1);
+}
+.d-arm-l{
+  left:32px;
+  border-left-color:transparent;
+  border-top-color:transparent;
+  transform:rotate(45deg);
+}
+.d-arm-r{
+  right:32px;
+  border-right-color:transparent;
+  border-top-color:transparent;
+  transform:rotate(-45deg);
+}
+
+/* 害羞举手 */
+.devil.shy .d-arm-l{transform:rotate(120deg) translate(-4px,-6px)}
+.devil.shy .d-arm-r{transform:rotate(-120deg) translate(4px,-6px)}
+
+/* ===== 尾巴（与注册恶魔同款爱心尾） ===== */
+.devil .tail{
+  position:absolute;
+  bottom:2px;
+  left:20px;
+  width:56px;
+  height:35px;
+  z-index:0;
+  transition:transform .4s;
+  transform-origin:right center;
+}
+.devil.hop .tail{transform:rotate(-12deg)}
+.devil .tail svg{width:100%;height:100%;overflow:visible}
+.devil .tail .t-line{
+  fill:none;
+  stroke:var(--ink);
+  stroke-width:4;
+  stroke-linecap:round;
+}
+.devil .tail .t-heart{
+  fill:var(--pink-deep);
+  stroke:var(--ink);
+  stroke-width:3;
+  transition:fill .5s;
+}
+
+/* ===== 影子 ===== */
+.d-shadow{
+  position:absolute;
+  bottom:-6px;
+  left:50%;
+  transform:translateX(-50%);
+  width:100px;
+  height:12px;
+  background:rgba(74,43,43,.07);
+  border-radius:50%;
+  transition:background .5s;
+}
+
+/* ================= 注册角色（原版 SVG 小恶魔） ================= */
+.mascot{
+  position:relative;
+  width:220px;
+  height:200px;
+  margin-bottom:20px;
+  cursor:pointer;
+  animation:idle 3.5s ease-in-out infinite;
+}
+.mascot.hidden{display:none}
+
+.mascot.hop{animation:hop .55s cubic-bezier(.34,1.56,.64,1)}
+
+/* 翅膀（与登录恶魔同款造型，加大号） */
+.mascot .wing{
+  position:absolute;
+  top:80px;
+  width:84px;
+  height:64px;
+  background:#26222b;
+  border:3px solid #26222b;
+  z-index:0;
+}
+.mascot .wing.left{
+  left:-30px;
+  border-radius:10% 60% 20% 80%;
+  clip-path:polygon(100% 0, 0 15%, 25% 45%, 0 60%, 30% 75%, 15% 100%, 100% 85%);
+  transform-origin:right center;
+  animation:flapL 3.5s ease-in-out infinite;
+}
+.mascot .wing.right{
+  right:-30px;
+  border-radius:60% 10% 80% 20%;
+  clip-path:polygon(0 0, 100% 15%, 75% 45%, 100% 60%, 70% 75%, 85% 100%, 0 85%);
+  transform-origin:left center;
+  animation:flapR 3.5s ease-in-out infinite;
+}
+.mascot.hop .wing.left{animation:flapL2 .55s ease}
+.mascot.hop .wing.right{animation:flapR2 .55s ease}
+
+/* 尾巴（爱心尾） */
+.mascot .tail{
+  position:absolute;
+  bottom:2px;
+  left:26px;
+  width:70px;height:44px;
+  transition:transform .4s;
+  transform-origin:right center;
+}
+.mascot .tail svg{width:100%;height:100%;overflow:visible}
+.mascot .tail .t-line{
+  fill:none;
+  stroke:var(--ink);
+  stroke-width:3.5;
+  stroke-linecap:round;
+}
+.mascot .tail .t-heart{
+  fill:#f26d6d;
+  stroke:var(--ink);
+  stroke-width:2.5;
+  transition:fill .5s;
+}
+.mascot.hop .tail{transform:rotate(-12deg)}
+
+/* 身体 */
+.mascot .m-body{
+  position:absolute;
+  left:50%;
+  top:24px;
+  transform:translateX(-50%);
+  width:150px;
+  height:160px;
+  background:var(--white);
+  border:3px solid var(--ink);
+  border-radius:50% 50% 46% 46% / 55% 55% 45% 45%;
+  transition:background .5s,border-color .5s;
+  box-shadow:0 10px 30px rgba(74,44,42,.08);
+}
+
+/* 角 */
+.mascot .horn{
+  position:absolute;
+  top:-24px;
+  width:34px;height:44px;
+  transition:all .5s;
+}
+.mascot .horn svg{width:100%;height:100%;overflow:visible}
+.mascot .horn path{
+  fill:var(--horn);
+  stroke:var(--ink);
+  stroke-width:2.5;
+  transition:fill .5s,stroke .5s;
+}
+.mascot .horn.left{left:26px;transform:rotate(-8deg)}
+.mascot .horn.right{right:26px;transform:rotate(8deg) scaleX(-1)}
+
+/* 眼睛 */
+.mascot .m-eyes{
+  position:absolute;
+  top:44px;
+  left:50%;
+  transform:translateX(-50%);
+  display:flex;
+  gap:34px;
+}
+.mascot .m-eye{
+  width:17px;height:17px;
+  background:#4a2c2a;
+  border-radius:50%;
+  position:relative;
+  transition:all .25s cubic-bezier(.4,0,.2,1);
+}
+.mascot .m-eye::after{
+  content:'';
+  position:absolute;
+  top:3px;left:3px;
+  width:5px;height:5px;
+  background:#fff;
+  border-radius:50%;
+  transition:all .25s;
+}
+.mascot.shy .m-eye{
+  height:3.5px;
+  border-radius:4px;
+  margin-top:8px;
+}
+.mascot.shy .m-eye::after{opacity:0;transform:scale(0)}
+
+/* 腮红 */
+.mascot .m-blush{
+  position:absolute;
+  top:64px;
+  width:26px;height:14px;
+  transition:opacity .4s;
+}
+.mascot .m-blush.left{left:20px}
+.mascot .m-blush.right{right:20px}
+.mascot .m-blush svg{width:100%;height:100%}
+.mascot .m-blush line{
+  stroke:#f2a0a0;
+  stroke-width:2.5;
+  stroke-linecap:round;
+  transition:stroke .5s;
+}
+.mascot.shy .m-blush{transform:scale(1.15)}
+
+/* 嘴 */
+.mascot .m-mouth{
+  position:absolute;
+  top:66px;
+  left:50%;
+  transform:translateX(-50%);
+  width:16px;height:13px;
+  transition:all .3s;
+}
+.mascot .m-mouth svg{width:100%;height:100%;overflow:visible}
+.mascot .m-mouth .mo{
+  fill:#f2a0a0;
+  stroke:var(--ink);
+  stroke-width:2;
+  transition:all .5s;
+}
+.mascot .m-mouth .tongue{
+  fill:#f26d6d;
+  stroke:var(--ink);
+  stroke-width:1.5;
+  transition:all .5s;
+}
+.mascot .m-mouth .teeth{
+  fill:#26222b;
+  opacity:0;
+  transition:opacity .3s;
+}
+.mascot.happy .m-mouth{width:22px;height:16px}
+
+/* 手 */
+.mascot .m-arm{
+  position:absolute;
+  top:88px;
+  width:22px;height:26px;
+  transition:transform .35s cubic-bezier(.34,1.56,.64,1);
+}
+.mascot .m-arm svg{width:100%;height:100%;overflow:visible}
+.mascot .m-arm path{
+  fill:none;
+  stroke:var(--ink);
+  stroke-width:3;
+  stroke-linecap:round;
+  transition:stroke .5s;
+}
+.mascot .m-arm.left{left:34px}
+.mascot .m-arm.right{right:34px;transform:scaleX(-1)}
+.mascot.shy .m-arm.left{transform:translate(14px,-46px) rotate(20deg)}
+.mascot.shy .m-arm.right{transform:scaleX(-1) translate(14px,-46px) rotate(20deg)}
+
+/* 影子 */
+.mascot .m-shadow{
+  position:absolute;
+  bottom:-6px;
+  left:50%;
+  transform:translateX(-50%);
+  width:110px;height:14px;
+  background:rgba(74,44,42,.08);
+  border-radius:50%;
+  transition:background .5s;
+}
+
+/* 黑化版（注册恶魔常驻） */
+.mascot-reg .m-body{
+  background:#26222b;
+  border-color:#26222b;
+  box-shadow:0 10px 30px rgba(38,34,43,.25);
+}
+.mascot-reg .horn path{
+  fill:var(--red);
+  stroke:#26222b;
+}
+.mascot-reg .m-eye{
+  background:#fff;
+  width:20px;height:12px;
+  border-radius:60% 40% 0 60% / 100% 100% 0 0;
+  transform:rotate(0deg);
+}
+.mascot-reg .m-eye::after{
+  top:auto;bottom:0;left:6px;
+  width:8px;height:5px;
+  background:#26222b;
+  border-radius:0;
+}
+.mascot-reg .m-eye:first-child{transform:rotate(-8deg)}
+.mascot-reg .m-eye:last-child{transform:rotate(8deg) scaleX(-1)}
+.mascot-reg.shy .m-eye{
+  height:3.5px;width:18px;
+  background:#fff;
+  border-radius:4px;
+  margin-top:6px;
+  transform:none;
+}
+.mascot-reg.shy .m-eye::after{opacity:0}
+.mascot-reg .m-blush{opacity:.35}
+.mascot-reg .m-blush line{stroke:#f26d6d}
+.mascot-reg .m-mouth{width:26px;height:14px}
+.mascot-reg .m-mouth .mo{fill:#fff;stroke:#26222b}
+.mascot-reg .m-mouth .tongue{opacity:0}
+.mascot-reg .m-mouth .teeth{opacity:1}
+.mascot-reg .m-arm path{stroke:#fff}
+.mascot-reg .m-shadow{background:rgba(38,34,43,.12)}
+
+/* ===== 标题 ===== */
+.title{
+  text-align:center;
+  margin-bottom:22px;
+}
+.title h1{
+  font-size:21px;
+  font-weight:700;
+  letter-spacing:.5px;
+  margin-bottom:4px;
+}
+.title p{
+  font-size:13px;
+  color:var(--ink-soft);
+}
+
+/* ===== Toast ===== */
+.toast{
+  width:100%;
+  padding:10px 14px;
+  border-radius:10px;
+  font-size:12px;
+  margin-bottom:14px;
+  display:none;
+  text-align:center;
+}
+.toast.error{display:block;background:rgba(217,79,79,.08);color:var(--red);border:1px solid rgba(217,79,79,.2)}
+.toast.success{display:block;background:rgba(90,168,122,.08);color:var(--green);border:1px solid rgba(90,168,122,.2)}
+
+/* ===== 主Tab ===== */
+.main-tabs{
+  display:flex;
+  width:100%;
+  background:rgba(74,43,43,.05);
+  border-radius:12px;
+  padding:4px;
+  margin-bottom:24px;
+}
+
+.main-tab{
+  flex:1;
+  padding:10px;
+  border:none;
+  background:none;
+  color:var(--ink-soft);
+  font-size:14px;
+  font-weight:600;
+  cursor:pointer;
+  border-radius:9px;
+  transition:all .3s cubic-bezier(.4,0,.2,1);
+}
+
+.main-tab.active{
+  background:#fff;
+  color:var(--ink);
+  box-shadow:0 2px 10px rgba(74,43,43,.1);
+}
+
+body.reg-mode .main-tab.active{
+  background:#241d1d;
+  color:#fff;
+}
+
+/* ===== 子Tab ===== */
+.sub-tabs{
+  display:flex;
+  border-bottom:2px solid rgba(74,43,43,.06);
+  margin-bottom:22px;
+}
+
+.sub-tab{
+  padding:10px 0;
+  margin-right:26px;
+  background:none;
+  border:none;
+  color:var(--ink-faint);
+  font-size:13px;
+  font-weight:500;
+  cursor:pointer;
+  position:relative;
+  transition:color .25s;
+}
+
+.sub-tab:hover{color:var(--ink-soft)}
+.sub-tab.active{color:var(--ink)}
+.sub-tab.active::after{
+  content:'';
+  position:absolute;
+  bottom:-2px;left:0;right:0;
+  height:2.5px;
+  background:var(--pink-deep);
+  border-radius:2px;
+}
+
+body.reg-mode .sub-tab.active::after{background:var(--red)}
+
+/* ===== 面板 ===== */
+.panel{display:none}
+.panel.active{display:block;animation:fadeUp .28s ease}
+
+@keyframes fadeUp{
+  from{opacity:0;transform:translateY(10px)}
+  to{opacity:1;transform:translateY(0)}
+}
+
+/* ===== 输入 ===== */
+.field{
+  position:relative;
+  margin-bottom:22px;
+}
+
+.field input{
+  width:100%;
+  padding:13px 14px;
+  background:#fff;
+  border:2px solid rgba(74,43,43,.1);
+  border-radius:10px;
+  color:var(--ink);
+  font-size:14px;
+  outline:none;
+  transition:all .25s;
+}
+
+body.reg-mode .field input{
+  background:rgba(255,255,255,.7);
+}
+
+.field input::placeholder{color:var(--ink-faint)}
+
+.field input:focus{
+  border-color:var(--pink-deep);
+  box-shadow:0 0 0 3px rgba(224,120,120,.1);
+}
+
+body.reg-mode .field input:focus{
+  border-color:var(--red);
+  box-shadow:0 0 0 3px rgba(217,79,79,.1);
+}
+
+.field input.err{border-color:var(--red)!important}
+
+.field .msg{
+  font-size:11px;
+  color:var(--red);
+  margin-top:5px;
+  display:none;
+}
+.field .msg.show{display:block}
+
+/* 验证码行 */
+.code-row{
+  display:flex;
+  gap:10px;
+  align-items:flex-start;
+}
+.code-row .field{flex:1;margin-bottom:0}
+
+.code-btn{
+  padding:13px 16px;
+  background:#fff;
+  border:2px solid rgba(74,43,43,.1);
+  border-radius:10px;
+  color:var(--ink-soft);
+  font-size:12px;
+  font-weight:600;
+  cursor:pointer;
+  white-space:nowrap;
+  transition:all .25s;
+}
+.code-btn:hover:not(:disabled){
+  border-color:var(--pink-deep);
+  color:var(--pink-deep);
+}
+body.reg-mode .code-btn:hover:not(:disabled){
+  border-color:var(--red);
+  color:var(--red);
+}
+.code-btn:disabled{opacity:.4;cursor:not-allowed}
+
+/* ===== 按钮 ===== */
+.btn{
+  width:100%;
+  padding:14px;
+  margin-top:8px;
+  background:var(--ink);
+  color:#fff;
+  border:none;
+  border-radius:12px;
+  font-size:14px;
+  font-weight:700;
+  cursor:pointer;
+  transition:all .25s cubic-bezier(.4,0,.2,1);
+  letter-spacing:1px;
+}
+
+.btn:hover:not(:disabled){
+  transform:translateY(-1px);
+  box-shadow:0 8px 20px rgba(74,43,43,.2);
+  background:var(--pink-deep);
+}
+
+body.reg-mode .btn{background:var(--red)}
+body.reg-mode .btn:hover:not(:disabled){
+  box-shadow:0 8px 20px rgba(217,79,79,.25);
+  background:#c43f3f;
+}
+
+.btn:active:not(:disabled){transform:scale(.98)}
+.btn:disabled{opacity:.45;cursor:not-allowed;transform:none}
+
+/* ===== 底部 ===== */
+.foot{
+  margin-top:24px;
+  font-size:12px;
+  color:var(--ink-soft);
+  text-align:center;
+}
+.foot a{
+  color:var(--pink-deep);
+  font-weight:600;
+  text-decoration:none;
+  cursor:pointer;
+}
+body.reg-mode .foot a{color:var(--red)}
+.foot a:hover{text-decoration:underline}
+
+/* Spinner */
+.sp{
+  display:inline-block;
+  width:13px;height:13px;
+  border:2px solid transparent;
+  border-top-color:currentColor;
+  border-radius:50%;
+  animation:spin .5s linear infinite;
+  vertical-align:middle;
+  margin-right:5px;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ===== 成功遮罩 ===== */
+.done{
+  position:fixed;inset:0;
+  background:var(--bg);
+  display:none;
+  align-items:center;
+  justify-content:center;
+  flex-direction:column;
+  gap:14px;
+  z-index:99;
+}
+.done.show{display:flex;animation:fadeUp .35s ease}
+.done h2{font-size:18px;font-weight:700}
+.done p{font-size:12px;color:var(--ink-soft)}
+.done .ck{
+  width:56px;height:56px;
+  border-radius:50%;
+  background:#fff;
+  border:3px solid var(--green);
+  display:flex;align-items:center;justify-content:center;
+  animation:popIn .4s cubic-bezier(.34,1.56,.64,1);
+}
+@keyframes popIn{0%{transform:scale(0)}100%{transform:scale(1)}}
+.done .ck svg{width:26px;height:26px;stroke:var(--green);stroke-width:3;fill:none}
+
+@media(max-width:440px){
+  .card{width:100%;padding:24px 20px}
+  .devil{zoom:.85}
+  .mascot{zoom:.85}
+}
+</style>
+</head>
+<body>
+<div class="blob blob-1"></div>
+<div class="blob blob-2"></div>
+
+<div class="card">
+  <!-- 登录小恶魔 -->
+  <div class="devil" id="devilLogin" title="点我">
+    <div class="wing wing-l"></div>
+    <div class="wing wing-r"></div>
+    <div class="tail">
+      <svg viewBox="0 0 70 44">
+        <path class="t-line" d="M66 30 C50 40 34 40 24 30"/>
+        <path class="t-heart" d="M14 18 C10 12 2 14 2 21 C2 27 8 31 14 36 C20 31 26 27 26 21 C26 14 18 12 14 18 Z"/>
+      </svg>
+    </div>
+    <div class="ear ear-l"></div>
+    <div class="ear ear-r"></div>
+    <div class="horn horn-l"></div>
+    <div class="horn horn-r"></div>
+    <div class="d-body">
+      <div class="d-eyes">
+        <div class="d-eye"></div>
+        <div class="d-eye"></div>
+      </div>
+      <div class="d-blush d-blush-l"></div>
+      <div class="d-blush d-blush-r"></div>
+      <div class="d-mouth"></div>
+      <div class="d-arm d-arm-l"></div>
+      <div class="d-arm d-arm-r"></div>
+    </div>
+    <div class="d-shadow"></div>
+  </div>
+
+  <!-- 注册小恶魔（原版 SVG 黑化版） -->
+  <div class="mascot mascot-reg hidden" id="devilReg" title="点我">
+    <div class="wing left"></div>
+    <div class="wing right"></div>
+    <div class="tail">
+      <svg viewBox="0 0 70 44">
+        <path class="t-line" d="M66 30 C50 40 34 40 24 30"/>
+        <path class="t-heart" d="M14 18 C10 12 2 14 2 21 C2 27 8 31 14 36 C20 31 26 27 26 21 C26 14 18 12 14 18 Z"/>
+      </svg>
+    </div>
+    <div class="m-body">
+      <div class="horn left">
+        <svg viewBox="0 0 34 44">
+          <path d="M28 42 C14 36 6 24 8 10 C9 4 14 2 16 6 C18 12 22 20 30 26 C33 30 32 38 28 42 Z"/>
+        </svg>
+      </div>
+      <div class="horn right">
+        <svg viewBox="0 0 34 44">
+          <path d="M28 42 C14 36 6 24 8 10 C9 4 14 2 16 6 C18 12 22 20 30 26 C33 30 32 38 28 42 Z"/>
+        </svg>
+      </div>
+      <div class="m-eyes">
+        <div class="m-eye"></div>
+        <div class="m-eye"></div>
+      </div>
+      <div class="m-blush left">
+        <svg viewBox="0 0 26 14">
+          <line x1="4" y1="4" x2="8" y2="8"/>
+          <line x1="11" y1="3" x2="15" y2="7"/>
+          <line x1="18" y1="4" x2="22" y2="8"/>
+        </svg>
+      </div>
+      <div class="m-blush right">
+        <svg viewBox="0 0 26 14">
+          <line x1="4" y1="4" x2="8" y2="8"/>
+          <line x1="11" y1="3" x2="15" y2="7"/>
+          <line x1="18" y1="4" x2="22" y2="8"/>
+        </svg>
+      </div>
+      <div class="m-mouth">
+        <svg viewBox="0 0 26 16">
+          <path class="mo" d="M3 2 C7 6 19 6 23 2 C23 10 18 14 13 14 C8 14 3 10 3 2 Z"/>
+          <path class="tongue" d="M10 10 C10 14 16 14 16 10 C16 8 10 8 10 10 Z"/>
+          <path class="teeth" d="M6 4 L9 9 L12 4 L15 9 L18 4 L21 8 L21 4 Z"/>
+        </svg>
+      </div>
+      <div class="m-arm left">
+        <svg viewBox="0 0 22 26">
+          <path d="M4 2 C2 10 4 18 10 22 C14 24 18 22 18 18"/>
+        </svg>
+      </div>
+      <div class="m-arm right">
+        <svg viewBox="0 0 22 26">
+          <path d="M4 2 C2 10 4 18 10 22 C14 24 18 22 18 18"/>
+        </svg>
+      </div>
+    </div>
+    <div class="m-shadow"></div>
+  </div>
+
+  <!-- 标题 -->
+  <div class="title">
+    <h1 id="titleText">欢迎回来</h1>
+    <p id="descText">登录星链智核</p>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <!-- 主Tab -->
+  <div class="main-tabs">
+    <button class="main-tab active" onclick="switchMain('login')">登录</button>
+    <button class="main-tab" onclick="switchMain('register')">注册</button>
+  </div>
+
+  <!-- ===== 登录 ===== -->
+  <div class="panel active" id="pLogin">
+    <div class="sub-tabs">
+      <button class="sub-tab active" onclick="switchSub(this,'lp')">密码登录</button>
+      <button class="sub-tab" onclick="switchSub(this,'lc')">验证码登录</button>
+    </div>
+
+    <div class="panel active" id="lp">
+      <div class="field">
+        <input type="text" id="l_u" placeholder="用户名" autocomplete="username">
+        <div class="msg" id="l_u_e"></div>
+      </div>
+      <div class="field">
+        <input type="password" id="l_p" placeholder="密码" autocomplete="current-password">
+        <div class="msg" id="l_p_e"></div>
+      </div>
+      <button class="btn" id="l_btn" onclick="doLogin()">登录</button>
+    </div>
+
+    <div class="panel" id="lc">
+      <div class="field">
+        <input type="email" id="l_em" placeholder="QQ 邮箱">
+        <div class="msg" id="l_em_e"></div>
+      </div>
+      <div class="code-row">
+        <div class="field">
+          <input type="text" id="l_cd" placeholder="验证码" maxlength="6" inputmode="numeric">
+          <div class="msg" id="l_cd_e"></div>
+        </div>
+        <button class="code-btn" id="l_snd" onclick="sendCode('l')">获取验证码</button>
+      </div>
+      <button class="btn" id="l_btn2" onclick="doCodeLogin()">登录</button>
+    </div>
+  </div>
+
+  <!-- ===== 注册 ===== -->
+  <div class="panel" id="pReg">
+    <div class="sub-tabs">
+      <button class="sub-tab active" onclick="switchSub(this,'ru')">用户名注册</button>
+      <button class="sub-tab" onclick="switchSub(this,'re')">邮箱注册</button>
+    </div>
+
+    <div class="panel active" id="ru">
+      <div class="field">
+        <input type="text" id="r_u" placeholder="用户名">
+        <div class="msg" id="r_u_e"></div>
+      </div>
+      <div class="field">
+        <input type="password" id="r_p" placeholder="密码（至少 6 位）">
+        <div class="msg" id="r_p_e"></div>
+      </div>
+      <div class="field">
+        <input type="password" id="r_p2" placeholder="确认密码">
+        <div class="msg" id="r_p2_e"></div>
+      </div>
+      <button class="btn" id="r_btn" onclick="doReg()">注册</button>
+    </div>
+
+    <div class="panel" id="re">
+      <div class="field">
+        <input type="email" id="r_em" placeholder="QQ 邮箱">
+        <div class="msg" id="r_em_e"></div>
+      </div>
+      <div class="code-row">
+        <div class="field">
+          <input type="text" id="r_cd" placeholder="验证码" maxlength="6" inputmode="numeric">
+          <div class="msg" id="r_cd_e"></div>
+        </div>
+        <button class="code-btn" id="r_snd" onclick="sendCode('r')">获取验证码</button>
+      </div>
+      <button class="btn" id="r_btn2" onclick="doRegEmail()">注册</button>
+    </div>
+  </div>
+
+  <div class="foot" id="foot">
+    没有账号？<a onclick="switchMain('register')">注册</a>
+  </div>
+</div>
+
+<!-- 成功 -->
+<div class="done" id="done">
+  <div class="ck"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></div>
+  <h2 id="dTitle"></h2>
+  <p id="dDesc"></p>
+</div>
+
+<script>
+const $=id=>document.getElementById(id);
+const DL=$('devilLogin');
+const DR=$('devilReg');
+const visibleDevil=()=>DL.classList.contains('hidden')?DR:DL;
+
+// 输密码 → 闭眼 + 举手（登录角色管登录表单，注册角色管注册表单）
+document.querySelectorAll('input[type="password"]').forEach(i=>{
+  const d=i.closest('#pLogin')?DL:DR;
+  i.addEventListener('focus',()=>d.classList.add('shy'));
+  i.addEventListener('blur',()=>d.classList.remove('shy'));
+});
+
+// 点角色 → 跳
+function hop(d){
+  d.classList.remove('hop');
+  void d.offsetWidth;
+  d.classList.add('hop');
+  setTimeout(()=>d.classList.remove('hop'),560);
+}
+DL.addEventListener('click',()=>hop(DL));
+DR.addEventListener('click',()=>hop(DR));
+
+function switchMain(m){
+  document.querySelectorAll('.main-tab').forEach((b,i)=>{
+    b.classList.toggle('active',(m==='login'&&i===0)||(m==='register'&&i===1));
+  });
+  $('pLogin').classList.toggle('active',m==='login');
+  $('pReg').classList.toggle('active',m==='register');
+
+  const isReg=m==='register';
+  document.body.classList.toggle('reg-mode',isReg);
+
+  DL.classList.toggle('hidden',isReg);
+  DR.classList.toggle('hidden',!isReg);
+  hop(isReg?DR:DL);
+
+  if(m==='login'){
+    $('titleText').textContent='欢迎回来';
+    $('descText').textContent='登录星链智核';
+    $('foot').innerHTML='没有账号？<a onclick="switchMain(\'register\')">注册</a>';
+  }else{
+    $('titleText').textContent='创建账号';
+    $('descText').textContent='加入星链智核';
+    $('foot').innerHTML='已有账号？<a onclick="switchMain(\'login\')">登录</a>';
+  }
+  hideToast();
+}
+
+function switchSub(btn,id){
+  const parent=btn.closest('.panel');
+  parent.querySelectorAll('.sub-tab').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  parent.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  $(id).classList.add('active');
+}
+
+function err(inp,msg){
+  inp.classList.add('err');
+  const el=inp.parentElement.querySelector('.msg');
+  if(el){el.textContent=msg;el.classList.add('show');}
+  inp.focus();
+}
+function clr(inp){
+  inp.classList.remove('err');
+  const el=inp.parentElement.querySelector('.msg');
+  if(el)el.classList.remove('show');
+}
+function showToast(msg,type){
+  const t=$('toast');t.textContent=msg;t.className='toast '+type;
+  if(type==='error')setTimeout(()=>t.className='toast',4000);
+}
+function hideToast(){$('toast').className='toast';}
+function ld(btn,on,txt){btn.disabled=on;btn.innerHTML=on?'<span class="sp"></span>'+txt:txt;}
+const isEm=v=>/^[a-zA-Z0-9._%+-]+@qq\.com$/.test(v);
+const isUn=v=>/^[\w\u4e00-\u9fa5]{3,20}$/.test(v);
+
+function cd(btn){
+  let s=60;btn.disabled=true;btn.textContent=s+'s';
+  const t=setInterval(()=>{s--;if(s<=0){clearInterval(t);btn.disabled=false;btn.textContent='获取验证码';}else btn.textContent=s+'s';},1000);
+}
+
+function showDone(t,d,url,ms){
+  $('dTitle').textContent=t;$('dDesc').textContent=d;
+  $('done').classList.add('show');
+  visibleDevil().classList.add('happy');
+  if(url)setTimeout(()=>location.href=url,ms);
+}
+
+// ===== 真实接口调用（契约 10-25 冻结，见 docs/API.md） =====
+async function api(path, body){
+  const r = await fetch(path, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(body)
+  });
+  return r.json();
+}
+// 保存登录态：token + userId（后续请求带 Authorization: Bearer token）
+function saveAuth(auth){
+  localStorage.setItem('token', auth.token);
+  localStorage.setItem('userId', auth.userId);
+}
+
+async function doLogin(){
+  hideToast();
+  const u=$('l_u').value.trim(),p=$('l_p').value;
+  if(!u)return err($('l_u'),'请输入用户名');clr($('l_u'));
+  if(!p)return err($('l_p'),'请输入密码');clr($('l_p'));
+  ld($('l_btn'),true,'登录中');
+  try{
+    const res=await api('/api/user/login',{type:'username',username:u,password:p});
+    if(res.code!==0){showToast(res.msg,'error');return;}
+    saveAuth(res.data);
+    showDone('登录成功','欢迎回来','index.html',2000);
+  }catch(e){showToast('网络异常，请稍后重试','error');}
+  finally{ld($('l_btn'),false,'登录');}
+}
+
+async function doCodeLogin(){
+  hideToast();
+  const em=$('l_em').value.trim(),c=$('l_cd').value.trim();
+  if(!em)return err($('l_em'),'请输入邮箱');
+  if(!isEm(em))return err($('l_em'),'需为 QQ 邮箱');clr($('l_em'));
+  if(!c)return err($('l_cd'),'请输入验证码');
+  if(!/^\d{6}$/.test(c))return err($('l_cd'),'6 位数字');clr($('l_cd'));
+  ld($('l_btn2'),true,'登录中');
+  try{
+    const res=await api('/api/user/login',{type:'email',email:em,code:c});
+    if(res.code!==0){showToast(res.msg,'error');return;}
+    saveAuth(res.data);
+    showDone('登录成功','欢迎回来','index.html',2000);
+  }catch(e){showToast('网络异常，请稍后重试','error');}
+  finally{ld($('l_btn2'),false,'登录');}
+}
+
+async function doReg(){
+  hideToast();
+  const u=$('r_u').value.trim(),p=$('r_p').value,p2=$('r_p2').value;
+  if(!u)return err($('r_u'),'请输入用户名');
+  if(!isUn(u))return err($('r_u'),'3–20位，字母/数字/下划线/中文');clr($('r_u'));
+  if(!p)return err($('r_p'),'请输入密码');
+  if(p.length<6)return err($('r_p'),'至少 6 位');clr($('r_p'));
+  if(!p2)return err($('r_p2'),'请再次输入');
+  if(p!==p2)return err($('r_p2'),'两次密码不一致');clr($('r_p2'));
+  ld($('r_btn'),true,'注册中');
+  try{
+    const res=await api('/api/user/register',{type:'username',username:u,password:p});
+    if(res.code!==0){showToast(res.msg,'error');return;}
+    showDone('注册成功','即将跳转登录…','login.html',2000);
+  }catch(e){showToast('网络异常，请稍后重试','error');}
+  finally{ld($('r_btn'),false,'注册');}
+}
+
+async function doRegEmail(){
+  hideToast();
+  const em=$('r_em').value.trim(),c=$('r_cd').value.trim();
+  if(!em)return err($('r_em'),'请输入邮箱');
+  if(!isEm(em))return err($('r_em'),'需为 QQ 邮箱');clr($('r_em'));
+  if(!c)return err($('r_cd'),'请输入验证码');
+  if(!/^\d{6}$/.test(c))return err($('r_cd'),'6 位数字');clr($('r_cd'));
+  ld($('r_btn2'),true,'注册中');
+  try{
+    const res=await api('/api/user/register',{type:'email',email:em,code:c});
+    if(res.code!==0){showToast(res.msg,'error');return;}
+    saveAuth(res.data);   // 邮箱注册成功即自动登录
+    showDone('注册成功','正在进入…','index.html',1500);
+  }catch(e){showToast('网络异常，请稍后重试','error');}
+  finally{ld($('r_btn2'),false,'注册');}
+}
+
+async function sendCode(prefix){
+  hideToast();
+  const inp=$(prefix+'_em'),btn=$(prefix+'_snd');
+  const em=inp.value.trim();
+  if(!em)return err(inp,'请输入邮箱');
+  if(!isEm(em))return err(inp,'需为 QQ 邮箱');clr(inp);
+  ld(btn,true,'发送中');
+  try{
+    const res=await api('/api/user/send-code',{email:em});
+    if(res.code!==0){showToast(res.msg,'error');return;}
+    showToast('验证码已发送至邮箱','success');
+    cd(btn);
+  }catch(e){showToast('网络异常，请稍后重试','error');}
+  finally{ld(btn,false,'获取验证码');}
+}
+
+$('r_p2').addEventListener('input',()=>{
+  if($('r_p2').value&&$('r_p').value!==$('r_p2').value)err($('r_p2'),'两次密码不一致');
+  else clr($('r_p2'));
+});
+
+document.querySelectorAll('.field input').forEach(i=>{
+  i.addEventListener('input',()=>clr(i));
+});
+
+document.addEventListener('keydown',e=>{
+  if(e.key!=='Enter')return;
+  const panels=document.querySelectorAll('.panel.active');
+  const inner=panels[panels.length-1];
+  if(!inner)return;
+  const btn=inner.querySelector('.btn');
+  if(btn)btn.click();
+});
+</script>
+</body>
+</html>
