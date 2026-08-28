@@ -56,6 +56,11 @@ public class WechatSessionRepository {
         mapper.deleteByBotId(botId);
     }
 
+    // 删除某微信身份的全部旧会话（扫码确认换 Bot 时清被顶掉的旧 bot，避免重启恢复一堆失效会话）
+    public void deleteByUserId(String userId) {
+        mapper.deleteByUserId(userId);
+    }
+
     // 删除 saved_at 早于 days 天前的会话（过期清理）；返回删除条数
     public int deleteOlderThan(int days) {
         return mapper.deleteOlderThan(LocalDateTime.now().minusDays(days));

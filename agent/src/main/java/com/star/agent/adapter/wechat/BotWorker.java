@@ -79,7 +79,7 @@ public class BotWorker implements Runnable, ReconnectHandler {
             login();
             // 命令处理器绑定当前 botId（#logout 才知道停哪个）；手动链路 botManager=null 不处理命令
             MessageDispatcher dispatcher = new MessageDispatcher(adapter, sceneDetector, chatService, this,
-                    botManager == null ? null : new WechatBotCommandHandler(botId, botManager),
+                    botManager == null ? null : new WechatBotCommandHandler(botId, botManager, identityResolver),
                     multimediaHandler, debounce, replySender, identityResolver);
             this.dispatcher = dispatcher;
             dispatcher.start();
@@ -150,5 +150,13 @@ public class BotWorker implements Runnable, ReconnectHandler {
         if (dispatcher != null) {
             dispatcher.stop();
         }
+    }
+
+    // 宿主微信身份（登录/恢复后才有）：扫码确认换 Bot 时按微信停掉旧 worker 用
+    public String hostWechatId() {
+        if (client == null || client.getLoginContext() == null) {
+            return null;
+        }
+        return client.getLoginContext().getUserId();
     }
 }

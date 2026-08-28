@@ -47,6 +47,21 @@ public class BotRegistry {
         logger.info("全部 Bot 已停止（共 {} 个）", n);
     }
 
+    // 停止同一微信的全部 Bot（10-31：扫码确认换 Bot 时，旧 botId 的 worker 还活着会重复收消息，
+    // 必须按宿主微信停掉——一个微信只能有一个 bot 在线）
+    public void stopAllWithUserId(String userId) {
+        if (userId == null || userId.isBlank()) {
+            return;
+        }
+        workers.forEach((botId, worker) -> {
+            if (userId.equals(worker.hostWechatId())) {
+                workers.remove(botId);
+                worker.stop();
+                logger.info("同一微信 {} 的旧 Bot {} 已停止（扫码确认换 Bot）", userId, botId);
+            }
+        });
+    }
+
     // 当前登记的 botId 清单
     public List<String> botIds() {
         return List.copyOf(workers.keySet());

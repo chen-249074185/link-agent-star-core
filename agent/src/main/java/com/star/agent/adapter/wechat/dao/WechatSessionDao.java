@@ -22,6 +22,9 @@ public interface WechatSessionDao {
     // 删某 bot 的会话（登出命令/测试清理用）
     int deleteByBotId(String botId);
 
+    // 删某微信身份的全部旧会话（扫码确认换 Bot 时清被顶掉的旧 bot）
+    int deleteByUserId(String userId);
+
     // 删 saved_at 早于截止时间的会话（过期清理）
     int deleteOlderThan(LocalDateTime cutoff);
 

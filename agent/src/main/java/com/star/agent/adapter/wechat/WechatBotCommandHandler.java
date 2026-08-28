@@ -21,10 +21,17 @@ public class WechatBotCommandHandler implements BotCommandHandler {
 
     private final String botId;
     private final BotManager botManager;
+    // 微信身份→账号映射（10-31 绑定互通）：粘贴猎聘 Token 时存到账号身份行（否则绑定后按账号查不到）
+    private final WechatIdentityResolver identityResolver;
 
     public WechatBotCommandHandler(String botId, BotManager botManager) {
+        this(botId, botManager, null);
+    }
+
+    public WechatBotCommandHandler(String botId, BotManager botManager, WechatIdentityResolver identityResolver) {
         this.botId = botId;
         this.botManager = botManager;
+        this.identityResolver = identityResolver;
     }
 
     @Override
@@ -34,9 +41,11 @@ public class WechatBotCommandHandler implements BotCommandHandler {
         }
         String cmd = text.trim();
         // ① JWT 格式 → 自动配置该用户的猎聘 Token（用户被提示"请发送你的猎聘Token"后直接粘贴即可）
+        // 保存身份用映射后的账号 userId：绑定账号的微信粘贴 Token 存到账号行（McpSkill 按账号查）
         if (JWT_PATTERN.matcher(cmd).matches()) {
-            botManager.saveUserToken(userId, cmd);
-            logger.info("用户 {} 已配置猎聘 Token（JWT 自动识别）", userId);
+            String identity = identityResolver == null ? userId : identityResolver.resolve(userId);
+            botManager.saveUserToken(identity, cmd);
+            logger.info("用户 {} 已配置猎聘 Token（JWT 自动识别，映射身份 {}）", userId, identity);
             return "已保存你的猎聘 Token，之后查岗位/简历都走你自己的猎聘账号。"
                     + "（Token 仅本人可用；如需更换，直接再发一次新的即可）";
         }

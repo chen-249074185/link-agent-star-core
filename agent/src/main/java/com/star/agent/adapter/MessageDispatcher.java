@@ -35,6 +35,10 @@ public class MessageDispatcher {
                                                            // 频率仍由长轮询主导（~1 次/20s），不会触发高频限流
     private static final long FETCH_ERROR_SLEEP_MS = 500;   // 异常后歇息（防异常风暴空转）
     private static final long RECONNECT_COOLDOWN_MS = 5000; // 重登冷却：5 秒内只重登一次（防断线风暴打爆登录）
+    // 重登连续失败退避：顶号后没人扫码时重登必失败（二维码过期），连续 3 次后拉长到 5 分钟低频重试，
+    // 避免控制台无限刷"需要扫码登录"（10-31 用户实测的刷屏死循环）；人工到网页端重新扫码即恢复
+    private static final int RECONNECT_BACKOFF_MIN = 5;
+    private static final long RECONNECT_BACKOFF_MS = RECONNECT_BACKOFF_MIN * 60_000L;
 
     private final MessageAdapter adapter;            // 通道（微信实现/未来企微实现）
     private final SceneDetector sceneDetector;
@@ -96,6 +100,7 @@ public class MessageDispatcher {
     // ===== fetcher：收消息 → 去重 → 入队（永远在收，不等人）=====
     private void fetchLoop() {
         long lastReconnectAt = 0;
+        int reconnectFailures = 0;   // 连续重登失败次数：顶号后没人扫码时重登会一直失败，必须退避防刷屏
         while (running.get()) {
             try {
                 AgentMessage am = adapter.receive();
@@ -127,8 +132,22 @@ public class MessageDispatcher {
                     logger.warn("消息拉取失败: {}，尝试自动重登...", e.getMessage());
                     try {
                         reconnectHandler.onDisconnected();
+                        reconnectFailures = 0;   // 重登成功：清零失败计数
                     } catch (Exception re) {
-                        logger.error("自动重登失败: {}", re.getMessage());
+                        reconnectFailures++;
+                        logger.error("自动重登失败({}): {}", reconnectFailures, re.getMessage());
+                        if (reconnectFailures >= 3) {
+                            // 连续 3 次失败 = 顶号后没人扫码（二维码过期）：不再高频重试刷屏，
+                            // 拉长间隔等人工（到网页端重新扫码即可恢复）
+                            logger.warn("重登连续失败，{} 分钟内低频重试，请到网页端重新扫码", RECONNECT_BACKOFF_MIN);
+                            try {
+                                Thread.sleep(RECONNECT_BACKOFF_MS);
+                            } catch (InterruptedException ie) {
+                                Thread.currentThread().interrupt();
+                                break;
+                            }
+                            continue;
+                        }
                     }
                 } else {
                     logger.warn("消息拉取失败: {}，重登冷却中，{}ms 后再试",

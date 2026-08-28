@@ -106,15 +106,15 @@ public class BotManager {
 
     // 扫码确认后启动 Bot（10-31：Web 扫码只是官方侧登录，应用还得把会话拉上线，否则手机 Bot 不可用）
     // 用确认返回的登录上下文（botToken/botId/userId/baseUrl）存会话仓库 → BotWorker.login 恢复直接生效；
-    // 同 botId 已在跑 = 顶号（换宿主），先停旧的再起
+    // 同一微信只能有一个 bot：旧 botId 的 worker 全停 + 旧会话全清，只留新 Bot（否则多个 worker 重复收消息）
     public void startFromScan(String botToken, String userId, String botId, String baseUrl) {
         if (botId == null || botId.isBlank()) {
             logger.warn("扫码确认缺少 botId，无法启动 Bot");
             return;
         }
-        if (botRegistry.isRunning(botId)) {
-            logger.info("Bot {} 已在运行，扫码确认后顶号重启", botId);
-            botRegistry.stop(botId);
+        if (userId != null && !userId.isBlank()) {
+            botRegistry.stopAllWithUserId(userId);   // 停旧 worker（按宿主微信）
+            sessionRepository.deleteByUserId(userId);   // 清旧会话（重启只恢复新 bot）
         }
         LoginContext lc = new LoginContext(botToken, userId, botId, baseUrl);
         sessionRepository.save(ResumeContext.of(lc));   // 先存，BotWorker.login 的 resume 分支直接恢复

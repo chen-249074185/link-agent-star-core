@@ -33,6 +33,11 @@
         DELETE FROM wechat_session WHERE bot_id = #{botId}
     </delete>
 
+    <!-- 删某微信身份的全部旧会话（扫码确认换 Bot 时清被顶掉的旧 bot，避免重启恢复一堆失效会话） -->
+    <delete id="deleteByUserId">
+        DELETE FROM wechat_session WHERE user_id = #{userId}
+    </delete>
+
     <!-- 删 saved_at 早于截止时间的会话（过期清理） -->
     <delete id="deleteOlderThan">
         DELETE FROM wechat_session WHERE saved_at &lt; #{cutoff}
