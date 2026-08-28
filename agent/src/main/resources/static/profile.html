@@ -72,6 +72,7 @@ body{min-height:100vh;background:var(--bg);font-family:-apple-system,BlinkMacSys
     <h2>账号资料</h2>
     <div class="row"><span class="k">用户名</span><span class="v" id="vUsername">-</span></div>
     <div class="row"><span class="k">邮箱</span><span class="v muted" id="vEmail">未绑定</span></div>
+    <div class="row"><span class="k">微信</span><span class="v muted" id="vWechat">未绑定</span></div>
   </div>
 
   <!-- 未绑定：绑定表单 -->
@@ -108,6 +109,35 @@ body{min-height:100vh;background:var(--bg);font-family:-apple-system,BlinkMacSys
     </div>
     <button class="btn" id="rebindBtn" onclick="bindEmail2()">换绑</button>
   </div>
+
+  <!-- 微信绑定（未绑：绑定按钮；已绑：换绑/解绑） -->
+  <div class="box">
+    <h2>微信绑定</h2>
+    <p style="font-size:12px;color:var(--ink-soft);margin-bottom:14px">绑定后，微信聊天与网页对话共用同一份记忆、知识库与历史（扫码挂载机器人）</p>
+    <div id="wxActions">
+      <button class="btn" id="wxBindBtn" onclick="openWxScan('bind')">绑定微信</button>
+    </div>
+    <div id="wxBoundActions" style="display:none">
+      <span style="font-size:13px;color:var(--ink);margin-right:10px" id="wxBoundId"></span>
+      <button class="btn" onclick="openWxScan('rebind')">换绑</button>
+      <button class="btn" style="color:var(--red)" onclick="unbindWechat()">解绑</button>
+    </div>
+  </div>
+</div>
+
+<!-- 微信扫码弹窗 -->
+<div class="mask" id="wxMask">
+  <div class="dlg" style="text-align:center">
+    <h3 id="wxTitle">绑定微信</h3>
+    <p style="font-size:12px;color:var(--ink-soft);margin:8px 0 14px">打开微信「扫一扫」对准二维码，确认后微信与网页互通</p>
+    <div style="width:180px;height:180px;margin:0 auto 10px;background:#fff;border:1px solid var(--line);border-radius:12px;display:flex;align-items:center;justify-content:center" id="wxQrBox">
+      <div style="color:var(--ink-soft);font-size:12px">获取二维码中…</div>
+    </div>
+    <p style="font-size:12px;color:var(--ink-soft)" id="wxState">等待扫码…</p>
+    <div class="btns">
+      <button class="cancel" onclick="closeWxMask()">取消</button>
+    </div>
+  </div>
 </div>
 
 <!-- 合并确认弹窗 -->
@@ -125,7 +155,7 @@ body{min-height:100vh;background:var(--bg);font-family:-apple-system,BlinkMacSys
 <script>
 const $=id=>document.getElementById(id);
 let mergeToken=null;
-const token=localStorage.getItem('token');
+const token=sessionStorage.getItem('token');
 if(!token){location.href='login.html';}
 
 function showToast(msg,type){const t=$('toast');t.textContent=msg;t.className='toast '+type;if(type==='error')setTimeout(()=>t.className='toast',4000);}
@@ -152,8 +182,71 @@ async function api(path,body){
       $('boxBind').style.display='none';
       $('boxRebind').style.display='block';
     }
+    if(j.data.wechatBound){
+      $('vWechat').textContent=j.data.wechatId;
+      $('vWechat').classList.remove('muted');
+      $('wxBindBtn').style.display='none';
+      $('wxBoundId').textContent=j.data.wechatId;
+      $('wxBoundActions').style.display='block';
+    }
   }catch(e){showToast('加载失败，请稍后重试','error');}
 })();
+
+/* ===== 微信扫码绑定/换绑 ===== */
+let wxTicket=null, wxTimer=null, wxMode='bind';
+function closeWxMask(){clearInterval(wxTimer);wxTimer=null;$('wxMask').classList.remove('show');}
+
+async function openWxScan(mode){
+  wxMode=mode;
+  $('wxTitle').textContent=mode==='bind'?'绑定微信':'换绑微信';
+  $('wxMask').classList.add('show');
+  $('wxQrBox').innerHTML='<div style="color:var(--ink-soft);font-size:12px">获取二维码中…</div>';
+  $('wxState').textContent='等待扫码…';
+  try{
+    const r=await fetch('/api/wechat/scan/start');
+    const j=await r.json();
+    if(j.code!==0){showToast(j.msg,'error');closeWxMask();return;}
+    wxTicket=j.data.ticket;
+    $('wxQrBox').innerHTML='<img src="'+j.data.img+'" style="width:170px;height:170px;display:block">';
+    wxTimer=setInterval(pollWx,8000);   // 官方 status 是长轮询（未扫码挂起 ~30s），8s 轮询一次即可
+  }catch(e){showToast('获取二维码失败，请重试','error');closeWxMask();}
+}
+
+async function pollWx(){
+  if(!wxTicket)return;
+  try{
+    const r=await fetch('/api/wechat/scan/status?ticket='+wxTicket);
+    const j=await r.json();
+    if(j.code!==0){$('wxState').textContent=j.msg;clearInterval(wxTimer);wxTimer=null;return;}
+    const st=j.data.status;
+    if(st==='WAITING'){$('wxState').textContent='等待扫码：打开微信「扫一扫」对准二维码';}
+    else if(st==='SCANNED'){$('wxState').textContent='已扫码 ✓ 请在手机上确认';}
+    else if(st==='CONFIRMED'){
+      clearInterval(wxTimer);wxTimer=null;
+      $('wxState').textContent='确认成功，正在绑定…';
+      const br=await fetch('/api/user/bind-wechat',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify({ticket:wxTicket})});
+      const bj=await br.json();
+      if(bj.code!==0){$('wxState').textContent=bj.msg;return;}
+      $('wxState').textContent='绑定成功 ✓';
+      setTimeout(()=>location.reload(),1000);
+    }
+    else if(st==='EXPIRED'){
+      clearInterval(wxTimer);wxTimer=null;
+      $('wxState').textContent='二维码已过期，正在刷新…';
+      setTimeout(()=>openWxScan(wxMode),800);
+    }
+  }catch(e){$('wxState').textContent='状态查询失败，请重试';}
+}
+
+async function unbindWechat(){
+  if(!confirm('确定解绑微信？解绑后微信对话与网页不再互通（已并入的历史数据保留）。'))return;
+  try{
+    const r=await api('/api/user/unbind-wechat',{});
+    if(r.code!==0){showToast(r.msg,'error');return;}
+    showToast('已解绑微信','success');
+    setTimeout(()=>location.reload(),1200);
+  }catch(e){showToast('网络异常，请稍后重试','error');}
+}
 
 function cd(btn){let s=60;btn.disabled=true;btn.textContent=s+'s';const t=setInterval(()=>{s--;if(s<=0){clearInterval(t);btn.disabled=false;btn.textContent='获取验证码';}else btn.textContent=s+'s';},1000);}
 

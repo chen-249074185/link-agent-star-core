@@ -99,6 +99,19 @@
 			<version>2.22.24</version>
 		</dependency>
 
+		<!-- 微信扫码二维码本地生成（ZXing，10-31）：官方 imgContent 是 liteapp 网页链接不是图片，
+			 照老项目思路（二维码内容→PNG 图片字节），本地生成不依赖 qrserver 海外网络 -->
+		<dependency>
+			<groupId>com.google.zxing</groupId>
+			<artifactId>core</artifactId>
+			<version>3.5.3</version>
+		</dependency>
+		<dependency>
+			<groupId>com.google.zxing</groupId>
+			<artifactId>javase</artifactId>
+			<version>3.5.3</version>
+		</dependency>
+
 		<dependency>
 			<groupId>org.mybatis.spring.boot</groupId>
 			<artifactId>mybatis-spring-boot-starter</artifactId>

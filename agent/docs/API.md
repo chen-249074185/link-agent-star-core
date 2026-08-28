@@ -13,6 +13,25 @@
 | POST | /api/user/send-code | `{"email"}` | null |
 | POST | /api/user/register | `{"type":"username","username","password"}` 或 `{"type":"email","email","code"}` | 邮箱路径 `{token,userId}`（自动登录）；用户名路径 null（跳登录页） |
 | POST | /api/user/login | `{"type":"username","username","password"}` 或 `{"type":"email","email","code"}` | `{token,userId}` |
+| GET | /api/user/me | 无（JWT） | `{userId, username, email(脱敏), emailBound, wechatId(脱敏), wechatBound}` |
+| POST | /api/user/bind-email | `{"email","code"}`（JWT） | `{bound, merged?, mergeToken?}` |
+| POST | /api/user/confirm-merge | `{"mergeToken"}`（JWT） | `{bound, merged}` |
+| POST | /api/user/bind-wechat | `{"ticket"}`（JWT，10-31） | `{wechatBound, already}`；ticket 须已扫码确认（CONFIRMED） |
+| POST | /api/user/unbind-wechat | 无（JWT，10-31） | null（微信身份恢复独立，已并入数据保留） |
+
+## 一·五、微信扫码 `/api/wechat/scan`（10-31，免 JWT：登录页未登录也能扫码）
+
+| 方法 | 路径 | 入参 | 成功 data |
+|---|---|---|---|
+| GET | /api/wechat/scan/start | 无 | `{ticket, img}`（img=本地 ZXing 生成的二维码 PNG data URL，前端直接 `<img src>` 秒开） |
+| GET | /api/wechat/scan/status | ticket | `{status, confirmed}`；status=WAITING/SCANNED/CONFIRMED/EXPIRED，confirmed 时含 `{botId, userId}` |
+
+- 官方接口契约（10-31 实测踩坑）：字段下划线（`qrcode_img_content`/`bot_token`）；状态值小写 `wait/scaned/confirmed`；**status 是长轮询**（未扫码挂起 ~30s 才返回，扫码确认/过期秒回）→ 请求超时 40s + 前端 8s 轮询；官方 imgContent 是 liteapp 网页链接（img 加载 HTML 慢且显示不出）→ 本地生成二维码
+
+- 扫码语义：二维码 = 微信 Bot 登录码（把机器人挂载到某微信，SDK LoginService 的 get_bot_qrcode/get_qrcode_status 接口）；确认后拿到宿主微信身份
+- 绑定：`/api/user/bind-wechat` 把该微信写入账号 wechat_id（UNIQUE，被占 409）→ 微信侧旧数据并入账号（复用账号合并：对话/摘要/知识库/猎聘 Token/Redis 记忆）
+- 互通：微信消息入口经 users.wechat_id 查表映射 userId → 微信对话与网页共用同一份记忆/知识库/历史
+- 前端：login.html「微信扫码」入口 + 一站式弹窗（已登录直接绑定进入；未登录弹窗内登录/注册）；profile.html 绑定/换绑/解绑
 
 - 验证码：6 位数字，Redis TTL 5 分钟，一次性；发送限流 60s/邮箱；错 5 次锁 10 分钟
 - 邮箱登录未注册 = 自动注册（登录即注册），免密码

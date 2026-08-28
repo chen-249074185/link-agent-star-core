@@ -1,5 +1,6 @@
 package com.star.agent.adapter;
 
+import com.star.agent.adapter.wechat.WechatIdentityResolver;
 import com.star.agent.message.AgentMessage;
 import com.star.agent.message.MediaType;
 import com.star.agent.message.MessageSource;
@@ -43,6 +44,7 @@ public class MessageDispatcher {
     private final MultimediaHandler multimediaHandler; // 多媒体消息处理（识图/语音/文生图），可空=不处理
     private final DebounceProcessor debounce;         // 消息防抖聚合（连续消息攒批），可空=逐条处理
     private final ReplySender replySender;            // 回复发送编排（语音>图片>地图>文本），可空=直发文本
+    private final WechatIdentityResolver identityResolver; // 微信身份→账号映射（绑定后微信与网页同一 userId），可空=不映射
 
     private final BlockingQueue<AgentMessage> queue = new ArrayBlockingQueue<>(QUEUE_CAPACITY);
     private final Set<String> seenMsgIds = ConcurrentHashMap.newKeySet();  // 去重登记本（消息 id → 已处理）
@@ -54,6 +56,16 @@ public class MessageDispatcher {
                              ChatService chatService, ReconnectHandler reconnectHandler,
                              BotCommandHandler commandHandler, MultimediaHandler multimediaHandler,
                              DebounceProcessor debounce, ReplySender replySender) {
+        this(adapter, sceneDetector, chatService, reconnectHandler,
+                commandHandler, multimediaHandler, debounce, replySender, null);
+    }
+
+    // 9 参版：微信身份映射（Spring 链路传入；手动 main 链路可空=不映射，行为与绑定前一致）
+    public MessageDispatcher(MessageAdapter adapter, SceneDetector sceneDetector,
+                             ChatService chatService, ReconnectHandler reconnectHandler,
+                             BotCommandHandler commandHandler, MultimediaHandler multimediaHandler,
+                             DebounceProcessor debounce, ReplySender replySender,
+                             WechatIdentityResolver identityResolver) {
         this.adapter = adapter;
         this.sceneDetector = sceneDetector;
         this.chatService = chatService;
@@ -62,6 +74,7 @@ public class MessageDispatcher {
         this.multimediaHandler = multimediaHandler;
         this.debounce = debounce;
         this.replySender = replySender;
+        this.identityResolver = identityResolver;
     }
 
     public void start() {
@@ -187,15 +200,21 @@ public class MessageDispatcher {
     }
 
     // 单条消息处理链：命令 → 多媒体 → 场景识别 → 对话 → 回复
+    // 身份映射（10-31 三端互通）：对话/记忆/知识库走账号身份，回复目标保持微信地址
     private void handleMessage(AgentMessage am) {
         MDC.put("traceId", UUID.randomUUID().toString().substring(0, 8));  // 每条消息一个 traceId
         try {
+            String wechatId = am.userId();   // 原始身份（微信地址，回复必须用它）
+            String identity = identityResolver == null ? wechatId : identityResolver.resolve(wechatId);   // 数据归属身份
+            if (!identity.equals(wechatId)) {
+                logger.info("微信身份映射: {} → 账号 {}", wechatId, identity);
+            }
             // 命令优先：是命令就直接处理回复，不花 AI 的 token
             if (commandHandler != null) {
-                String cmdReply = commandHandler.handle(am.text(), am.userId());
+                String cmdReply = commandHandler.handle(am.text(), wechatId);
                 if (cmdReply != null) {
-                    logger.info("命令处理[{}]: {} → {}", am.userId(), am.text(), cmdReply);
-                    sendText(am.userId(), cmdReply);
+                    logger.info("命令处理[{}]: {} → {}", wechatId, am.text(), cmdReply);
+                    sendText(wechatId, cmdReply);
                     return;
                 }
             }
@@ -204,16 +223,16 @@ public class MessageDispatcher {
                 String mmReply = multimediaHandler.handle(am, adapter);
                 if (mmReply != null) {
                     if (!mmReply.isBlank()) {
-                        sendText(am.userId(), mmReply);
+                        sendText(wechatId, mmReply);
                     }
                     return;   // 已处理（含空串=发过图/语音，不回空消息）
                 }
             }
             Scene scene = sceneDetector.detect(am.text());
-            logger.info("收到消息 来自[{}]: {}，识别场景: {}", am.userId(), am.text(), scene);
-            String reply = chatService.chat(am.text(), am.userId(), scene.name());
-            logger.info("回复[{}]: {}", am.userId(), reply);
-            sendText(am.userId(), reply);
+            logger.info("收到消息 来自[{}]: {}，识别场景: {}", identity, am.text(), scene);
+            String reply = chatService.chat(am.text(), identity, scene.name());
+            logger.info("回复[{}]: {}", identity, reply);
+            sendText(wechatId, reply);
         } catch (Exception e) {
             // 单条消息失败不影响后续：记日志继续处理下一条
             logger.error("处理消息失败 来自[{}]", am.userId(), e);

@@ -20,7 +20,9 @@ public class WebConfig implements WebMvcConfigurer {
     // 登录注册与内部采集工具免 JWT（采集工具走 curl/脚本，管理端/小程序后续迁移）
     private static final String[] JWT_EXCLUDE = {
             "/api/user/send-code", "/api/user/register", "/api/user/login",
-            "/api/collect", "/api/reindex", "/api/admin/**"
+            "/api/user/scan-login",   // 微信扫码免密登录（未登录才能调）
+            "/api/collect", "/api/reindex", "/api/admin/**",
+            "/api/wechat/scan/**"   // 微信扫码（登录页未登录也要能扫码）
     };
 
     private final JwtAuthInterceptor jwtAuthInterceptor;

@@ -1,5 +1,6 @@
 package com.star.agent.adapter;
 
+import com.star.agent.adapter.wechat.WechatIdentityResolver;
 import com.star.agent.message.AgentMessage;
 import com.star.agent.message.MediaType;
 import com.star.agent.message.MessageSource;
@@ -265,5 +266,54 @@ class MessageDispatcherTest {
         verify(replySender).send(eq("u1"),
                 org.mockito.ArgumentMatchers.argThat(r -> "回复".equals(r.text())), eq(adapter));
         verify(adapter, never()).send(eq("u1"), eq("回复"));
+    }
+
+    // ===== 微信身份映射（10-31 绑定互通）：对话走账号身份，回复目标保持微信地址 =====
+    @Test
+    void identityResolver_mapsWechatToAccount() throws Exception {
+        WechatIdentityResolver resolver = mock(WechatIdentityResolver.class);
+        when(resolver.resolve("u1")).thenReturn("u-account");   // 微信 u1 已绑定账号 u-account
+        dispatcher = new MessageDispatcher(adapter, sceneDetector, chatService, reconnectHandler,
+                commandHandler, null, null, null, resolver);
+        when(adapter.receive())
+                .thenReturn(msg("m1", "你好"))
+                .thenReturn(null);
+        when(chatService.chat(eq("你好"), eq("u-account"), eq("CHAT"))).thenReturn("回复");
+
+        CountDownLatch sent = new CountDownLatch(1);
+        doAnswer(inv -> {
+            sent.countDown();
+            return null;
+        }).when(adapter).send(eq("u1"), eq("回复"));   // 回复仍发回微信地址
+
+        dispatcher.start();
+
+        assertTrue(sent.await(5, TimeUnit.SECONDS));
+        verify(chatService).chat(eq("你好"), eq("u-account"), eq("CHAT"));   // 对话/记忆/知识库走账号身份
+        verify(adapter).send(eq("u1"), eq("回复"));                          // 回复目标保持微信地址
+    }
+
+    // 未绑定：resolver 返回原值，行为与绑定前一致
+    @Test
+    void identityResolver_notBound_usesWechatId() throws Exception {
+        WechatIdentityResolver resolver = mock(WechatIdentityResolver.class);
+        when(resolver.resolve("u1")).thenReturn("u1");
+        dispatcher = new MessageDispatcher(adapter, sceneDetector, chatService, reconnectHandler,
+                commandHandler, null, null, null, resolver);
+        when(adapter.receive())
+                .thenReturn(msg("m1", "你好"))
+                .thenReturn(null);
+        when(chatService.chat(eq("你好"), eq("u1"), eq("CHAT"))).thenReturn("回复");
+
+        CountDownLatch sent = new CountDownLatch(1);
+        doAnswer(inv -> {
+            sent.countDown();
+            return null;
+        }).when(adapter).send(eq("u1"), eq("回复"));
+
+        dispatcher.start();
+
+        assertTrue(sent.await(5, TimeUnit.SECONDS));
+        verify(chatService).chat(eq("你好"), eq("u1"), eq("CHAT"));
     }
 }

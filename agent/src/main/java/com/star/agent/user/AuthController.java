@@ -19,6 +19,8 @@ import java.util.Map;
 //   POST /api/user/bind-email {"email","code"}                    = 绑定/换绑邮箱（JWT 鉴权）
 //     邮箱被纯邮箱账号占用 → data.mergeToken 待确认
 //   POST /api/user/confirm-merge {"mergeToken"}                   = 二次确认执行账号合并（JWT 鉴权）
+//   POST /api/user/bind-wechat {"ticket"}                         = 微信扫码绑定（JWT 鉴权，10-31）
+//     前置：/api/wechat/scan/start + /status 轮询到 CONFIRMED；绑定后微信与网页同一 userId 互通
 @RestController
 @RequestMapping("/api/user")
 public class AuthController {
@@ -73,5 +75,32 @@ public class AuthController {
             return Result.fail(401, "未登录或登录已过期");
         }
         return Result.ok(authService.confirmMerge(userId, body.get("mergeToken")));
+    }
+
+    // 微信扫码绑定：ticket 必须已轮询到 CONFIRMED；userId 从 JWT 取
+    @PostMapping("/bind-wechat")
+    public Result<Map<String, Object>> bindWechat(@RequestBody Map<String, String> body, HttpServletRequest request) {
+        String userId = AuthContext.userId(request);
+        if (userId == null) {
+            return Result.fail(401, "未登录或登录已过期");
+        }
+        return Result.ok(authService.bindWechat(userId, body.get("ticket")));
+    }
+
+    // 微信扫码免密登录（免 JWT，登录页未登录用）：已绑定 → 直接签发 JWT；未绑定 → data=null 走注册绑定
+    @PostMapping("/scan-login")
+    public Result<AuthResult> scanLogin(@RequestBody Map<String, String> body) {
+        return Result.ok(authService.scanLogin(body.get("ticket")));
+    }
+
+    // 解绑微信（个人信息页"解绑"按钮）：微信身份恢复独立，已并入数据保留
+    @PostMapping("/unbind-wechat")
+    public Result<Void> unbindWechat(HttpServletRequest request) {
+        String userId = AuthContext.userId(request);
+        if (userId == null) {
+            return Result.fail(401, "未登录或登录已过期");
+        }
+        authService.unbindWechat(userId);
+        return Result.ok(null);
     }
 }

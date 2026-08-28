@@ -1,5 +1,6 @@
 package com.star.agent.user;
 
+import com.star.agent.adapter.wechat.BotManager;
 import com.star.agent.infra.web.BizException;
 import com.star.agent.user.domain.UserDo;
 import org.junit.jupiter.api.BeforeEach;
@@ -32,7 +33,9 @@ class AuthServiceTest {
     private final StringRedisTemplate redis = mock(StringRedisTemplate.class);
     private final ValueOperations<String, String> valueOps = mock(ValueOperations.class);
     private final MergeService mergeService = mock(MergeService.class);
-    private final AuthService service = new AuthService(repo, verifyCodeService, jwtService, redis, mergeService);
+    private final WechatScanService wechatScanService = mock(WechatScanService.class);
+    private final BotManager botManager = mock(BotManager.class);
+    private final AuthService service = new AuthService(repo, verifyCodeService, jwtService, redis, mergeService, wechatScanService, botManager);
     private final BCryptPasswordEncoder encoder = new BCryptPasswordEncoder();
 
     @BeforeEach
@@ -290,5 +293,124 @@ class AuthServiceTest {
         BizException e = assertThrows(BizException.class, () -> service.confirmMerge("u1", "tk1234567890abcd"));
         assertEquals(400, e.getCode());
         verify(mergeService, never()).merge(anyString(), anyString());
+    }
+
+    // ---------- 微信扫码绑定（10-31 三端互通） ----------
+
+    // 扫码确认后绑定：wechat_id 写入 + 微信旧数据并入账号 + 消费 ticket + 拉起 Bot（10-31）
+    @Test
+    void bindWechat_confirmed_bindsAndMerges() {
+        UserDo me = new UserDo();
+        me.setUserId("u1");
+        when(repo.findByUserId("u1")).thenReturn(me);
+        when(repo.findByWechatId("wx123@im.wechat")).thenReturn(null);
+        when(wechatScanService.status("t1")).thenReturn(
+                new WechatScanService.ScanStatus("CONFIRMED", true, "bt", "b1", "wx123@im.wechat", "url"));
+
+        service.bindWechat("u1", "t1");
+
+        verify(repo).bindWechat("u1", "wx123@im.wechat");
+        verify(mergeService).merge("wx123@im.wechat", "u1");   // 微信旧数据并入账号
+        verify(wechatScanService).consume("t1");
+        verify(botManager).startFromScan("bt", "wx123@im.wechat", "b1", "url");   // 扫码后 Bot 上线
+    }
+
+    // 未确认/未扫码 → 拒绝绑定
+    @Test
+    void bindWechat_notConfirmed_rejected() {
+        when(wechatScanService.status("t1")).thenReturn(
+                new WechatScanService.ScanStatus("SCANNED", false, null, null, null, null));
+
+        BizException e = assertThrows(BizException.class, () -> service.bindWechat("u1", "t1"));
+        assertEquals(400, e.getCode());
+        verify(repo, never()).bindWechat(anyString(), anyString());
+    }
+
+    // 微信已被其他账号绑定 → 409
+    @Test
+    void bindWechat_occupiedByOther_rejected() {
+        UserDo me = new UserDo();
+        me.setUserId("u1");
+        UserDo owner = new UserDo();
+        owner.setUserId("u9");
+        when(repo.findByUserId("u1")).thenReturn(me);
+        when(repo.findByWechatId("wx123@im.wechat")).thenReturn(owner);
+        when(wechatScanService.status("t1")).thenReturn(
+                new WechatScanService.ScanStatus("CONFIRMED", true, "bt", "b1", "wx123@im.wechat", "url"));
+
+        BizException e = assertThrows(BizException.class, () -> service.bindWechat("u1", "t1"));
+        assertEquals(409, e.getCode());
+        verify(repo, never()).bindWechat(anyString(), anyString());
+    }
+
+    // 解绑：wechat_id 置空（复用 bindWechat 传 null）
+    @Test
+    void unbindWechat_clearsBinding() {
+        UserDo me = new UserDo();
+        me.setUserId("u1");
+        me.setWechatId("wx123@im.wechat");
+        when(repo.findByUserId("u1")).thenReturn(me);
+
+        service.unbindWechat("u1");
+
+        verify(repo).bindWechat("u1", null);
+    }
+
+    // 未绑定解绑：零副作用
+    @Test
+    void unbindWechat_notBound_noop() {
+        UserDo me = new UserDo();
+        me.setUserId("u1");
+        when(repo.findByUserId("u1")).thenReturn(me);
+
+        service.unbindWechat("u1");
+
+        verify(repo, never()).bindWechat(anyString(), any());
+    }
+
+    // 微信扫码免密登录：已绑定 → 直接签发 JWT（不用再输账号密码）+ 拉 Bot 上线
+    @Test
+    void scanLogin_boundWechat_issuesToken() {
+        UserDo bound = new UserDo();
+        bound.setUserId("u7");
+        bound.setWechatId("wx123@im.wechat");
+        when(repo.findByWechatId("wx123@im.wechat")).thenReturn(bound);
+        when(wechatScanService.status("t1")).thenReturn(
+                new WechatScanService.ScanStatus("CONFIRMED", true, "bt", "b1", "wx123@im.wechat", "url"));
+
+        AuthResult r = service.scanLogin("t1");
+
+        assertEquals("u7", r.userId());
+        assertEquals("token-x", r.token());
+        verify(wechatScanService).consume("t1");
+        verify(botManager).startFromScan("bt", "wx123@im.wechat", "b1", "url");
+    }
+
+    // 微信扫码免密登录：未绑定 → 返回 null（前端转登录/注册表单）
+    @Test
+    void scanLogin_notBound_returnsNull() {
+        when(repo.findByWechatId("wx123@im.wechat")).thenReturn(null);
+        when(wechatScanService.status("t1")).thenReturn(
+                new WechatScanService.ScanStatus("CONFIRMED", true, "bt", "b1", "wx123@im.wechat", "url"));
+
+        assertNull(service.scanLogin("t1"));
+        verify(botManager, never()).startFromScan(anyString(), anyString(), anyString(), anyString());
+    }
+
+    // 未确认/未扫码 → 拒绝
+    @Test
+    void scanLogin_notConfirmed_rejected() {
+        when(wechatScanService.status("t1")).thenReturn(
+                new WechatScanService.ScanStatus("SCANNED", false, null, null, null, null));
+
+        BizException e = assertThrows(BizException.class, () -> service.scanLogin("t1"));
+        assertEquals(400, e.getCode());
+    }
+
+    // 微信脱敏：o9cqxxxxxxxx@im.wechat → o9cq***@im.wechat
+    @Test
+    void maskWechat_hidesMiddle() {
+        assertEquals("o9cq***@im.wechat", AuthService.maskWechat("o9cq808uoBKjQAPcb7jnXy8CrM6Q@im.wechat"));
+        assertEquals("wx***@im.wechat", AuthService.maskWechat("wx@im.wechat"));
     }
 }

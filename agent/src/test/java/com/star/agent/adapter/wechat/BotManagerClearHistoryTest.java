@@ -24,7 +24,8 @@ class BotManagerClearHistoryTest {
                 mock(com.star.agent.user.UserConfigRepository.class),
                 mock(com.star.agent.adapter.DebounceProcessor.class),
                 conversationDao, dailySummaryDao, ephemeralMemory,
-                mock(com.star.agent.adapter.ImageFetcher.class));
+                mock(com.star.agent.adapter.ImageFetcher.class),
+                mock(WechatIdentityResolver.class));
     }
 
     // 清空某用户聊天记录：MySQL 对话 + 每日摘要 + Redis 瞬时记忆三处全清

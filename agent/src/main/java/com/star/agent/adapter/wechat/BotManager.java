@@ -1,6 +1,8 @@
 package com.star.agent.adapter.wechat;
 
 import com.github.wechat.ilink.sdk.ILinkClient;
+import com.github.wechat.ilink.sdk.core.context.ResumeContext;
+import com.github.wechat.ilink.sdk.core.login.LoginContext;
 import com.star.agent.adapter.DebounceProcessor;
 import com.star.agent.adapter.ImageFetcher;
 import com.star.agent.adapter.MultimediaHandler;
@@ -35,13 +37,14 @@ public class BotManager {
     private final DailySummaryDao dailySummaryDao;
     private final EphemeralMemory ephemeralMemory;
     private final ImageFetcher imageFetcher;
+    private final WechatIdentityResolver identityResolver;   // 微信身份→账号映射（10-31 绑定互通）
 
     public BotManager(ChatService chatService, SceneDetector sceneDetector,
                       WechatSessionRepository sessionRepository, BotRegistry botRegistry,
                       MultimediaHandler multimediaHandler, UserConfigRepository userConfigRepository,
                       DebounceProcessor debounce, ConversationDao conversationDao,
                       DailySummaryDao dailySummaryDao, EphemeralMemory ephemeralMemory,
-                      ImageFetcher imageFetcher) {
+                      ImageFetcher imageFetcher, WechatIdentityResolver identityResolver) {
         this.chatService = chatService;
         this.sceneDetector = sceneDetector;
         this.sessionRepository = sessionRepository;
@@ -53,6 +56,7 @@ public class BotManager {
         this.dailySummaryDao = dailySummaryDao;
         this.ephemeralMemory = ephemeralMemory;
         this.imageFetcher = imageFetcher;
+        this.identityResolver = identityResolver;
     }
 
     // 启动恢复：扫表逐个免扫码恢复；空表 → 起一个新 Bot 等扫码
@@ -100,13 +104,32 @@ public class BotManager {
         logger.info("用户 {} 聊天记录已清空：对话 {} 条、每日摘要 {} 条、瞬时记忆已删", userId, conversations, summaries);
     }
 
+    // 扫码确认后启动 Bot（10-31：Web 扫码只是官方侧登录，应用还得把会话拉上线，否则手机 Bot 不可用）
+    // 用确认返回的登录上下文（botToken/botId/userId/baseUrl）存会话仓库 → BotWorker.login 恢复直接生效；
+    // 同 botId 已在跑 = 顶号（换宿主），先停旧的再起
+    public void startFromScan(String botToken, String userId, String botId, String baseUrl) {
+        if (botId == null || botId.isBlank()) {
+            logger.warn("扫码确认缺少 botId，无法启动 Bot");
+            return;
+        }
+        if (botRegistry.isRunning(botId)) {
+            logger.info("Bot {} 已在运行，扫码确认后顶号重启", botId);
+            botRegistry.stop(botId);
+        }
+        LoginContext lc = new LoginContext(botToken, userId, botId, baseUrl);
+        sessionRepository.save(ResumeContext.of(lc));   // 先存，BotWorker.login 的 resume 分支直接恢复
+        logger.info("扫码确认保存会话并启动 Bot: botId={}", botId);
+        startBot(botId);
+    }
+
     private void startBot(String botId) {
         ILinkClient client = ILinkClient.builder()
                 .config(ILinkConfigFactory.create())
                 .build();
         ILinkMessageAdapter adapter = new ILinkMessageAdapter();
         BotWorker worker = new BotWorker(botId, client, adapter, chatService, sceneDetector,
-                sessionRepository, this, multimediaHandler, debounce, new ReplySender(imageFetcher));
+                sessionRepository, this, multimediaHandler, debounce, new ReplySender(imageFetcher),
+                identityResolver);
         botRegistry.start(botId == null ? "new" : botId, worker);
     }
 }

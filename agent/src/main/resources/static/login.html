@@ -880,6 +880,35 @@ body.reg-mode .foot a{color:var(--red)}
   .devil{zoom:.85}
   .mascot{zoom:.85}
 }
+/* ===== 微信扫码入口 + 弹窗（10-31） ===== */
+.divider{display:flex;align-items:center;gap:12px;color:var(--ink-faint);font-size:11px;margin:16px 0 12px}
+.divider::before,.divider::after{content:"";flex:1;height:1px;background:var(--line)}
+.wx-entry{width:100%;padding:9px 0;border:1px solid var(--line);border-radius:10px;background:var(--white);color:var(--ink);font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:border-color .2s,background .2s}
+.wx-entry:hover{border-color:var(--green);background:#f2faf4}
+.wx-entry .wx-icon{width:20px;height:20px;border-radius:50%;background:linear-gradient(135deg,#09bb07,#0aa76d);color:#fff;font-size:11px;display:flex;align-items:center;justify-content:center}
+.wx-entry b{color:var(--green);font-weight:600}
+.mask{position:fixed;inset:0;background:rgba(74,43,43,.35);display:none;align-items:center;justify-content:center;z-index:99;padding:20px}
+.mask.show{display:flex}
+.dlg{background:#fffdf9;border-radius:14px;padding:24px;max-width:360px;width:100%;text-align:center;animation:fadeUp .25s ease}
+.dlg h3{font-size:16px;margin-bottom:4px}
+.dlg .wx-sub{font-size:12px;color:var(--ink-soft);margin-bottom:14px}
+.dlg .wx-sub b{color:var(--green)}
+.dlg .field{text-align:left;margin-bottom:10px}
+.dlg .field input{width:100%;padding:9px 12px;border:1px solid var(--line);border-radius:10px;background:var(--white);color:var(--ink);font-size:13px;outline:none}
+.dlg .field input:focus{border-color:var(--pink-deep)}
+.dlg .mini-tabs{display:flex;gap:4px;margin-bottom:12px}
+.dlg .mini-tab{flex:1;padding:7px 0;border:0;background:none;font-size:13px;color:var(--ink-soft);cursor:pointer;border-bottom:2px solid transparent}
+.dlg .mini-tab.active{color:var(--ink);border-color:var(--brown);font-weight:700}
+.dlg .btn{width:100%;padding:10px;border:0;border-radius:10px;background:linear-gradient(135deg,var(--brown),var(--pink-deep));color:#fff;font-size:14px;cursor:pointer;margin-top:4px}
+.dlg .btn.ghost{background:rgba(74,43,43,.08);color:var(--ink-soft)}
+.dlg .btns{display:flex;gap:10px;margin-top:12px}
+.dlg .btns button{flex:1;padding:10px;border-radius:10px;font-size:13px;cursor:pointer;border:1px solid var(--line);background:var(--white)}
+.dlg .wx-err{font-size:12px;color:var(--red);margin-top:8px;min-height:16px}
+.qr-wrap{width:180px;height:180px;margin:0 auto 10px;background:#fff;border:1px solid var(--line);border-radius:12px;display:flex;align-items:center;justify-content:center}
+.qr-wrap img{width:170px;height:170px;display:block}
+.qr-wrap .loading{color:var(--ink-soft);font-size:12px}
+.wx-state{font-size:12px;color:var(--ink-soft);margin-bottom:6px}
+.wx-state b{color:var(--green)}
 </style>
 </head>
 <body>
@@ -1063,8 +1092,53 @@ body.reg-mode .foot a{color:var(--red)}
     </div>
   </div>
 
+  <div class="divider">或</div>
+  <button class="wx-entry" id="wxEntry" onclick="openWxScan()">
+    <span class="wx-icon">微</span>
+    <span>使用 <b>微信扫码</b> 接入助手</span>
+  </button>
+
   <div class="foot" id="foot">
     没有账号？<a onclick="switchMain('register')">注册</a>
+  </div>
+</div>
+
+<!-- 微信扫码弹窗（一站式：扫码 → 身份确认 → 绑定 → 进入网页） -->
+<div class="mask" id="wxMask">
+  <div class="dlg">
+    <div id="wxScanStep">
+      <h3>把助手接入微信</h3>
+      <div class="wx-sub">扫码挂载机器人，绑定后微信对话与网页共用<b>同一份记忆</b></div>
+      <div class="qr-wrap" id="wxQrBox"><div class="loading">获取二维码中…</div></div>
+      <div class="wx-state" id="wxState">等待扫码：打开微信「扫一扫」对准二维码</div>
+      <div class="btns">
+        <button id="wxCancel" onclick="closeWxScan()">取消</button>
+      </div>
+    </div>
+
+    <div id="wxAuthStep" style="display:none">
+      <h3>扫码成功 ✓</h3>
+      <div class="wx-sub">微信已确认，登录账号后完成绑定并进入网页</div>
+      <div class="mini-tabs">
+        <button class="mini-tab active" id="wtLogin" onclick="switchWxAuth('login')">登录</button>
+        <button class="mini-tab" id="wtReg" onclick="switchWxAuth('register')">注册</button>
+      </div>
+      <div id="wxLoginForm">
+        <div class="field"><input type="text" id="wx_u" placeholder="用户名"></div>
+        <div class="field"><input type="password" id="wx_p" placeholder="密码"></div>
+        <button class="btn" id="wxLoginBtn" onclick="wxAuthSubmit('login')">登录并绑定，进入网页</button>
+      </div>
+      <div id="wxRegForm" style="display:none">
+        <div class="field"><input type="text" id="wx_r_u" placeholder="用户名（3~20 位）"></div>
+        <div class="field"><input type="password" id="wx_r_p" placeholder="密码（至少 6 位）"></div>
+        <div class="field"><input type="password" id="wx_r_p2" placeholder="确认密码"></div>
+        <button class="btn" id="wxRegBtn" onclick="wxAuthSubmit('register')">注册并绑定，进入网页</button>
+      </div>
+      <div class="wx-err" id="wxAuthErr"></div>
+      <div class="btns">
+        <button onclick="backToScan()">返回重新扫码</button>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -1165,18 +1239,134 @@ function showDone(t,d,url,ms){
 }
 
 // ===== 真实接口调用（契约 10-25 冻结，见 docs/API.md） =====
+// 扫码绑定等登录后才有的接口需要 Authorization（10-31 修复：token 存在时自动带上，登录/注册不受影响）
 async function api(path, body){
+  const headers = {'Content-Type': 'application/json'};
+  const token = sessionStorage.getItem('token');
+  if (token) headers['Authorization'] = 'Bearer ' + token;
   const r = await fetch(path, {
     method: 'POST',
-    headers: {'Content-Type': 'application/json'},
+    headers: headers,
     body: JSON.stringify(body)
   });
   return r.json();
 }
 // 保存登录态：token + userId（后续请求带 Authorization: Bearer token）
 function saveAuth(auth){
-  localStorage.setItem('token', auth.token);
-  localStorage.setItem('userId', auth.userId);
+  sessionStorage.setItem('token', auth.token);
+  sessionStorage.setItem('userId', auth.userId);
+}
+
+/* ===== 微信扫码一站式（10-31）：扫码 → 身份确认 → 绑定 → 进入网页 ===== */
+let wxTicket=null, wxTimer=null, wxAuthed=false;
+const token=sessionStorage.getItem('token');
+const wxMask=$('wxMask');
+
+function closeWxScan(){clearInterval(wxTimer);wxTimer=null;wxMask.classList.remove('show');}
+function backToScan(){
+  wxAuthed=false;
+  $('wxScanStep').style.display='block';
+  $('wxAuthStep').style.display='none';
+  openWxScan();
+}
+
+async function openWxScan(){
+  $('wxScanStep').style.display='block';
+  $('wxAuthStep').style.display='none';
+  $('wxAuthErr').textContent='';
+  wxMask.classList.add('show');
+  $('wxQrBox').innerHTML='<div class="loading">获取二维码中…</div>';
+  $('wxState').textContent='等待扫码：打开微信「扫一扫」对准二维码';
+  try{
+    const r=await fetch('/api/wechat/scan/start');   // GET（api() 是 POST 封装，扫码接口必须 GET）
+    const j=await r.json();
+    if(j.code!==0){showToast(j.msg,'error');return;}
+    wxTicket=j.data.ticket;
+    $('wxQrBox').innerHTML='<img src="'+j.data.img+'" alt="微信扫码">';
+    wxTimer=setInterval(pollWx,8000);   // 官方 status 是长轮询（未扫码挂起 ~30s），8s 轮询一次即可
+  }catch(e){showToast('获取二维码失败，请重试','error');}
+}
+
+async function pollWx(){
+  if(!wxTicket||wxAuthed)return;
+  try{
+    const r=await fetch('/api/wechat/scan/status?ticket='+wxTicket);   // GET
+    const j=await r.json();
+    if(j.code!==0){$('wxState').textContent=j.msg;clearInterval(wxTimer);wxTimer=null;return;}
+    const st=j.data.status;
+    if(st==='WAITING'){$('wxState').textContent='等待扫码：打开微信「扫一扫」对准二维码';}
+    else if(st==='SCANNED'){$('wxState').textContent='已扫码 ✓ 请在手机上确认';}
+    else if(st==='CONFIRMED'){
+      clearInterval(wxTimer);wxTimer=null;
+      wxAuthed=true;
+      $('wxState').textContent='确认成功，正在识别微信绑定…';
+      // 已绑定的微信 → 免密直接进入（不用再输账号密码）；未绑定 → 弹登录/注册表单
+      try{
+        const lr=await fetch('/api/user/scan-login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ticket:wxTicket})});
+        const lj=await lr.json();
+        if(lj.code===0 && lj.data && lj.data.token){
+          saveAuth(lj.data);
+          $('wxState').textContent='微信已绑定账号，正在进入…';
+          setTimeout(()=>{location.href='index.html';},600);
+          return;
+        }
+      }catch(e){}
+      $('wxState').textContent='';
+      $('wxScanStep').style.display='none';
+      $('wxAuthStep').style.display='block';
+      $('wxAuthErr').textContent='';
+    }
+    else if(st==='EXPIRED'){
+      clearInterval(wxTimer);wxTimer=null;
+      $('wxState').textContent='二维码已过期，自动刷新…';
+      setTimeout(()=>openWxScan(),800);
+    }
+  }catch(e){$('wxState').textContent='状态查询失败，请重试';}
+}
+
+function switchWxAuth(mode){
+  $('wtLogin').classList.toggle('active',mode==='login');
+  $('wtReg').classList.toggle('active',mode==='register');
+  $('wxLoginForm').style.display=mode==='login'?'block':'none';
+  $('wxRegForm').style.display=mode==='register'?'block':'none';
+  $('wxAuthErr').textContent='';
+}
+
+async function wxAuthSubmit(mode){
+  const errEl=$('wxAuthErr');
+  errEl.textContent='';
+  if(mode==='login'){
+    const u=$('wx_u').value.trim(),p=$('wx_p').value;
+    if(!u||!p){errEl.textContent='请输入用户名和密码';return;}
+    ld($('wxLoginBtn'),true,'登录中…');
+    const res=await api('/api/user/login',{type:'username',username:u,password:p});
+    if(res.code!==0){errEl.textContent=res.msg;ld($('wxLoginBtn'),false,'登录并绑定，进入网页');return;}
+    saveAuth(res.data);
+    await wxDoBind(errEl,$('wxLoginBtn'),'登录并绑定，进入网页');
+  }else{
+    const u=$('wx_r_u').value.trim(),p=$('wx_r_p').value,p2=$('wx_r_p2').value;
+    if(!u||!p){errEl.textContent='请输入用户名和密码';return;}
+    if(p!==p2){errEl.textContent='两次密码不一致';return;}
+    ld($('wxRegBtn'),true,'注册中…');
+    const res=await api('/api/user/register',{type:'username',username:u,password:p});
+    if(res.code!==0){errEl.textContent=res.msg;ld($('wxRegBtn'),false,'注册并绑定，进入网页');return;}
+    // 用户名注册成功自动登录（后端返回 token）
+    if(res.data){saveAuth(res.data);}
+    else{
+      const lr=await api('/api/user/login',{type:'username',username:u,password:p});
+      if(lr.code!==0){errEl.textContent=lr.msg;ld($('wxRegBtn'),false,'注册并绑定，进入网页');return;}
+      saveAuth(lr.data);
+    }
+    await wxDoBind(errEl,$('wxRegBtn'),'注册并绑定，进入网页');
+  }
+}
+
+async function wxDoBind(errEl,btn,label){
+  const br=await api('/api/user/bind-wechat',{ticket:wxTicket});
+  if(br.code!==0){errEl.textContent=br.msg;ld(btn,false,label);return;}
+  errEl.style.color='var(--green)';
+  errEl.textContent='绑定成功 ✓ 即将进入网页…';
+  setTimeout(()=>{location.href='index.html';},800);
 }
 
 async function doLogin(){

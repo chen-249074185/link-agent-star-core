@@ -11,24 +11,36 @@
 
     <!-- 按唯一身份查 -->
     <select id="findByUserId" resultType="com.star.agent.user.domain.UserDo">
-        SELECT user_id, username, password_hash, email, created_at, updated_at
+        SELECT user_id, username, password_hash, email, wechat_id, created_at, updated_at
         FROM users
         WHERE user_id = #{userId}
     </select>
 
     <!-- 按用户名查 -->
     <select id="findByUsername" resultType="com.star.agent.user.domain.UserDo">
-        SELECT user_id, username, password_hash, email, created_at, updated_at
+        SELECT user_id, username, password_hash, email, wechat_id, created_at, updated_at
         FROM users
         WHERE username = #{username}
     </select>
 
     <!-- 按邮箱查 -->
     <select id="findByEmail" resultType="com.star.agent.user.domain.UserDo">
-        SELECT user_id, username, password_hash, email, created_at, updated_at
+        SELECT user_id, username, password_hash, email, wechat_id, created_at, updated_at
         FROM users
         WHERE email = #{email}
     </select>
+
+    <!-- 按绑定的微信身份查（微信消息入口映射 userId 用） -->
+    <select id="findByWechatId" resultType="com.star.agent.user.domain.UserDo">
+        SELECT user_id, username, password_hash, email, wechat_id, created_at, updated_at
+        FROM users
+        WHERE wechat_id = #{wechatId}
+    </select>
+
+    <!-- 绑定微信（扫码确认后：该微信身份 ↔ 当前账号） -->
+    <update id="updateWechatId">
+        UPDATE users SET wechat_id = #{wechatId} WHERE user_id = #{userId}
+    </update>
 
     <!-- 绑定/换绑邮箱 -->
     <update id="updateEmail">

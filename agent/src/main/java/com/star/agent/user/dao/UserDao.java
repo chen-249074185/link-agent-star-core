@@ -19,6 +19,12 @@ public interface UserDao {
     // 按邮箱查（无 → null；邮箱唯一约束保证最多一人）
     UserDo findByEmail(String email);
 
+    // 按绑定的微信身份查（无 → null；微信身份唯一约束保证最多绑一个账号）
+    UserDo findByWechatId(String wechatId);
+
+    // 绑定微信：把微信身份写入账号（扫码确认后调用）
+    int updateWechatId(String userId, String wechatId);
+
     // 绑定/换绑邮箱（账号合并用：先迁数据后改邮箱）
     int updateEmail(String userId, String email);
 

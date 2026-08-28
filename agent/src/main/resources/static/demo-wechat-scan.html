@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Demo · 登录页 + 微信扫码弹窗</title>
+<style>
+:root{
+  --bg:#f3f1ec; --card:#fbfaf7; --ink:#4a2b2b; --ink-soft:#8a7070; --ink-faint:#c4b3b3;
+  --brown:#7a4a2b; --pink:#f2a0a0; --pink-deep:#e07878; --red:#d94f4f;
+  --green:#5aa87a; --white:#fffdf9; --line:#f0e4e0;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font:14px/1.6 "Microsoft YaHei",sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:40px 16px}
+.demo-badge{position:fixed;top:12px;right:14px;background:var(--pink-deep);color:#fff;font-size:11px;padding:3px 10px;border-radius:20px;opacity:.85}
+h1{font-size:18px;margin-bottom:2px}
+.sub{color:var(--ink-soft);font-size:12px;margin-bottom:24px}
+
+/* ===== 登录卡片（保持原 login 布局） ===== */
+.card{background:var(--card);border:1px solid var(--line);border-radius:18px;box-shadow:0 10px 30px rgba(122,74,43,.08);padding:30px 34px;width:380px}
+.main-tabs{display:flex;gap:6px;margin-bottom:14px}
+.main-tab{flex:1;padding:8px 0;border:0;background:none;font-size:15px;color:var(--ink-soft);cursor:pointer;border-bottom:2px solid transparent}
+.main-tab.active{color:var(--ink);border-color:var(--brown);font-weight:700}
+.sub-tabs{display:flex;gap:14px;margin-bottom:16px;font-size:12px;color:var(--ink-soft)}
+.sub-tab.active{color:var(--ink)}
+.field{margin-bottom:12px}
+.field label{display:block;font-size:12px;color:var(--ink-soft);margin-bottom:5px}
+.field input{width:100%;padding:9px 12px;border:1px solid var(--line);border-radius:10px;background:var(--white);color:var(--ink);font-size:13px;outline:none}
+.field input:focus{border-color:var(--pink-deep)}
+.btn-login{width:100%;padding:10px;border:0;border-radius:10px;background:linear-gradient(135deg,var(--brown),var(--pink-deep));color:#fff;font-size:14px;cursor:pointer;margin-top:4px}
+.placeholder-note{font-size:11px;color:var(--ink-faint);text-align:center;margin-top:10px}
+
+/* ===== 分隔 + 微信扫码入口（新增） ===== */
+.divider{display:flex;align-items:center;gap:12px;color:var(--ink-faint);font-size:11px;margin:20px 0 14px}
+.divider::before,.divider::after{content:"";flex:1;height:1px;background:var(--line)}
+.wx-entry{width:100%;padding:9px 0;border:1px solid var(--line);border-radius:10px;background:var(--white);color:var(--ink);font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:border-color .2s,background .2s}
+.wx-entry:hover{border-color:var(--green);background:#f2faf4}
+.wx-entry .wx-icon{width:20px;height:20px;border-radius:50%;background:linear-gradient(135deg,#09bb07,#0aa76d);color:#fff;font-size:11px;display:flex;align-items:center;justify-content:center}
+.wx-entry b{color:var(--green);font-weight:600}
+
+/* ===== 扫码弹窗 ===== */
+.mask{position:fixed;inset:0;background:rgba(74,43,43,.35);backdrop-filter:blur(3px);display:none;align-items:center;justify-content:center;z-index:99}
+.mask.show{display:flex}
+.modal{background:var(--card);border-radius:18px;padding:26px 30px;width:320px;text-align:center;box-shadow:0 20px 50px rgba(74,43,43,.25);animation:pop .25s ease}
+@keyframes pop{from{transform:scale(.92);opacity:0}to{transform:scale(1);opacity:1}}
+.modal .close{position:absolute;top:10px;right:14px;border:0;background:none;color:var(--ink-faint);font-size:16px;cursor:pointer}
+.modal-title{font-size:15px;font-weight:700;margin-bottom:2px}
+.modal-sub{color:var(--ink-soft);font-size:12px;margin-bottom:14px}
+.modal-sub b{color:var(--green)}
+.qr-wrap{position:relative;width:196px;height:196px;margin:0 auto 8px;background:#fff;border:1px solid var(--line);border-radius:14px;display:flex;align-items:center;justify-content:center}
+.qr-wrap canvas{width:170px;height:170px;display:block}
+.qr-mask{position:absolute;inset:0;background:rgba(251,250,247,.94);display:none;flex-direction:column;align-items:center;justify-content:center;gap:6px;font-size:13px;color:var(--ink)}
+.qr-mask.show{display:flex}
+.qr-mask .big{font-size:15px;font-weight:700;color:var(--green)}
+.wx-state{font-size:12px;color:var(--ink-soft);margin-bottom:12px}
+.wx-state b{color:var(--green)}
+.wx-tip{font-size:11px;color:var(--ink-faint);border-top:1px dashed var(--line);padding-top:10px}
+.wx-tip b{color:var(--pink-deep);font-weight:600}
+.demo-ctrl{margin-top:12px;font-size:11px;color:var(--ink-faint)}
+.demo-ctrl button{border:0;background:none;color:var(--pink-deep);cursor:pointer;font-size:11px;text-decoration:underline}
+</style>
+</head>
+<body>
+<div class="demo-badge">设计 Demo</div>
+<h1>星链智核 · 登录</h1>
+<div class="sub">保持原登录布局不变，下方新增「微信扫码」入口，点击弹出二维码</div>
+
+<div class="card">
+  <div class="main-tabs">
+    <button class="main-tab active">登录</button>
+    <button class="main-tab">注册</button>
+  </div>
+  <div class="sub-tabs"><span class="sub-tab active">密码登录</span><span class="sub-tab">邮箱验证码</span></div>
+  <div class="field"><label>用户名 / 邮箱</label><input placeholder="请输入用户名或邮箱"></div>
+  <div class="field"><label>密码</label><input type="password" placeholder="请输入密码"></div>
+  <button class="btn-login">登 录</button>
+
+  <div class="divider">或</div>
+  <button class="wx-entry" id="openWx">
+    <span class="wx-icon">微</span>
+    <span>使用 <b>微信扫码</b> 接入助手</span>
+  </button>
+  <div class="placeholder-note">（登录/注册表单为现有页面视觉占位）</div>
+</div>
+
+<!-- 扫码弹窗 -->
+<div class="mask" id="mask">
+  <div class="modal">
+    <button class="close" id="closeWx">✕</button>
+    <div class="modal-title">把助手接入微信</div>
+    <div class="modal-sub">扫码挂载机器人，即可在 <b>微信聊天中</b> 使用助手<br>（扫码 ≠ 网页登录）</div>
+    <div class="qr-wrap">
+      <canvas id="qr" width="21" height="21"></canvas>
+      <div class="qr-mask" id="qrMask"><div class="big">✅ 已连接</div><div>机器人已上线，去微信里试试吧</div></div>
+    </div>
+    <div class="wx-state" id="state">等待扫码：打开微信「扫一扫」对准二维码</div>
+    <div class="wx-tip"><b>提示：</b>这里接入的是微信通道，不是登录网页；<br>网页登录请用上方的账号密码 / 邮箱验证码</div>
+    <div class="demo-ctrl">
+      状态演示：<button onclick="demoState('waiting')">等待扫码</button> ·
+      <button onclick="demoState('scanned')">已扫码待确认</button> ·
+      <button onclick="demoState('connected')">已连接</button> ·
+      <button onclick="demoState('expired')">二维码过期</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ===== 伪二维码：确定性图案 + 三个定位角 ===== */
+const canvas = document.getElementById('qr');
+(function drawQR(){
+  const ctx = canvas.getContext('2d');
+  const n = 21, cell = canvas.width / n;
+  ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+  let s = 20261030 >>> 0;
+  const rnd = () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; };
+  const inFinder = (x, y) => (x < 7 && y < 7) || (x >= n - 7 && y < 7) || (x < 7 && y >= n - 7);
+  for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
+    if (inFinder(x, y)) continue;
+    if (rnd() > 0.52) { ctx.fillStyle = '#222'; ctx.fillRect(x * cell, y * cell, cell, cell); }
+  }
+  const finder = (ox, oy) => {
+    for (let y = 0; y < 7; y++) for (let x = 0; x < 7; x++) {
+      const edge = x === 0 || x === 6 || y === 0 || y === 6;
+      const core = x >= 2 && x <= 4 && y >= 2 && y <= 4;
+      if (edge || core) { ctx.fillStyle = '#222'; ctx.fillRect((ox + x) * cell, (oy + y) * cell, cell, cell); }
+    }
+  };
+  finder(0, 0); finder(n - 7, 0); finder(0, n - 7);
+})();
+
+/* ===== 弹窗开关 ===== */
+const mask = document.getElementById('mask');
+document.getElementById('openWx').onclick = () => { mask.classList.add('show'); demoState('waiting'); };
+document.getElementById('closeWx').onclick = () => mask.classList.remove('show');
+mask.addEventListener('click', e => { if (e.target === mask) mask.classList.remove('show'); });
+
+/* ===== 状态演示 ===== */
+function demoState(st){
+  const connected = st === 'connected';
+  document.getElementById('qrMask').classList.toggle('show', connected);
+  const txt = {
+    waiting:   '等待扫码：打开微信「扫一扫」对准二维码',
+    scanned:   '已扫码 ✓ 请在手机上确认',
+    connected: '✅ 机器人已上线，去微信里聊聊吧',
+    expired:   '二维码已过期，自动刷新中…'
+  }[st];
+  document.getElementById('state').innerHTML = txt.replace('已扫码 ✓', '<b>已扫码 ✓</b>');
+  if (st === 'expired') setTimeout(() => demoState('waiting'), 1800);
+}
+demoState('waiting');
+</script>
+</body>
+</html>

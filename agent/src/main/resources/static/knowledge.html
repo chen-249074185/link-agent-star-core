@@ -103,8 +103,8 @@ body{min-height:100vh;background:var(--bg);font-family:-apple-system,BlinkMacSys
 
 <script>
 const $=id=>document.getElementById(id);
-const token=localStorage.getItem('token');
-const userId=localStorage.getItem('userId');
+const token=sessionStorage.getItem('token');
+const userId=sessionStorage.getItem('userId');
 if(!token){location.href='login.html';}
 
 let delKb=null;   // 待删除的 kbId

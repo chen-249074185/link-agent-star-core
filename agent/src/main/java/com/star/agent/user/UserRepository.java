@@ -33,6 +33,16 @@ public class UserRepository {
         return dao.findByEmail(email);
     }
 
+    // 微信身份查绑定（被绑 → 非 null；扫码绑定前查占用）
+    public UserDo findByWechatId(String wechatId) {
+        return dao.findByWechatId(wechatId);
+    }
+
+    // 绑定微信：微信身份 ↔ 账号（扫码确认后调用）
+    public void bindWechat(String userId, String wechatId) {
+        dao.updateWechatId(userId, wechatId);
+    }
+
     // 绑定/换绑邮箱
     public void updateEmail(String userId, String email) {
         dao.updateEmail(userId, email);

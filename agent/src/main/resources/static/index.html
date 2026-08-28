@@ -429,15 +429,15 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Micr
 <script>
 const $ = id => document.getElementById(id);
 const app = $('app'), messages = $('messages'), thread = $('thread'), input = $('input'), sendBtn = $('send');
-const token = localStorage.getItem('token');
-const userId = localStorage.getItem('userId');
+const token = sessionStorage.getItem('token');
+const userId = sessionStorage.getItem('userId');
 let streaming = false, currentSessionId = null;
 
 if (!token) { location.replace('login.html'); }
 
 // 防回退：退出登录后浏览器"返回"可能从 bfcache 恢复本页——再查一次 token，没有就踢回登录页（replace 不产生历史记录）
 window.addEventListener('pageshow', e => {
-  if (!localStorage.getItem('token')) location.replace('login.html');
+  if (!sessionStorage.getItem('token')) location.replace('login.html');
 });
 
 /* ===== 登录态 ===== */
@@ -724,7 +724,7 @@ apSend.onclick = async () => {
 };
 
 /* ===== 其他 ===== */
-function logout(){ localStorage.removeItem('token'); localStorage.removeItem('userId'); location.replace('login.html'); }
+function logout(){ sessionStorage.removeItem('token'); sessionStorage.removeItem('userId'); location.replace('login.html'); }
 function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
 $('send').onclick = () => { if (streaming) stopStream(); else send(); };

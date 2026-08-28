@@ -40,6 +40,8 @@ public class BotWorker implements Runnable, ReconnectHandler {
     private final DebounceProcessor debounce;
     // 回复发送编排（语音>图片>地图>文本）；null = 手动 main 链路直发文本
     private final ReplySender replySender;
+    // 微信身份→账号映射（绑定后微信与网页同一 userId）；null = 手动 main 链路不映射
+    private final WechatIdentityResolver identityResolver;
     private final Object loginLock = new Object();   // 首次登录与断线重登可能不同线程，防并发重入
     private MessageDispatcher dispatcher;
 
@@ -48,6 +50,16 @@ public class BotWorker implements Runnable, ReconnectHandler {
                      WechatSessionRepository sessionRepository, BotManager botManager,
                      MultimediaHandler multimediaHandler, DebounceProcessor debounce,
                      ReplySender replySender) {
+        this(botId, client, adapter, chatService, sceneDetector, sessionRepository, botManager,
+                multimediaHandler, debounce, replySender, null);
+    }
+
+    // 11 参版：微信身份映射（Spring 链路经 BotManager 传入）
+    public BotWorker(String botId, ILinkClient client, ILinkMessageAdapter adapter,
+                     ChatService chatService, SceneDetector sceneDetector,
+                     WechatSessionRepository sessionRepository, BotManager botManager,
+                     MultimediaHandler multimediaHandler, DebounceProcessor debounce,
+                     ReplySender replySender, WechatIdentityResolver identityResolver) {
         this.botId = botId;
         this.client = client;
         this.adapter = adapter;
@@ -58,6 +70,7 @@ public class BotWorker implements Runnable, ReconnectHandler {
         this.multimediaHandler = multimediaHandler;
         this.debounce = debounce;
         this.replySender = replySender;
+        this.identityResolver = identityResolver;
     }
 
     @Override
@@ -67,7 +80,7 @@ public class BotWorker implements Runnable, ReconnectHandler {
             // 命令处理器绑定当前 botId（#logout 才知道停哪个）；手动链路 botManager=null 不处理命令
             MessageDispatcher dispatcher = new MessageDispatcher(adapter, sceneDetector, chatService, this,
                     botManager == null ? null : new WechatBotCommandHandler(botId, botManager),
-                    multimediaHandler, debounce, replySender);
+                    multimediaHandler, debounce, replySender, identityResolver);
             this.dispatcher = dispatcher;
             dispatcher.start();
         } catch (Exception e) {
