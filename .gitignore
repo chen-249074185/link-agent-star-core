@@ -6,6 +6,9 @@ liepin-mcp/target/
 # 第三方工具（vendored liepin-cli 官方 Python 工具 + venv，不入库）
 mcp/liepin-cli/
 
+# 第三方工具（vendored anydoc 文档识别 CLI，npm 安装产物不入库）
+agent/anydoc/
+
 # IDE 配置不入库
 .idea/
 
