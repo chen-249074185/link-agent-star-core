@@ -253,6 +253,24 @@ public class SQLiteVecStore implements VectorStore, KnowledgeBaseRepository {
         }
     }
 
+    // 列出全部用户的知识库（管理端全库视角，不做归属过滤）
+    @Override
+    public List<KnowledgeBase> listAll() {
+        try (PreparedStatement ps = conn.prepareStatement(
+                "SELECT kb_id, user_id, name FROM knowledge_base ORDER BY user_id, created_at")) {
+            List<KnowledgeBase> list = new ArrayList<>();
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    list.add(new KnowledgeBase(
+                            rs.getString("kb_id"), rs.getString("user_id"), rs.getString("name")));
+                }
+            }
+            return list;
+        } catch (Exception e) {
+            throw new RuntimeException("列出全部知识库失败: " + e.getMessage(), e);
+        }
+    }
+
     // 删库：先删库内全部切片，再删 knowledge_base 行（调用方已做归属校验）
     @Override
     public void deleteKb(String userId, String kbId) {

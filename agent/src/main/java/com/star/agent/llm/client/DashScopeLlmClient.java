@@ -119,6 +119,12 @@ public class DashScopeLlmClient implements LlmClient {
         }
     }
 
+    // 流式 + 工具循环合流：DashScope 不走工具循环（qwen 分类/创作纯对话），直接拒绝
+    @Override
+    public ChatResponse streamWithTools(List<ChatMessage> messages, List<ToolSpec> tools, Consumer<String> onToken) {
+        throw new UnsupportedOperationException("DashScope 不支持流式工具调用（工具循环固定走 DeepSeek）");
+    }
+
     // 解析一行 SSE：data: {"choices":[{"delta":{"content":"..."}}]} / data: [DONE]
     private void parseSseLine(String line, Consumer<String> onToken) {
         if (line == null || !line.startsWith("data:")) return;

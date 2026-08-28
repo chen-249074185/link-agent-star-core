@@ -75,6 +75,33 @@ class KnowledgeBaseRepositoryTest {
         assertTrue(store.ownsKb("u1", "u1-default"));          // 默认库还在
     }
 
+    // 管理端全库视角：listAll 看到所有用户的所有库（不做归属过滤）
+    @Test
+    void listAll_seesEveryUsersKbs() {
+        store.ensureUserWithDefaultKb("u1");
+        store.ensureUserWithDefaultKb("u2");
+        KnowledgeBaseRepository.KnowledgeBase work = store.createKb("u2", "工作资料");
+
+        List<KnowledgeBaseRepository.KnowledgeBase> all = store.listAll();
+
+        assertEquals(3, all.size());   // u1 默认 + u2 默认 + u2 工作资料
+        assertTrue(all.stream().anyMatch(k -> k.kbId().equals("u1-default")));
+        assertTrue(all.stream().anyMatch(k -> k.kbId().equals(work.kbId()) && k.userId().equals("u2")));
+    }
+
+    // 管理端删除任意用户的知识库：deleteKb 本身不过归属校验（guard 在 server 层），删他人库可行
+    @Test
+    void adminDelete_removesAnotherUsersKb() {
+        store.ensureUserWithDefaultKb("u1");
+        store.ensureUserWithDefaultKb("u2");
+        store.insertChunk("u2", "u2-default", "u2 的私有内容", axis(0), "{}");
+
+        store.deleteKb("u2", "u2-default");   // 管理员视角：直接删 u2 的库
+
+        assertTrue(!store.ownsKb("u2", "u2-default"));
+        assertTrue(store.search("u2", "u2-default", axis(0), 5, 1.5).isEmpty());
+    }
+
     // 造方向向量（第 i 维=1，其余 0）
     private float[] axis(int i) {
         float[] v = new float[1024];

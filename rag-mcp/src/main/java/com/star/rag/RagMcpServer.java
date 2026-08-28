@@ -106,7 +106,9 @@ McpServer.sync(transport)
                             searchTool(store, embedding, guard, kbRepo),
                             listKbsTool(kbRepo),
                             deleteTool(store, guard, kbRepo),
-                            transferTool(store, guard, kbRepo)
+                            transferTool(store, guard, kbRepo),
+                            adminListAllTool(kbRepo),
+                            adminDeleteTool(kbRepo)
                     )
                     .build();
             System.err.println("rag-mcp-server 就绪，等待客户端...");
@@ -289,6 +291,59 @@ McpServer.sync(transport)
                     return McpSchema.CallToolResult.builder()
                             .content(List.of(new McpSchema.TextContent(
                                     "知识库已迁移: " + fromUserId + " → " + toUserId)))
+                            .build();
+                })
+                .build();
+    }
+
+    // 工具6（管理端）：列出全部用户的知识库——超管全库视角，不做归属过滤
+    // 命名约定 rag_admin_ 前缀：主程序 McpSkillRegistrar 识别并跳过，绝不注册给 LLM 当技能（防越权调用）
+    private static SyncToolSpecification adminListAllTool(KnowledgeBaseRepository kbRepo) {
+        McpSchema.Tool tool = McpSchema.Tool.builder()
+                .name("rag_admin_list_all")
+                .description("管理端：列出全部用户的知识库（kb_id | user_id | name）")
+                .inputSchema(new McpSchema.JsonSchema("object",
+                        Map.of(), List.of(), null, null, null))
+                .build();
+        return SyncToolSpecification.builder()
+                .tool(tool)
+                .callHandler((exchange, request) -> {
+                    List<KnowledgeBaseRepository.KnowledgeBase> kbs = kbRepo.listAll();
+                    StringBuilder sb = new StringBuilder();
+                    for (KnowledgeBaseRepository.KnowledgeBase kb : kbs) {
+                        sb.append(kb.kbId()).append(" | ").append(kb.userId()).append(" | ").append(kb.name()).append("\n");
+                    }
+                    return McpSchema.CallToolResult.builder()
+                            .content(List.of(new McpSchema.TextContent(
+                                    sb.isEmpty() ? "暂无知识库" : sb.toString().trim())))
+                            .build();
+                })
+                .build();
+    }
+
+    // 工具7（管理端）：删除任意用户的知识库——超管权限，跳过归属校验（普通 delete 工具过 guard 会拒他人库）
+    // 审计日志走 stderr（stdio 协议铁律：stdout 只允许 JSON-RPC 消息）
+    private static SyncToolSpecification adminDeleteTool(KnowledgeBaseRepository kbRepo) {
+        McpSchema.Tool tool = McpSchema.Tool.builder()
+                .name("rag_admin_delete_kb")
+                .description("管理端：删除任意用户的某个知识库及其全部内容（超管权限，跳过归属校验）")
+                .inputSchema(new McpSchema.JsonSchema("object",
+                        Map.of(
+                                "user_id", Map.of("type", "string"),
+                                "kb_id", Map.of("type", "string")
+                        ),
+                        List.of("user_id", "kb_id"), null, null, null))
+                .build();
+        return SyncToolSpecification.builder()
+                .tool(tool)
+                .callHandler((exchange, request) -> {
+                    Map<String, Object> args = request.arguments();
+                    String userId = String.valueOf(args.get("user_id"));
+                    String kbId = String.valueOf(args.get("kb_id"));
+                    System.err.println("[审计] 管理员删除知识库: userId=" + userId + " kbId=" + kbId);
+                    kbRepo.deleteKb(userId, kbId);   // 删库 + 库内全部切片（无归属校验）
+                    return McpSchema.CallToolResult.builder()
+                            .content(List.of(new McpSchema.TextContent("已删除知识库: " + kbId + "（用户 " + userId + "）")))
                             .build();
                 })
                 .build();

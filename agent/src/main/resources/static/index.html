@@ -627,14 +627,22 @@ function sendMsg(text){
   let url = '/api/chat/stream?message=' + encodeURIComponent(text) + '&token=' + encodeURIComponent(token);
   if (currentSessionId) url += '&sessionId=' + encodeURIComponent(currentSessionId);
   const es = new EventSource(url);
+  let pendingTool = false;   // 工具状态占位中：下一个正文 token 先清掉状态行再写正文
 
   es.addEventListener('streamId', e => { window.__streamId = e.data; });
   es.addEventListener('sessionId', e => {
     currentSessionId = e.data;   // 新会话的身份证：后续消息带回去，历史按它归组
     loadHistory();
   });
+  es.addEventListener('tool', e => {
+    aiBubble.classList.remove('typing');
+    aiBubble.textContent = '🔧 正在调用 ' + e.data + ' …';
+    pendingTool = true;
+    scrollBottom();
+  });
   es.onmessage = e => {
     aiBubble.classList.remove('typing');
+    if (pendingTool) { aiBubble.textContent = ''; pendingTool = false; }   // 状态行只占位，不混进正文
     aiBubble.textContent += e.data;
     scrollBottom();
   };

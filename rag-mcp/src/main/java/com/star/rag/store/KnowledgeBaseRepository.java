@@ -15,6 +15,9 @@ public interface KnowledgeBaseRepository {
     // 列出用户全部知识库
     List<KnowledgeBase> listByUser(String userId);
 
+    // 列出全部用户的知识库（管理端全库视角，rag_admin_list_all 用，不做归属过滤）
+    List<KnowledgeBase> listAll();
+
     // 删库：删 knowledge_base 行 + 库内全部切片
     void deleteKb(String userId, String kbId);
 

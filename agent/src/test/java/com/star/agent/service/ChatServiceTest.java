@@ -35,6 +35,7 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -56,11 +57,12 @@ class ChatServiceTest {
     private final DailySummaryService dailySummaryService = mock(DailySummaryService.class);
     // 真实 ScenePolicyConfig：CHAT 场景 memory=ephemeral（验证记忆接入）；GROUP 场景 memory=none（验证不记）
     private final ScenePolicyConfig scenePolicyConfig = new ScenePolicyConfig();
-    private final ChatService service = new ChatService(llmClient, router, registry, kernel, detector, workflow, memory, scenePolicyConfig, shortTermMemory, dailySummaryService, new com.star.agent.governance.SensitiveToolGuard(), null, null);
+    private final ChatService service = new ChatService(llmClient, router, registry, kernel, detector, workflow, memory, scenePolicyConfig, shortTermMemory, dailySummaryService, new com.star.agent.governance.SensitiveToolGuard(), null, null, null);
 
     public ChatServiceTest() {
         Map<Scene, ScenePolicy> policies = Map.of(
                 Scene.CHAT, new ScenePolicy("deepseek-v4-flash", List.of(), "ephemeral", "casual"),
+                Scene.DATA, new ScenePolicy("deepseek-v4-flash", List.of("get_weather"), "ephemeral", "concise"),
                 Scene.GROUP, new ScenePolicy("deepseek-v4-flash", List.of(), "none", "polite")
         );
         scenePolicyConfig.setPolicies(policies);
@@ -183,7 +185,7 @@ class ChatServiceTest {
         SkillRegistry registry2 = new SkillRegistry(List.of(weather, highRisk));
         ChatService svc = new ChatService(llmClient, router, registry2, kernel, detector, workflow,
                 memory, scenePolicyConfig, shortTermMemory, dailySummaryService,
-                new com.star.agent.governance.SensitiveToolGuard(), null, null);
+                new com.star.agent.governance.SensitiveToolGuard(), null, null, null);
 
         // 第一轮：模型请求 liepin_apply → 治理内核拒绝 → 模型把拒绝转述给用户
         when(llmClient.chat(anyList(), anyList()))
@@ -214,7 +216,7 @@ class ChatServiceTest {
         GovernanceKernel kernel2 = new GovernanceKernel(registry2, confirmStore, new InMemoryRateLimiter());
         ChatService svc = new ChatService(llmClient, router, registry2, kernel2, detector, workflow,
                 memory, scenePolicyConfig, shortTermMemory, dailySummaryService,
-                new com.star.agent.governance.SensitiveToolGuard(), null, null);
+                new com.star.agent.governance.SensitiveToolGuard(), null, null, null);
 
         when(llmClient.chat(anyList(), anyList()))
                 .thenReturn(new ChatResponse("", List.of(new ToolCall("c1", "mcp_liepin_resume", "{}"))))
@@ -237,7 +239,7 @@ class ChatServiceTest {
         GovernanceKernel kernel2 = new GovernanceKernel(registry2, confirmStore, new InMemoryRateLimiter());
         ChatService svc = new ChatService(llmClient, router, registry2, kernel2, detector, workflow,
                 memory, scenePolicyConfig, shortTermMemory, dailySummaryService,
-                new com.star.agent.governance.SensitiveToolGuard(), null, null);
+                new com.star.agent.governance.SensitiveToolGuard(), null, null, null);
 
         when(llmClient.chat(anyList(), anyList()))
                 .thenReturn(new ChatResponse("", List.of(new ToolCall("c1", "mcp_liepin_resume", "{}"))))
@@ -247,5 +249,62 @@ class ChatServiceTest {
 
         assertEquals("你的简历信息：姓名：陈先生", result);
         verify(resume).execute(any());   // 明确要求 → 正常执行
+    }
+
+    // ==================== SSE 流式 + 工具循环合流（W12 10-30） ====================
+    // DATA 场景（有工具白名单）→ 走工具循环：工具订单静默执行 → 回调状态事件 → 正文流式输出
+    @Test
+    void streamWithTools_toolLoopExecutesSilently() {
+        // 独立链路：mock 的 get_weather 技能（verify 工具执行需要 mock，真技能无法验证）
+        Skill weatherMock = mock(Skill.class);
+        when(weatherMock.meta()).thenReturn(new SkillMeta("get_weather", "查天气", Map.of(),
+                RiskLevel.LOW, List.of("CHAT", "DATA"), "LOCAL", SkillType.EXT));
+        when(weatherMock.execute(any())).thenReturn(new SkillResult(true, "北京晴"));
+        SkillRegistry reg2 = new SkillRegistry(List.of(weatherMock));
+        GovernanceKernel kernel2 = new GovernanceKernel(reg2, confirmStore, new InMemoryRateLimiter());
+        ChatService svc = new ChatService(llmClient, router, reg2, kernel2, detector, workflow,
+                memory, scenePolicyConfig, shortTermMemory, dailySummaryService,
+                new com.star.agent.governance.SensitiveToolGuard(), null, null, null);
+
+        List<String> tokens = new java.util.ArrayList<>();
+        List<String> statuses = new java.util.ArrayList<>();
+        java.util.concurrent.atomic.AtomicInteger calls = new java.util.concurrent.atomic.AtomicInteger();
+        // doAnswer 模拟真实客户端行为：正文逐 token 回调 onToken，且返回值携带完整正文
+        doAnswer(inv -> {
+            int n = calls.incrementAndGet();
+            @SuppressWarnings("unchecked")
+            java.util.function.Consumer<String> onToken = inv.getArgument(2);
+            if (n == 1) {
+                return new ChatResponse("", List.of(new ToolCall("call_1", "get_weather", "{\"city\":\"北京\"}")));
+            }
+            onToken.accept("北京今天晴，25℃");
+            return new ChatResponse("北京今天晴，25℃", List.of());
+        }).when(llmClient).streamWithTools(anyList(), anyList(), any());
+        svc.streamWithTools("北京天气", "user1", "s1", "DATA", tokens::add, statuses::add);
+
+        assertEquals("北京今天晴，25℃", String.join("", tokens));   // 正文逐 token 流出
+        assertEquals(List.of("get_weather"), statuses);              // 工具状态事件回调了一次
+        verify(weatherMock).execute(any());                          // 工具真实执行过
+    }
+
+    // 流式租房需求 → 直跑工作流，报告整体推给前端，不碰 LLM
+    @Test
+    void streamWithTools_rentRequestRoutesToWorkflow() {
+        when(workflow.execute("user1", "", "北京", 6000)).thenReturn("【租房决策报告】演示报告");
+
+        List<String> tokens = new java.util.ArrayList<>();
+        service.streamWithTools("在北京租房，预算6000，通勤30分钟内", "user1", "s1", "CHAT", tokens::add, t -> {});
+
+        assertEquals("【租房决策报告】演示报告", String.join("", tokens));
+        verify(llmClient, never()).streamWithTools(anyList(), anyList(), any());
+    }
+
+    // 无工具场景（CHAT 白名单为空）→ 退回场景路由纯流式，不进工具循环
+    @Test
+    void streamWithTools_noToolSceneFallsBackToPlainStream() {
+        List<String> tokens = new java.util.ArrayList<>();
+        service.streamWithTools("你好", null, null, "CHAT", tokens::add, t -> {});
+
+        verify(llmClient, never()).streamWithTools(anyList(), anyList(), any());
     }
 }

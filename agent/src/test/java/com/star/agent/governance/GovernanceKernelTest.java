@@ -203,4 +203,42 @@ class GovernanceKernelTest {
         assertNull(kernel.confirm("user1"));
         verify(store, never()).save(anyString(), anyString(), anyInt());
     }
+
+    // 管理端技能开关：被停用的技能直接拒（关1.5），且不消耗轮数/限次
+    @Test
+    void adminDisabledSkill_isDenied() {
+        SkillRegistry registry = mock(SkillRegistry.class);
+        ConfirmationStore store = mock(ConfirmationStore.class);
+        RateLimiter limiter = mock(RateLimiter.class);
+        com.star.agent.infra.web.AdminSkillSwitch skillSwitch =
+                mock(com.star.agent.infra.web.AdminSkillSwitch.class);
+        Skill skill = mockSkill(RiskLevel.LOW, "get_weather", List.of("CHAT"));
+        when(registry.getSkill("get_weather")).thenReturn(skill);
+        when(skillSwitch.isDisabled("get_weather")).thenReturn(true);
+
+        GovernanceKernel kernel = new GovernanceKernel(registry, store, limiter, skillSwitch);
+
+        CheckResult result = kernel.check("get_weather", "user1", "{}", "CHAT");
+        assertFalse(result.allowed());
+        assertTrue(result.reason().contains("停用"));
+        verify(store, never()).get(anyString());      // 未走到高危确认关
+        verify(limiter, never()).increment(anyString());  // 未走到单日限次关
+    }
+
+    // 技能开关关闭（未停用）→ 正常放行，开关不干扰既有流程
+    @Test
+    void adminDisabledSkill_notDisabled_allows() {
+        SkillRegistry registry = mock(SkillRegistry.class);
+        ConfirmationStore store = mock(ConfirmationStore.class);
+        RateLimiter limiter = mock(RateLimiter.class);
+        com.star.agent.infra.web.AdminSkillSwitch skillSwitch =
+                mock(com.star.agent.infra.web.AdminSkillSwitch.class);
+        Skill skill = mockSkill(RiskLevel.LOW, "get_weather", List.of("CHAT"));
+        when(registry.getSkill("get_weather")).thenReturn(skill);
+        when(skillSwitch.isDisabled("get_weather")).thenReturn(false);
+
+        GovernanceKernel kernel = new GovernanceKernel(registry, store, limiter, skillSwitch);
+
+        assertTrue(kernel.check("get_weather", "user1", "{}", "CHAT").allowed());
+    }
 }

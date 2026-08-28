@@ -23,7 +23,7 @@
 
 | 方法 | 路径 | 入参 | 说明 |
 |---|---|---|---|
-| GET | /api/chat/stream?message= | 消息文本 | SSE 打字机流；首推 `event:streamId` 命名事件（拿它调 /stop）；内部走三层场景识别 → 按场景路由模型 |
+| GET | /api/chat/stream?message=&sessionId= | 消息文本 | SSE 打字机流；命名事件序列：`streamId`（拿它调 /stop）→ `sessionId`（继续对话带回）→ `tool`（工具执行状态，data=工具名）→ 默认 `data` 事件逐 token 正文；内部走三层场景识别；无工具场景按场景路由模型，有工具场景走 DeepSeek 流式工具循环合流（10-30） |
 | GET | /api/chat/stop?streamId= | 流 ID | 置停止标记 + complete + 从登记处移除 |
 
 ## 三、知识库 `/api/rag`（已有）
@@ -58,9 +58,16 @@
 | 方法 | 路径 | 说明 |
 |---|---|---|
 | GET | /api/admin/health | 管理端连通性自检（Filter 校验通过才能到这） |
+| GET | /api/admin/skills | 技能清单（name/description/skillType/riskLevel/provider/scenes/disabled） |
+| POST | /api/admin/skills/{name}/toggle | 停用/启用技能（治理内核对停用技能直接拒，Redis Set 持久化） |
+| GET | /api/admin/stats | 调用统计快照（技能调用次数/各场景消息数/工作流执行/估算 token） |
+| GET | /api/admin/logs?q=&max=200 | 日志审计：按关键词（traceId/技能名/ERROR）过滤 logs/agent.log 最近行 |
+| GET | /api/admin/rag/kbs | 全用户知识库清单（rag_admin_list_all，超管视角） |
+| DELETE | /api/admin/rag/kb?userId=&kbId= | 超管删除任意知识库（rag_admin_delete_kb，跳过归属校验 + stderr 审计日志） |
 
 - 鉴权：请求头 `X-Admin-Token: <ADMIN_TOKEN>`（.env，gitignore），AdminAuthFilter 恒定时间比对，不一致 401
-- 规划 Tab（10-30 开发）：RAG 管理 / 技能开关 / 调用统计 / 日志审计（traceId 查询）
+- 管理工具约定：rag-mcp 的 `rag_admin_*` 前缀工具只给 /api/admin 直连，McpSkillRegistrar 跳过不注册给 LLM（防越权）
+- 页面：`/manage.html`（四 Tab，凭证存 localStorage）
 
 ## 规划中（W12 后续）
 

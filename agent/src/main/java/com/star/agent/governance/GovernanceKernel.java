@@ -1,8 +1,10 @@
 package com.star.agent.governance;
 
+import com.star.agent.infra.web.AdminSkillSwitch;
 import com.star.agent.skill.RiskLevel;
 import com.star.agent.skill.Skill;
 import com.star.agent.skill.SkillRegistry;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.util.Map;
@@ -19,15 +21,25 @@ public class GovernanceKernel {
     private final SkillRegistry skillRegistry;        // 花名册
     private final ConfirmationStore confirmationStore; // 确认登记本
     private final RateLimiter rateLimiter;            // 单日限次记账本
+    private final AdminSkillSwitch adminSkillSwitch;  // 管理端技能开关（可空：手动链路/旧测试无此组件）
     private final Map<String, Integer> roundCount = new java.util.HashMap<>(); // 每轮工具计数
     private final Map<String, String> pendingConfirmations = new java.util.HashMap<>(); // 待确认登记本 userId→工具名
 
     public GovernanceKernel(SkillRegistry skillRegistry,
                             ConfirmationStore confirmationStore,
                             RateLimiter rateLimiter) {
+        this(skillRegistry, confirmationStore, rateLimiter, null);
+    }
+
+    @Autowired
+    public GovernanceKernel(SkillRegistry skillRegistry,
+                            ConfirmationStore confirmationStore,
+                            RateLimiter rateLimiter,
+                            AdminSkillSwitch adminSkillSwitch) {
         this.skillRegistry = skillRegistry;
         this.confirmationStore = confirmationStore;
         this.rateLimiter = rateLimiter;
+        this.adminSkillSwitch = adminSkillSwitch;
     }
 
     public CheckResult check(String toolName, String userId, String args, String scene) {
@@ -35,6 +47,11 @@ public class GovernanceKernel {
         Skill skill = skillRegistry.getSkill(toolName);
         if (skill == null) {
             return CheckResult.deny("没有这个技能: " + toolName);
+        }
+
+        // 关1.5：管理端停用的技能直接拒（技能开关）
+        if (adminSkillSwitch != null && adminSkillSwitch.isDisabled(toolName)) {
+            return CheckResult.deny("该技能已被管理员停用");
         }
 
         // 关2：场景白名单（scenes 里不含当前场景 → 过滤，如群聊剔除 HIGH_RISK）

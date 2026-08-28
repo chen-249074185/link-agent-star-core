@@ -49,6 +49,28 @@ class McpSkillRegistrarTest {
         assertNull(registry.getSkill("mcp_rag_search"));
     }
 
+    // 管理工具（rag_admin_* 前缀）：只给 /api/admin 直连，绝不注册成技能（防 LLM 越权调用）
+    @Test
+    void registerMcpSkills_skipsAdminTools() {
+        when(connection.serverName()).thenReturn("rag-mcp");
+        when(connection.connect()).thenReturn(List.of(searchTool(), adminListAllTool()));
+        SkillRegistry registry = new SkillRegistry(List.of());
+        McpSkillRegistrar registrar = new McpSkillRegistrar(List.of(connection), registry, null);
+
+        registrar.registerMcpSkills();
+
+        assertNotNull(registry.getSkill("mcp_rag_search"));       // 普通工具正常注册
+        assertNull(registry.getSkill("mcp_rag_admin_list_all"));  // 管理工具被跳过
+    }
+
+    private McpSchema.Tool adminListAllTool() {
+        return McpSchema.Tool.builder()
+                .name("rag_admin_list_all")
+                .description("管理端：列出全部知识库")
+                .inputSchema(new McpSchema.JsonSchema("object", Map.of(), List.of(), null, null, null))
+                .build();
+    }
+
     private McpSchema.Tool searchTool() {
         return McpSchema.Tool.builder()
                 .name("rag_search")

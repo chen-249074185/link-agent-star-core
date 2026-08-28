@@ -50,13 +50,43 @@ class ChatControllerTest {
     @Test
     void stream_returnsSseWithStreamIdEvent() throws Exception {
         when(sceneDetector.detect(anyString())).thenReturn(Scene.CHAT);
-        // stream() 什么都不推，直接回调结束（模拟空流）；切片无拦截器 → userId=null
-        doAnswer(inv -> null).when(chatService).stream(anyString(), any(), any(), anyString(), any());
+        // streamWithTools() 什么都不推，直接回调结束（模拟空流）；切片无拦截器 → userId=null
+        doAnswer(inv -> null).when(chatService).streamWithTools(anyString(), any(), any(), anyString(), any(), any());
 
         mockMvc.perform(get("/api/chat/stream").param("message", "你好"))
                 .andExpect(status().isOk())
                 .andExpect(content().contentType("text/event-stream"))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("event:streamId")));
+    }
+
+    // 工具执行前推 tool 命名事件（前端展示"正在调用xxx"）；正文照常走 data 事件
+    @Test
+    void stream_emitsToolEventBeforeTokens() throws Exception {
+        when(sceneDetector.detect(anyString())).thenReturn(Scene.DATA);
+        doAnswer(inv -> {
+            @SuppressWarnings("unchecked")
+            java.util.function.Consumer<String> onToolStatus =
+                    (java.util.function.Consumer<String>) inv.getArgument(5);
+            @SuppressWarnings("unchecked")
+            java.util.function.Consumer<String> onToken =
+                    (java.util.function.Consumer<String>) inv.getArgument(4);
+            onToolStatus.accept("get_weather");
+            onToken.accept("北京今天晴，25℃");
+            return null;
+        }).when(chatService).streamWithTools(anyString(), any(), any(), anyString(), any(), any());
+
+        mockMvc.perform(get("/api/chat/stream").param("message", "北京天气"))
+                .andExpect(status().isOk())
+                // SSE 响应头无 charset，MockMvc 按 ISO-8859-1 解码中文会乱码 → 用字节按 UTF-8 解码后断言
+                .andExpect(result -> {
+                    String body = new String(result.getResponse().getContentAsByteArray(),
+                            java.nio.charset.StandardCharsets.UTF_8);
+                    org.hamcrest.MatcherAssert.assertThat(body,
+                            org.hamcrest.Matchers.allOf(
+                                    org.hamcrest.Matchers.containsString("event:tool"),
+                                    org.hamcrest.Matchers.containsString("get_weather"),
+                                    org.hamcrest.Matchers.containsString("北京今天晴，25℃")));
+                });
     }
 
     @Test

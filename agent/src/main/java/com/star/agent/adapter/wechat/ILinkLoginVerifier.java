@@ -53,7 +53,7 @@ public class ILinkLoginVerifier {
                 new HouseScoreSkill(), new RentRiskSkill()));
         RentDecisionWorkflow workflow = new RentDecisionWorkflow(workflowSkills, engine);
         ChatService chatService = new ChatService(llm, modelRouter, skillRegistry, kernel, new RentRequestDetector(), workflow,
-                null, null, null, null, new SensitiveToolGuard(), null, null);   // 手动链路不进 Spring：记忆/压缩/历史降级关闭，敏感工具守卫保留
+                null, null, null, null, new SensitiveToolGuard(), null, null, null);   // 手动链路不进 Spring：记忆/压缩/历史/统计降级关闭，敏感工具守卫保留
 
         BotWorker worker = new BotWorker(null, client, new ILinkMessageAdapter(), chatService, new SceneDetector(),
                 null, null, null, null, null);

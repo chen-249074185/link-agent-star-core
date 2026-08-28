@@ -114,17 +114,22 @@ public class DeepSeekLlmClient implements LlmClient {
     // ==================== 流式（逐 token 回调） ====================
     @Override
     public void stream(List<ChatMessage> messages, List<ToolSpec> tools, Consumer<String> onToken) {
-        // 1. 请求体和 chat() 几乎一样，关键差别：多开 stream=true
-        //    → 响应不再是"一个大 JSON"，而是 SSE 格式的一串小片段
+        // 纯文本流 = 合流版不带工具订单语义的特例：请求体与解析路径完全共用，只丢弃工具结果
+        streamWithTools(messages, tools, onToken);
+    }
+
+    // ==================== 流式 + 工具循环合流（W12 10-30） ====================
+    // 与 chat() 相同的工具循环语义，但响应走 SSE：content 增量逐 token 回调 onToken，
+    // 工具订单藏在 delta.tool_calls 里（id/name 只在首块出现，arguments 逐块拼接），
+    // 流结束后拼成完整订单随 ChatResponse 返回——调用方静默执行、回填、再请求
+    @Override
+    public ChatResponse streamWithTools(List<ChatMessage> messages, List<ToolSpec> tools, Consumer<String> onToken) {
         Map<String, Object> body = new java.util.LinkedHashMap<>();
         body.put("model", MODEL_NAME);
         body.put("messages", buildMessagesPayload(messages));
         body.put("tools", buildToolsPayload(tools));
         body.put("stream", true);
 
-        // 2. 用 JDK 的 HttpRequest 手动搭请求（RestClient 不支持流式读）
-        //    URI.create(...)  把字符串地址转成 URI 对象
-        //    BodyPublishers.ofString(json)  POST body = 一串 JSON 字符串
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(baseUrl + "/chat/completions"))
                 .header("Authorization", "Bearer " + apiKey)
@@ -132,47 +137,81 @@ public class DeepSeekLlmClient implements LlmClient {
                 .POST(HttpRequest.BodyPublishers.ofString(toJson(body)))
                 .build();
 
+        StringBuilder content = new StringBuilder();
+        Map<Integer, ToolCallAcc> acc = new java.util.TreeMap<>();   // 按 index 排序拼接订单碎片
         try {
-            // 3. send() 会等服务器响应头回来就返回（不等全部内容）
-            //    BodyHandlers.ofInputStream() = 拿到"活流"，边生成边读的关键
             HttpResponse<InputStream> resp = streamClient.send(request, HttpResponse.BodyHandlers.ofInputStream());
-
-            // 4. 把字节流包成「按行读」的 BufferedReader，逐行处理 SSE
-            //    try-with-resources：读完自动关闭流，不用手动 close
             try (BufferedReader reader = new BufferedReader(new InputStreamReader(resp.body(), StandardCharsets.UTF_8))) {
                 String line;
-                while ((line = reader.readLine()) != null) {   // 读到结尾(null)为止
-                    parseSseLine(line, onToken);               // 每一行交给解析器
+                while ((line = reader.readLine()) != null) {
+                    parseSseLine(line, content, acc, onToken);
                 }
             }
         } catch (Exception e) {
-            // 网络断了 / 服务器报错等 → 转成业务异常，不让崩溃悄悄发生
             throw new RuntimeException("流式请求失败: " + e.getMessage(), e);
         }
+        return new ChatResponse(content.toString(), buildToolCalls(acc));
+    }
+
+    // 一个工具订单的增量拼接容器：同 index 的碎片累积成一个完整订单
+    private static class ToolCallAcc {
+        String id = "";
+        String name = "";
+        StringBuilder args = new StringBuilder();
     }
 
     // ==================== 解析一行 SSE ====================
     // SSE 长这样：
     //   data: {"choices":[{"delta":{"content":"你"}}]}
-    //   data: {"choices":[{"delta":{"content":"好"}}]}
+    //   data: {"choices":[{"delta":{"tool_calls":[{"index":0,"id":"call_1","type":"function","function":{"name":"get_weather","arguments":"{\"city\":"}}]}}]}
+    //   data: {"choices":[{"delta":{"tool_calls":[{"index":0,"function":{"arguments":"\"北京\""}}]}}]}
     //   data: [DONE]                                  ← 结束标记
-    // 只认 data: 开头的行，内容是 JSON，增量 token 藏在 choices[0].delta.content
-    private void parseSseLine(String line, Consumer<String> onToken) {
+    // 只认 data: 开头的行，内容是 JSON；正文增量在 choices[0].delta.content，工具订单在 delta.tool_calls
+    private void parseSseLine(String line, StringBuilder content, Map<Integer, ToolCallAcc> toolCalls,
+                              Consumer<String> onToken) {
         if (line == null || !line.startsWith("data:")) return;   // 空行/心跳行(可能只有冒号)直接跳过
         String data = line.substring(5).trim();                  // 掐掉 "data:" 前 5 个字符，留出 JSON
         if (data.isEmpty() || "[DONE]".equals(data)) return;     // 空数据 / 结束标记 → 不回调直接 return
         try {
             JsonNode node = mapper.readTree(data);               // 字符串 → JSON 树
-            // path() 链式挖字段：choices[0].delta.content
-            // path(0) 对数组取下标 0；choices 是空数组时返回"缺失节点"，不会崩
-            JsonNode content = node.path("choices").path(0).path("delta").path("content");
-            // 三重判断：缺失 / 显式 null / 空字符串 → 都不回调
-            if (!content.isMissingNode() && !content.isNull() && !content.asText().isEmpty()) {
-                onToken.accept(content.asText());   // 关键：把一个 token 片段交给调用方
+            JsonNode delta = node.path("choices").path(0).path("delta");
+            // 正文增量：path() 链式挖字段，缺失/显式 null/空串都不回调
+            JsonNode contentNode = delta.path("content");
+            if (!contentNode.isMissingNode() && !contentNode.isNull() && !contentNode.asText().isEmpty()) {
+                content.append(contentNode.asText());
+                onToken.accept(contentNode.asText());
+            }
+            // 工具订单增量：delta.tool_calls 数组（可能多条工具，按 index 区分）
+            JsonNode callsNode = delta.path("tool_calls");
+            if (!callsNode.isMissingNode() && callsNode.isArray()) {
+                for (JsonNode callNode : callsNode) {
+                    int index = callNode.path("index").asInt(0);
+                    ToolCallAcc acc = toolCalls.computeIfAbsent(index, k -> new ToolCallAcc());
+                    String id = callNode.path("id").asText();          // 订单号：只在首块出现
+                    if (!id.isEmpty()) acc.id = id;
+                    JsonNode fn = callNode.path("function");
+                    if (!fn.isMissingNode()) {
+                        String name = fn.path("name").asText();        // 工具名：只在首块出现
+                        if (!name.isEmpty()) acc.name = name;
+                        String args = fn.path("arguments").asText();   // 参数：逐块拼接
+                        if (!args.isEmpty()) acc.args.append(args);
+                    }
+                }
             }
         } catch (Exception ignore) {
             // 某个块解析失败（如 usage 统计块）→ 跳过这一块，别让一条坏数据中断整条流
         }
+    }
+
+    // 拼接好的订单碎片表 → 完整 ToolCall 列表（缺名字的碎片丢弃，防御半截流）
+    private List<ToolCall> buildToolCalls(Map<Integer, ToolCallAcc> acc) {
+        List<ToolCall> calls = new ArrayList<>();
+        for (ToolCallAcc a : acc.values()) {
+            if (!a.name.isEmpty()) {
+                calls.add(new ToolCall(a.id, a.name, a.args.toString()));
+            }
+        }
+        return calls;
     }
 
     // 手动把请求体 Map 序列化成 JSON 字符串（流式不走 RestClient，要自己转）

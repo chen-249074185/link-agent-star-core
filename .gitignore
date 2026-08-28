@@ -14,3 +14,6 @@ agent/anydoc/
 
 # spike 编译产物（源码保留）
 *.class
+
+# 运行时日志（logback FILE appender，管理端日志审计数据源）
+agent/logs/

@@ -73,16 +73,25 @@ public class ChatController {
                 if (session != null) {
                     emitter.send(SseEmitter.event().name("sessionId").data(session));
                 }
-                chatService.stream(message, userId, session, scene, token -> {
-                    if (stopped.get()) {                                    // 已点停止：不再推，抛出信号让读流线程退出
-                        throw new RuntimeException("stream stopped");
-                    }
-                    try {
-                        emitter.send(SseEmitter.event().data(token));
-                    } catch (IOException e) {
-                        throw new RuntimeException(e);                      // 浏览器关了/断线 → 也退出
-                    }
-                });
+                // 流式 + 工具循环合流：正文推 data 事件（打字机），工具执行前推 tool 事件（前端展示调用状态）
+                chatService.streamWithTools(message, userId, session, scene,
+                        token -> {
+                            if (stopped.get()) {                                    // 已点停止：不再推，抛出信号让读流线程退出
+                                throw new RuntimeException("stream stopped");
+                            }
+                            try {
+                                emitter.send(SseEmitter.event().data(token));
+                            } catch (IOException e) {
+                                throw new RuntimeException(e);                      // 浏览器关了/断线 → 也退出
+                            }
+                        },
+                        toolName -> {
+                            try {
+                                emitter.send(SseEmitter.event().name("tool").data(toolName));
+                            } catch (IOException e) {
+                                throw new RuntimeException(e);
+                            }
+                        });
                 emitter.complete();                                         // 正常推完
             } catch (Exception e) {
                 // 只有"真报错"才 completeWithError；主动停止/断线不算错，静默结束即可

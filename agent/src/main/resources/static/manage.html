@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>星链智核 · 管理端</title>
+<style>
+:root{
+  --bg:#0d1220; --panel:#151c2e; --panel2:#1a2340; --line:#26304d;
+  --txt:#e6ebf5; --txt2:#93a0bd; --txt3:#5b6885;
+  --accent:#7c5cff; --accent2:#00d4c8; --danger:#ff5f7e; --ok:#3ddc97;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--txt);font:14px/1.6 "Microsoft YaHei",sans-serif;padding:24px;min-height:100vh}
+h1{font-size:20px;margin-bottom:4px}
+.sub{color:var(--txt3);font-size:12px;margin-bottom:20px}
+.head{display:flex;align-items:center;gap:12px;margin-bottom:16px}
+.head .logo{width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg,var(--accent),var(--accent2));display:flex;align-items:center;justify-content:center;font-weight:700;color:#fff}
+.tabs{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap}
+.tab{padding:8px 18px;border-radius:8px;border:1px solid var(--line);background:var(--panel);color:var(--txt2);cursor:pointer;user-select:none}
+.tab.active{background:var(--accent);border-color:var(--accent);color:#fff}
+.panel{display:none;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px}
+.panel.active{display:block}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{color:var(--txt3);font-weight:400;font-size:12px}
+td .badge{display:inline-block;padding:1px 8px;border-radius:10px;font-size:11px;margin-right:4px}
+.b-main{background:rgba(124,92,255,.15);color:#b3a0ff}
+.b-scene{background:rgba(0,212,196,.12);color:#6fe6dd}
+.b-ext{background:rgba(91,104,133,.2);color:var(--txt2)}
+.b-low{background:rgba(61,220,151,.12);color:#7cebc0}
+.b-high{background:rgba(255,95,126,.15);color:#ff9db1}
+.b-on{background:rgba(61,220,151,.12);color:#7cebc0}
+.b-off{background:rgba(255,95,126,.15);color:#ff9db1}
+.btn{padding:5px 14px;border-radius:7px;border:1px solid var(--line);background:var(--panel2);color:var(--txt);cursor:pointer;font-size:12px}
+.btn:hover{border-color:var(--accent)}
+.btn.danger{color:var(--danger);border-color:rgba(255,95,126,.4)}
+.btn.danger:hover{background:rgba(255,95,126,.1)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.toolbar{display:flex;gap:10px;margin-bottom:14px;align-items:center;flex-wrap:wrap}
+input[type=text],input[type=password]{background:var(--panel2);border:1px solid var(--line);color:var(--txt);border-radius:7px;padding:7px 12px;font-size:13px;outline:none;width:280px}
+input:focus{border-color:var(--accent)}
+.logbox{background:#0a0e18;border:1px solid var(--line);border-radius:8px;padding:12px;font:12px/1.7 Consolas,monospace;color:#a9f7e0;max-height:520px;overflow:auto;white-space:pre-wrap;word-break:break-all}
+.kpi{display:flex;gap:14px;margin-bottom:16px;flex-wrap:wrap}
+.kpi .card{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:14px 20px;min-width:150px}
+.kpi .num{font-size:22px;font-weight:700;color:var(--accent2)}
+.kpi .lbl{color:var(--txt3);font-size:12px;margin-top:2px}
+.empty{color:var(--txt3);text-align:center;padding:30px 0}
+.tokenbar{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(8,11,20,.92);display:flex;align-items:center;justify-content:center;z-index:9}
+.tokenbar .box{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:28px;width:380px;text-align:center}
+.tokenbar h2{margin-bottom:6px;font-size:16px}
+.tokenbar p{color:var(--txt3);font-size:12px;margin-bottom:16px}
+.tokenbar input{width:100%;margin-bottom:12px}
+.hint{color:var(--txt3);font-size:12px;margin-top:8px}
+.status{font-size:12px;margin-left:auto}
+.status .dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--ok);margin-right:5px;animation:blink 2s infinite}
+@keyframes blink{50%{opacity:.35}}
+</style>
+</head>
+<body>
+<div class="head">
+  <div class="logo">星</div>
+  <div>
+    <h1>星链智核 · 管理端</h1>
+    <div class="sub">RAG 管理 / 技能开关 / 调用统计 / 日志审计 — X-Admin-Token 鉴权</div>
+  </div>
+  <div class="status" id="status"><span class="dot"></span><span id="statusTxt">自检中…</span></div>
+</div>
+
+<div class="tabs">
+  <div class="tab active" data-tab="skills">技能开关</div>
+  <div class="tab" data-tab="stats">调用统计</div>
+  <div class="tab" data-tab="logs">日志审计</div>
+  <div class="tab" data-tab="rag">RAG 管理</div>
+</div>
+
+<!-- 技能开关 -->
+<div class="panel active" id="p-skills">
+  <div class="toolbar">
+    <span class="hint">停用后治理内核直接拒绝该技能（含微信/Web 全部通道）</span>
+  </div>
+  <table>
+    <thead><tr><th>技能名</th><th>说明</th><th>分层</th><th>风险</th><th>来源</th><th>状态</th><th></th></tr></thead>
+    <tbody id="skillRows"></tbody>
+  </table>
+  <div class="empty" id="skillEmpty" style="display:none">暂无技能</div>
+</div>
+
+<!-- 调用统计 -->
+<div class="panel" id="p-stats">
+  <div class="kpi" id="kpis"></div>
+  <div style="display:flex;gap:20px;flex-wrap:wrap">
+    <div style="flex:1;min-width:280px">
+      <table><thead><tr><th>技能调用次数</th><th>次数</th></tr></thead><tbody id="toolRows"></tbody></table>
+    </div>
+    <div style="flex:1;min-width:280px">
+      <table><thead><tr><th>场景消息数</th><th>条数</th></tr></thead><tbody id="sceneRows"></tbody></table>
+    </div>
+    <div style="flex:1;min-width:280px">
+      <table><thead><tr><th>工作流执行（按城市）</th><th>次数</th></tr></thead><tbody id="wfRows"></tbody></table>
+    </div>
+  </div>
+  <div class="empty" id="statEmpty" style="display:none">暂无调用数据</div>
+</div>
+
+<!-- 日志审计 -->
+<div class="panel" id="p-logs">
+  <div class="toolbar">
+    <input type="text" id="logQ" placeholder="关键词 / traceId / ERROR / 技能名">
+    <button class="btn primary" id="logSearch">搜索</button>
+    <button class="btn" id="logRefresh">刷新</button>
+    <span class="hint">日志带 [traceId]，可按链路追踪 ID 检索</span>
+  </div>
+  <div class="logbox" id="logBox">加载中…</div>
+</div>
+
+<!-- RAG 管理 -->
+<div class="panel" id="p-rag">
+  <div class="toolbar">
+    <span class="hint">全用户知识库视角（超管），删除不经过归属校验并记录审计日志</span>
+    <button class="btn" id="ragRefresh">刷新</button>
+  </div>
+  <table>
+    <thead><tr><th>kb_id</th><th>所属用户</th><th>名称</th><th></th></tr></thead>
+    <tbody id="ragRows"></tbody>
+  </table>
+  <div class="empty" id="ragEmpty" style="display:none">暂无知识库</div>
+</div>
+
+<!-- 凭证门 -->
+<div class="tokenbar" id="tokenbar">
+  <div class="box">
+    <h2>管理端登录</h2>
+    <p>输入 .env 中配置的 ADMIN_TOKEN</p>
+    <input type="password" id="adminTokenInput" placeholder="X-Admin-Token">
+    <button class="btn primary" id="tokenOk" style="width:100%">进入</button>
+    <div class="hint" id="tokenErr" style="color:var(--danger);display:none">凭证无效，请重试</div>
+  </div>
+</div>
+
+<script>
+let adminToken = localStorage.getItem('adminToken') || '';
+
+function api(url, opts){
+  opts = opts || {};
+  opts.headers = Object.assign({ 'X-Admin-Token': adminToken }, opts.headers || {});
+  return fetch(url, opts).then(async r => {
+    if (r.status === 401) { showToken(); throw new Error('未授权'); }
+    return r.json();
+  });
+}
+function esc(s){ return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+const $ = id => document.getElementById(id);
+
+/* ===== 凭证门 ===== */
+function showToken(){ $('tokenbar').style.display = 'flex'; }
+function hideToken(){ $('tokenbar').style.display = 'none'; }
+if (!adminToken) showToken();
+$('tokenOk').onclick = async () => {
+  const t = $('adminTokenInput').value.trim();
+  adminToken = t; localStorage.setItem('adminToken', t);
+  $('tokenErr').style.display = 'none';
+  try {
+    await api('/api/admin/health');
+    hideToken(); refreshAll();
+  } catch (e) { $('tokenErr').style.display = 'block'; }
+};
+$('adminTokenInput').addEventListener('keydown', e => { if (e.key === 'Enter') $('tokenOk').click(); });
+
+/* ===== Tab 切换 ===== */
+document.querySelectorAll('.tab').forEach(t => t.onclick = () => {
+  document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(x => x.classList.remove('active'));
+  t.classList.add('active');
+  $('p-' + t.dataset.tab).classList.add('active');
+  refreshTab(t.dataset.tab);
+});
+
+function refreshAll(){ ['skills','stats','logs','rag'].forEach(refreshTab); }
+function refreshTab(tab){
+  if (tab === 'skills') loadSkills();
+  else if (tab === 'stats') loadStats();
+  else if (tab === 'logs') loadLogs();
+  else if (tab === 'rag') loadRag();
+}
+
+/* ===== 技能开关 ===== */
+async function loadSkills(){
+  try {
+    const j = await api('/api/admin/skills');
+    const rows = $('skillRows'), empty = $('skillEmpty');
+    if (j.code !== 0 || !j.data.length) { rows.innerHTML = ''; empty.style.display = 'block'; return; }
+    empty.style.display = 'none';
+    rows.innerHTML = j.data.map(s =>
+      '<tr>' +
+        '<td>' + esc(s.name) + '</td>' +
+        '<td style="color:var(--txt2)">' + esc(s.description || '') + '</td>' +
+        '<td><span class="badge b-' + s.skillType.toLowerCase() + '">' + esc(s.skillType) + '</span></td>' +
+        '<td><span class="badge b-' + (s.riskLevel === 'HIGH_RISK' ? 'high' : 'low') + '">' + esc(s.riskLevel) + '</span></td>' +
+        '<td style="color:var(--txt2)">' + esc(s.provider || '') + '</td>' +
+        '<td><span class="badge ' + (s.disabled ? 'b-off' : 'b-on') + '">' + (s.disabled ? '已停用' : '运行中') + '</span></td>' +
+        '<td><button class="btn ' + (s.disabled ? 'primary' : 'danger') + '" data-n="' + esc(s.name) + '">' + (s.disabled ? '启用' : '停用') + '</button></td>' +
+      '</tr>').join('');
+    rows.querySelectorAll('button').forEach(b => b.onclick = async () => {
+      await api('/api/admin/skills/' + encodeURIComponent(b.dataset.n) + '/toggle', { method: 'POST' });
+      loadSkills();
+    });
+  } catch (e) {}
+}
+
+/* ===== 调用统计 ===== */
+async function loadStats(){
+  try {
+    const j = await api('/api/admin/stats');
+    const d = j.data || {};
+    const tool = d.toolCalls || {}, scene = d.sceneMessages || {}, wf = d.workflowRuns || {}, tok = d.tokensByModel || {};
+    $('kpis').innerHTML =
+      '<div class="card"><div class="num">' + (d.totalToolCalls || 0) + '</div><div class="lbl">技能调用总数</div></div>' +
+      '<div class="card"><div class="num">' + (d.totalTokens || 0) + '</div><div class="lbl">估算 token</div></div>' +
+      '<div class="card"><div class="num">' + Object.keys(scene).length + '</div><div class="lbl">活跃场景</div></div>' +
+      Object.keys(tok).map(k => '<div class="card"><div class="num" style="font-size:15px">' + tok[k] + '</div><div class="lbl">' + esc(k) + '</div></div>').join('');
+    const rows = (m, v) => Object.entries(v).length ? Object.entries(v).map(([k, n]) => '<tr><td>' + esc(k) + '</td><td>' + n + '</td></tr>').join('') : '<tr><td colspan="2" class="empty" style="padding:14px">无</td></tr>';
+    $('toolRows').innerHTML = rows('', tool);
+    $('sceneRows').innerHTML = rows('', scene);
+    $('wfRows').innerHTML = rows('', wf);
+    $('statEmpty').style.display = Object.keys(tool).length ? 'none' : 'block';
+  } catch (e) {}
+}
+
+/* ===== 日志审计 ===== */
+async function loadLogs(){
+  const q = $('logQ').value.trim();
+  try {
+    const j = await api('/api/admin/logs?q=' + encodeURIComponent(q) + '&max=200');
+    const lines = j.data || [];
+    $('logBox').textContent = lines.join('\n');
+  } catch (e) {}
+}
+$('logSearch').onclick = loadLogs;
+$('logRefresh').onclick = loadLogs;
+$('logQ').addEventListener('keydown', e => { if (e.key === 'Enter') loadLogs(); });
+
+/* ===== RAG 管理 ===== */
+async function loadRag(){
+  try {
+    const j = await api('/api/admin/rag/kbs');
+    const empty = $('ragEmpty');
+    if (j.code !== 0) { $('ragRows').innerHTML = '<tr><td colspan="4" class="empty">' + esc(j.msg || j.message || '') + '</td></tr>'; empty.style.display = 'none'; return; }
+    const lines = (j.data || '').split('\n').filter(Boolean);
+    if (!lines.length) { $('ragRows').innerHTML = ''; empty.style.display = 'block'; return; }
+    empty.style.display = 'none';
+    $('ragRows').innerHTML = lines.map(l => {
+      const [kb, user, ...rest] = l.split(' | ');
+      const name = rest.join(' | ') || '';
+      return '<tr>' +
+        '<td>' + esc(kb) + '</td>' +
+        '<td>' + esc(user) + '</td>' +
+        '<td>' + esc(name) + '</td>' +
+        '<td><button class="btn danger" data-kb="' + esc(kb) + '" data-u="' + esc(user) + '">删除</button></td>' +
+      '</tr>';
+    }).join('');
+    $('ragRows').querySelectorAll('button').forEach(b => b.onclick = async () => {
+      if (!confirm('确认删除知识库「' + b.dataset.kb + '」（用户 ' + b.dataset.u + '）？不可恢复。')) return;
+      await api('/api/admin/rag/kb?userId=' + encodeURIComponent(b.dataset.u) + '&kbId=' + encodeURIComponent(b.dataset.kb), { method: 'DELETE' });
+      loadRag();
+    });
+  } catch (e) {}
+}
+$('ragRefresh').onclick = loadRag;
+
+/* ===== 自检 ===== */
+(async function init(){
+  try {
+    await api('/api/admin/health');
+    hideToken(); $('statusTxt').textContent = '管理端已连接';
+    refreshAll();
+  } catch (e) { $('statusTxt').textContent = '等待凭证'; }
+})();
+</script>
+</body>
+</html>

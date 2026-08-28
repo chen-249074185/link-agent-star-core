@@ -3,6 +3,7 @@ package com.star.agent.service;
 import com.star.agent.governance.CheckResult;
 import com.star.agent.governance.GovernanceKernel;
 import com.star.agent.governance.SensitiveToolGuard;
+import com.star.agent.infra.web.UsageStatsService;
 import com.star.agent.llm.ChatMessage;
 import com.star.agent.llm.ChatResponse;
 import com.star.agent.llm.LlmClient;
@@ -52,13 +53,15 @@ public class ChatService {
     private final ConversationDao conversationDao;        // 会话上下文加载
     private final DailySummaryService dailySummaryService;  // 每日压缩：跨天对话前惰性补压
     private final SensitiveToolGuard sensitiveToolGuard;    // 敏感工具意图守卫（简历等需用户明确要求）
+    private final UsageStatsService usageStats;             // 调用统计埋点（管理端"调用统计"Tab，可空）
 
     public ChatService(@Qualifier("deepSeekLlmClient")LlmClient llmClient, ModelRouter modelRouter, SkillRegistry skillRegistry, GovernanceKernel governanceKernel,
                        RentRequestDetector rentRequestDetector, RentDecisionWorkflow workflow,
                        EphemeralMemory ephemeralMemory, ScenePolicyConfig scenePolicyConfig,
                        ShortTermMemory shortTermMemory, DailySummaryService dailySummaryService,
                        SensitiveToolGuard sensitiveToolGuard,
-                       ChatHistoryService chatHistoryService, ConversationDao conversationDao) {
+                       ChatHistoryService chatHistoryService, ConversationDao conversationDao,
+                       UsageStatsService usageStats) {
         this.llmClient = llmClient;
         this.modelRouter = modelRouter;
         this.skillRegistry = skillRegistry;
@@ -72,6 +75,7 @@ public class ChatService {
         this.sensitiveToolGuard = sensitiveToolGuard;
         this.chatHistoryService = chatHistoryService;
         this.conversationDao = conversationDao;
+        this.usageStats = usageStats;
     }
 
     public String chat(String userMessage, String userId, String scene) {
@@ -81,6 +85,7 @@ public class ChatService {
         RentRequest req = rentRequestDetector.parse(userMessage);
         if (req != null) {
             logger.info("检测到租房需求，进入工作流模式: {}", req);
+            if (usageStats != null) usageStats.recordWorkflow(req.city());
             return workflow.execute(userId, "", req.city(), req.maxPrice());
         }
 
@@ -94,6 +99,7 @@ public class ChatService {
         }
 
         governanceKernel.resetRounds(userId);
+        if (usageStats != null) usageStats.recordMessage(scene);
         // 惰性补压：跨天对话前查该用户摘要缺口，有就当场压（无缺口秒返回，不阻塞）
         if (dailySummaryService != null) {
             dailySummaryService.compressMissingForUser(userId);
@@ -110,6 +116,7 @@ public class ChatService {
 
         for (int round = 0; round < 5; round++) {
             ChatResponse resp = llmClient.chat(messages, tools);
+            if (usageStats != null) usageStats.recordTokens(llmClient.model(), inputChars(messages), resp.content().length());
 
             if (resp.toolCalls().isEmpty()) {
                 logger.info("对话结束，共{}轮", round + 1);
@@ -154,10 +161,20 @@ public class ChatService {
         if (skill == null) {
             return "没有这个技能: " + toolName;
         }
+        if (usageStats != null) usageStats.recordToolCall(toolName);   // 统计：技能调用次数
         SkillResult result = skill.execute(new SkillContext(userId, args, ""));
         logger.info("工具[{}] 执行: 参数{} 结果{}",
                 toolName, args, result.success() ? "成功" : "失败: " + result.content());
         return result.content();
+    }
+
+    // 统计辅助：本轮发给模型的全部输入字符数（估算 token 用，粗略即可）
+    private long inputChars(List<ChatMessage> messages) {
+        long sum = 0;
+        for (ChatMessage m : messages) {
+            if (m.content() != null) sum += m.content().length();
+        }
+        return sum;
     }
 
     // 该场景要不要记瞬时记忆：查 ScenePolicy 的 memory 列（ephemeral=记，none=不记如群聊）
@@ -206,6 +223,10 @@ public class ChatService {
             full.append(token);
             onToken.accept(token);
         });
+        if (usageStats != null) {
+            usageStats.recordMessage(scene);
+            usageStats.recordTokens(client.model(), inputChars(messages), full.length());
+        }
         // 落记忆（与 chat() 同策略：memory=ephemeral 场景才记；失败只记日志）
         if (userId != null && memoryEnabled(scene) && shortTermMemory != null) {
             try {
@@ -234,5 +255,95 @@ public class ChatService {
             logger.warn("解析会话归属失败，开新会话: {}", e.getMessage());
         }
         return ChatHistoryService.newSessionId();
+    }
+
+    // ==================== SSE 流式 + 工具循环合流（W12 10-30，Web 私有库问答核心） ====================
+    // 与 chat() 相同的工具循环语义，但模型请求走流式：
+    //   正文 → 逐 token 回调 onToken（前端打字机）
+    //   工具订单 → 静默执行（复用 executeTool 的安检），执行前回调 onToolStatus（前端"正在调用xxx"）
+    //   无工具场景（如 CREATION 纯对话）→ 退回场景路由纯流式（保持 qwen-max 创作路由）
+    public void streamWithTools(String userMessage, String userId, String sessionId, String scene,
+                                Consumer<String> onToken, Consumer<String> onToolStatus) {
+        // 双模式路由：完整租房需求 → 直跑工作流（报告整体推给前端，不经 LLM）
+        RentRequest req = rentRequestDetector.parse(userMessage);
+        if (req != null) {
+            logger.info("流式对话检测到租房需求，进入工作流模式: {}", req);
+            if (usageStats != null) usageStats.recordWorkflow(req.city());
+            if (onToken != null) {
+                onToken.accept(workflow.execute(userId, "", req.city(), req.maxPrice()));
+            }
+            return;
+        }
+
+        // 无工具场景（场景策略工具白名单为空，如 CREATION 创作对话）→ 场景路由纯流式
+        ScenePolicy policy = scenePolicyConfig == null ? null
+                : scenePolicyConfig.getPolicies().get(Scene.valueOf(scene));
+        if (policy == null || policy.tools().isEmpty()) {
+            stream(userMessage, userId, sessionId, scene, onToken);
+            return;
+        }
+
+        // 高危确认闭环（同 chat()）：用户回"确认" → 写入确认态，模型下一轮重试放行
+        if (userMessage.trim().startsWith("确认")) {
+            governanceKernel.confirm(userId);
+        }
+
+        governanceKernel.resetRounds(userId);
+        if (usageStats != null) usageStats.recordMessage(scene);
+        if (dailySummaryService != null) {
+            dailySummaryService.compressMissingForUser(userId);
+        }
+
+        List<ChatMessage> messages = new ArrayList<>();
+        if (userId != null && sessionId != null && conversationDao != null) {
+            // 取该会话最近的上下文（最多 20 条，AI 记得之前聊过啥）
+            List<ConversationDo> history = conversationDao.findBySession(userId, sessionId);
+            int from = Math.max(0, history.size() - 20);
+            for (int i = from; i < history.size(); i++) {
+                messages.add(new ChatMessage(history.get(i).getRole(), history.get(i).getContent()));
+            }
+        }
+        messages.add(new ChatMessage("user", userMessage));
+        List<ToolSpec> tools = skillRegistry.getToolSpecs();
+
+        StringBuilder full = new StringBuilder();
+        boolean overLimit = false;
+        for (int round = 0; round < 5; round++) {
+            ChatResponse resp = llmClient.streamWithTools(messages, tools, token -> {
+                full.append(token);
+                onToken.accept(token);
+            });
+            if (usageStats != null) usageStats.recordTokens(llmClient.model(), inputChars(messages), resp.content().length());
+            if (resp.toolCalls().isEmpty()) {
+                logger.info("流式对话结束，共{}轮", round + 1);
+                break;
+            }
+            messages.add(ChatMessage.fromAssistant(resp.toolCalls()));
+            for (ToolCall call : resp.toolCalls()) {
+                if (onToolStatus != null) {
+                    onToolStatus.accept(call.functionName());   // 前端状态事件：正在调用哪个工具
+                }
+                String result = executeTool(call.functionName(), call.arguments(), userId, scene, userMessage);
+                messages.add(ChatMessage.fromToolResult(call.id(), result));
+            }
+            if (round == 4) {
+                overLimit = true;
+            }
+        }
+        if (overLimit) {
+            logger.warn("流式对话超出工具循环上限5轮");
+            onToken.accept("工具调用次数过多，请换个问法");
+        }
+
+        // 落记忆（与 stream() 同策略：memory=ephemeral 场景才记；失败只记日志）
+        if (userId != null && memoryEnabled(scene) && shortTermMemory != null) {
+            try {
+                ephemeralMemory.append(userId, userMessage, full.toString());
+            } catch (Exception e) {
+                logger.warn("瞬时记忆写入失败: {}", e.getMessage());
+            }
+            shortTermMemory.saveAsync(userId, "user", userMessage, sessionId);
+            shortTermMemory.saveAsync(userId, "assistant", full.toString(), sessionId);
+        }
     }
 }
