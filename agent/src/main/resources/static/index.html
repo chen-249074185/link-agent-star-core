@@ -1,83 +1,728 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="zh-CN" data-theme="dark">
 <head>
-    <meta charset="UTF-8">
-    <title>SSE 聊天测试（可停止）</title>
-    <style>
-        body { font-family: Arial, sans-serif; max-width: 600px; margin: 40px auto; }
-        #chat { border: 1px solid #ccc; min-height: 300px; padding: 10px; margin-bottom: 10px; }
-        #chat div { margin: 5px 0; padding: 6px; border-radius: 4px; }
-        #chat .user { background: #e6f3ff; }   /* 用户消息：浅蓝 */
-        #chat .ai { background: #f0f0f0; }     /* AI 回复：浅灰 */
-        #chat .sys { background: #fff3cd; font-size: 12px; color: #856404; }  /* 系统提示：浅黄 */
-        #input { width: 60%; padding: 8px; }
-        button { padding: 8px 16px; }
-        #stopBtn { background: #dc3545; color: white; display: none; }  /* 停止按钮：默认隐藏，有流时才显示 */
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>星链智核 · 对话</title>
+<style>
+:root{
+  --bg-app:#f3f1ec;--bg-app-grad:linear-gradient(180deg,#f3f1ec 0%,#efeae2 100%);
+  --bg-side:#fffdf9;--bg-hover:rgba(74,43,43,.05);
+  --bg-active:linear-gradient(90deg,rgba(224,120,120,.12) 0%,rgba(224,120,120,.05) 100%);
+  --bg-input:#ffffff;--line:rgba(74,43,43,.09);
+  --txt:#4a2b2b;--txt-2:#8a7070;--txt-3:#c4b3b3;
+  --accent:#e07878;--accent-grad:linear-gradient(135deg,#e07878,#d94f4f);
+  --bubble-grad:linear-gradient(135deg,#4a2b2b,#6b3f3f);--bubble-text:#fffdf9;
+  --side-top-bg:linear-gradient(180deg,#faf6f0 0%,#f5eee6 100%);
+  --kbd-bg:#f5f0ea;--kbd-line:#e6ddd3;--msg-text:#5d4646;
+  --scroll:#dccfc2;--scroll-h:#cdbdb0;--shadow:0 12px 32px rgba(74,43,43,.14);
+  --red:#d94f4f;--green:#5aa87a;--pink:#d94f4f;
+}
+[data-theme="dark"]{
+  --bg-app:#0b0d14;--bg-app-grad:linear-gradient(180deg,#0b0d14 0%,#0f1220 100%);
+  --bg-side:#0c0f18;--bg-hover:rgba(255,255,255,.06);
+  --bg-active:linear-gradient(90deg,rgba(110,231,255,.10) 0%,rgba(110,231,255,.04) 100%);
+  --bg-input:#141720;--line:#1e2334;
+  --txt:#e6e6e8;--txt-2:#9aa0b4;--txt-3:#5f6478;
+  --accent:#6ee7ff;--accent-grad:linear-gradient(135deg,#6ee7ff,#a78bfa);
+  --bubble-grad:linear-gradient(135deg,#6ee7ff,#a78bfa);--bubble-text:#0b0d14;
+  --side-top-bg:linear-gradient(180deg,#0c0f18 0%,#131a2e 100%);
+  --kbd-bg:#1c2030;--kbd-line:#2a2f42;--msg-text:#d0d4e0;
+  --scroll:#2a2f42;--scroll-h:#3a4055;--shadow:0 12px 32px rgba(0,0,0,.55);
+  --red:#f04438;--green:#34d399;--pink:#ff5c8a;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",Roboto,Helvetica,Arial,sans-serif;
+  background:var(--bg-app-grad);color:var(--txt);font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased;transition:background .25s,color .25s}
+.ic{width:18px;height:18px;flex:none;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+::-webkit-scrollbar{width:8px;height:8px}
+::-webkit-scrollbar-thumb{background:var(--scroll);border-radius:8px}
+::-webkit-scrollbar-thumb:hover{background:var(--scroll-h)}
+::-webkit-scrollbar-track{background:transparent}
+.app{display:flex;height:100vh;overflow:hidden}
+
+/* ===== 左侧栏 ===== */
+.side{width:var(--side-w,270px);flex:none;background:var(--bg-side);border-right:1px solid var(--line);
+  display:flex;flex-direction:column;transition:width .22s ease,opacity .22s ease;overflow:hidden}
+.app.collapsed .side{width:0;opacity:0;border-right:none}
+.side-top{position:relative;display:flex;align-items:center;padding:12px 6px;background:var(--side-top-bg);border-bottom:1px solid var(--line)}
+.logo{white-space:nowrap;display:flex;align-items:center}
+.logo svg{width:230px;height:86px;display:block}
+[data-theme="dark"] .logo-light{display:none}
+[data-theme="light"] .logo-dark{display:none}
+.spin{transform-box:fill-box;transform-origin:center;animation:spin linear infinite}
+.pulse{transform-box:fill-box;transform-origin:center;animation:pulse ease-in-out infinite}
+.flow{stroke-dasharray:6 10;animation:flow linear infinite}
+@keyframes pulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.18);opacity:.75}}
+@keyframes flow{to{stroke-dashoffset:-160}}
+.srch-float{position:absolute;right:8px;top:50%;transform:translateY(-50%);width:28px;height:28px;z-index:2}
+.icon-btn{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:8px;
+  color:var(--txt-2);cursor:pointer;background:transparent;border:none;transition:.15s;flex:none}
+.icon-btn:hover{background:var(--bg-hover);color:var(--txt)}
+.nav{padding:4px 10px 8px;display:flex;flex-direction:column;gap:2px;white-space:nowrap}
+.nav-item{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;color:var(--txt);cursor:pointer;transition:.15s}
+.nav-item:hover{background:var(--bg-hover)}
+.nav-item:hover .ic{color:var(--accent)}
+.nav-item .txt{flex:1;overflow:hidden;text-overflow:ellipsis}
+.nav-item .tail{color:var(--txt-3);display:inline-flex}
+.side-scroll{flex:1;overflow-y:auto;padding:0 10px 10px}
+.sec-title{font-size:12px;color:var(--txt-3);padding:14px 10px 6px;white-space:nowrap;display:flex;align-items:center;gap:6px}
+.sec-title::before{content:'';width:3px;height:12px;border-radius:2px;background:var(--accent-grad)}
+.recent{display:flex;flex-direction:column;gap:1px}
+.recent-item{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;color:var(--txt-2);cursor:pointer;transition:.15s;white-space:nowrap;position:relative}
+.recent-item:hover{background:var(--bg-hover);color:var(--txt)}
+.recent-item.active{background:var(--bg-active);color:var(--txt);font-weight:600}
+.recent-item .name{flex:1;overflow:hidden;text-overflow:ellipsis}
+.recent-item .t{font-size:11px;color:var(--txt-3);flex:none}
+.recent-item .rm{display:none;background:none;border:none;color:var(--txt-3);cursor:pointer;font-size:13px;padding:0 4px}
+.recent-item:hover .rm{display:inline-flex}
+.recent-item .rm:hover{color:var(--red)}
+.recent-empty{text-align:center;color:var(--txt-3);font-size:12.5px;padding:18px 8px;line-height:1.8}
+.spinner{width:14px;height:14px;border:2px solid var(--txt-3);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.side-foot{border-top:1px solid var(--line);padding:10px 12px;display:flex;align-items:center;gap:10px;white-space:nowrap}
+.avatar{width:30px;height:30px;border-radius:50%;flex:none;display:flex;align-items:center;justify-content:center;font-weight:600;color:#fff;cursor:pointer;overflow:hidden}
+.avatar svg{width:100%;height:100%;display:block}
+[data-theme="light"] .av-demon{display:none!important}
+[data-theme="dark"] .av-angel{display:none!important}
+.side-foot .name{flex:1;overflow:hidden;text-overflow:ellipsis}
+.mini-panel{display:none;position:absolute;left:44px;top:52px;z-index:41;width:210px;background:var(--bg-side);
+  border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);padding:8px;flex-direction:column;gap:2px}
+.mini-panel.show{display:flex}
+.mini-panel .nav-item{font-size:13px}
+
+/* ===== 右侧主区 ===== */
+.main{flex:1;display:flex;flex-direction:column;min-width:0}
+.topbar{height:56px;flex:none;display:flex;align-items:center;gap:8px;padding:0 16px;border-bottom:1px solid var(--line);
+  position:relative;background:var(--bg-side)}
+.topbar .center{position:absolute;left:50%;transform:translateX(-50%);text-align:center;max-width:60%}
+.topbar .title{font-size:14px;font-weight:600}
+.topbar .sub{font-size:11px;color:var(--txt-3)}
+.topbar .right{margin-left:auto;display:flex;align-items:center;gap:8px}
+.theme-btn .moon{display:none}
+[data-theme="dark"] .theme-btn .moon{display:inline-flex}
+[data-theme="dark"] .theme-btn .sun{display:none}
+.messages{flex:1;overflow-y:auto;position:relative}
+.messages-inner{max-width:1000px;margin:0 auto;padding:28px 32px 40px}
+.msg{margin-bottom:22px}
+.msg p{margin:8px 0;color:var(--msg-text)}
+.msg b,.msg strong{color:var(--txt)}
+.msg ul,.msg ol{margin:8px 0 8px 22px;color:var(--msg-text)}
+.msg li{margin:4px 0}
+.msg hr{border:none;border-top:1px solid var(--line);margin:22px 0}
+.msg.user{display:flex;justify-content:flex-end}
+.bubble{background:var(--bubble-grad);border-radius:16px;padding:12px 16px;max-width:70%;color:var(--bubble-text);box-shadow:0 2px 8px rgba(56,198,238,.18);white-space:pre-wrap;word-break:break-word}
+.bubble.typing{background:var(--bg-hover);color:var(--txt-3);box-shadow:none}
+.typing i{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--txt-3);margin:0 2px;animation:blink 1s infinite}
+.typing i:nth-child(2){animation-delay:.2s}
+.typing i:nth-child(3){animation-delay:.4s}
+@keyframes blink{0%,80%,100%{opacity:.2}40%{opacity:1}}
+.to-bottom{position:absolute;left:50%;bottom:18px;transform:translateX(-50%);width:38px;height:38px;border-radius:50%;
+  background:var(--bg-side);border:1px solid var(--line);color:var(--txt);display:flex;align-items:center;justify-content:center;
+  cursor:pointer;transition:.15s;box-shadow:0 2px 8px rgba(31,35,41,.08)}
+.to-bottom:hover{background:var(--bg-hover);color:var(--accent)}
+
+/* ===== 输入区 ===== */
+.composer{flex:none;padding:10px 24px 18px}
+.composer-box{max-width:1000px;margin:0 auto;background:var(--bg-input);border:1px solid var(--line);border-radius:16px;
+  padding:12px 14px 8px;transition:.15s}
+.composer-box:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px rgba(56,198,238,.15)}
+.composer-box textarea{width:100%;background:transparent;border:none;outline:none;resize:none;color:var(--txt);
+  font:inherit;line-height:1.6;max-height:200px}
+.composer-box textarea::placeholder{color:var(--txt-3)}
+.tools{display:flex;align-items:center;gap:4px;margin-top:6px;flex-wrap:wrap}
+.tool{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 10px;border-radius:8px;color:var(--txt-2);
+  font-size:13px;cursor:pointer;transition:.15s;background:transparent;border:none}
+.tool:hover{background:var(--bg-hover);color:var(--accent)}
+.tool .ic{width:16px;height:16px}
+.sep{width:1px;height:18px;background:var(--line);margin:0 4px}
+.tools .right{margin-left:auto;display:flex;align-items:center;gap:10px}
+.mode{display:inline-flex;align-items:center;gap:4px;color:var(--accent);font-size:13px;cursor:pointer;font-weight:600}
+.send{width:34px;height:34px;border-radius:50%;background:var(--accent-grad);border:none;color:#fff;display:flex;
+  align-items:center;justify-content:center;cursor:pointer;transition:.15s;box-shadow:0 2px 6px rgba(56,198,238,.3)}
+.send:hover{filter:brightness(1.08)}
+.send.stop{background:var(--red);box-shadow:0 2px 6px rgba(240,68,56,.3)}
+.send.stop:hover{background:var(--red);filter:none}
+.send:disabled{opacity:.4;cursor:not-allowed;background:var(--txt-3);box-shadow:none}
+.send .ic-stop{display:none}
+.send.stop .ic-send{display:none}
+.send.stop .ic-stop{display:inline-flex}
+
+/* 上传面板 */
+.attach-panel{max-width:1000px;margin:0 auto 10px;background:var(--bg-input);border:1px solid var(--line);border-radius:16px;
+  padding:16px;box-shadow:var(--shadow)}
+.ap-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.ap-head h4{font-size:14px}
+.ap-drop{border:2px dashed var(--line);border-radius:12px;padding:24px 16px;text-align:center;color:var(--txt-3);font-size:13px;cursor:pointer;transition:.2s}
+.ap-drop:hover{border-color:var(--accent);color:var(--accent)}
+.ap-drop.drag{background:var(--bg-active);border-color:var(--accent);color:var(--accent)}
+.ap-drop .ic{width:26px;height:26px;margin:0 auto 8px;display:block}
+.ap-list{margin-top:10px;display:flex;flex-direction:column;gap:6px}
+.ap-file{display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--bg-hover);border-radius:8px;font-size:12.5px}
+.ap-file .fn{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ap-file .fs{color:var(--txt-3);flex:none}
+.ap-file .rm{background:none;border:none;color:var(--txt-3);cursor:pointer;font-size:14px;padding:0 4px}
+.ap-file .rm:hover{color:var(--red)}
+.ap-foot{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:12px}
+.ap-tip{font-size:11.5px;color:var(--txt-3)}
+.ap-send{padding:9px 18px;border-radius:10px;border:none;background:var(--accent-grad);color:#fff;font-size:13px;font-weight:600;cursor:pointer;transition:.15s}
+.ap-send:hover{filter:brightness(1.06)}
+.ap-send:disabled{opacity:.4;cursor:not-allowed}
+
+/* 弹窗 */
+.mask{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:center;justify-content:center;z-index:90;padding:20px}
+.mask.show{display:flex}
+.search-modal{width:560px;max-width:100%;background:var(--bg-side);border:1px solid var(--line);border-radius:18px;padding:20px;box-shadow:var(--shadow)}
+.sm-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.sm-head .sm-title{display:flex;align-items:center;gap:8px}
+.sm-head .sm-title .sm-ic{width:30px;height:30px;border-radius:8px;background:var(--accent-grad);color:#fff;display:flex;align-items:center;justify-content:center}
+.sm-head h3{font-size:16px}
+.search-modal input{width:100%;height:40px;border-radius:12px;border:1px solid var(--line);background:var(--bg-input);
+  padding:0 14px;font-size:14px;color:var(--txt);outline:none}
+.search-modal input:focus{border-color:var(--accent);box-shadow:0 0 0 2px rgba(56,198,238,.15)}
+.s-results{margin-top:12px;max-height:340px;overflow-y:auto;display:flex;flex-direction:column;gap:4px}
+.s-item{display:flex;align-items:center;gap:10px;padding:12px 14px;border-radius:10px;font-size:13.5px;color:var(--txt-2);cursor:pointer;transition:.15s}
+.s-item:hover{background:var(--bg-hover);color:var(--txt)}
+.s-item .s-dot{width:8px;height:8px;border-radius:50%;background:var(--green);flex:none;box-shadow:0 0 0 3px rgba(52,211,153,.15)}
+.s-item .s-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.s-item .s-time{font-size:12px;color:var(--txt-3);flex:none}
+.s-empty{text-align:center;color:var(--txt-3);font-size:13px;padding:24px 0}
+.avatar-modal{width:360px;max-width:100%;background:var(--bg-side);border:1px solid var(--line);border-radius:16px;padding:20px;box-shadow:var(--shadow);text-align:center}
+.am-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;text-align:left}
+.am-head h3{font-size:15px}
+.am-prev{width:72px;height:72px;border-radius:50%;margin:0 auto 16px;background:var(--bg-hover);background-size:cover;background-position:center;border:2px solid var(--line)}
+.am-prev.hint::after{content:'默认头像';font-size:11px;color:var(--txt-3);display:flex;align-items:center;justify-content:center;height:100%}
+.am-actions{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+.am-btn{padding:9px 16px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;border:none;transition:.15s}
+.am-btn.pick{background:var(--bg-hover);color:var(--txt)}
+.am-btn.ok{background:var(--accent-grad);color:#fff}
+.am-btn.danger{background:transparent;border:1px solid var(--line);color:var(--txt-3)}
+.am-btn.danger:hover{color:var(--red);border-color:var(--red)}
+@media (max-width:860px){
+  .side{position:fixed;z-index:30;height:100%;box-shadow:0 0 40px rgba(0,0,0,.5)}
+  .app.collapsed .side{box-shadow:none}
+  .topbar .center{max-width:50%}
+}
+</style>
 </head>
 <body>
-    <div id="chat"></div>
 
-    <input id="input" type="text" placeholder="说点什么..." />
-    <button onclick="send()">发送</button>
-    <button id="stopBtn" onclick="stopStream()">停止</button>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></symbol>
+  <symbol id="i-edit" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/></symbol>
+  <symbol id="i-chat" viewBox="0 0 24 24"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8z"/></symbol>
+  <symbol id="i-layers" viewBox="0 0 24 24"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></symbol>
+  <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></symbol>
+  <symbol id="i-chev-r" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></symbol>
+  <symbol id="i-dots" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></symbol>
+  <symbol id="i-panel" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/></symbol>
+  <symbol id="i-arrow-d" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></symbol>
+  <symbol id="i-book" viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></symbol>
+  <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></symbol>
+  <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></symbol>
+  <symbol id="i-moon" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></symbol>
+  <symbol id="i-send" viewBox="0 0 24 24"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></symbol>
+  <symbol id="i-stop" viewBox="0 0 24 24"><rect x="8" y="8" width="8" height="8" rx="1.5"/></symbol>
+</svg>
 
-    <script>
-        let es = null;        // 当前的 SSE 连接
-        let streamId = null;  // 当前流的身份证（后端首推事件里发来）
+<div class="app" id="app">
+  <!-- ===== 左侧栏 ===== -->
+  <aside class="side">
+    <div class="side-top">
+      <span class="logo">
+        <svg class="logo-light" viewBox="0 0 320 120" aria-hidden="true">
+          <defs>
+            <linearGradient id="lgl" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%" stop-color="#e07878"/><stop offset="100%" stop-color="#d94f4f"/>
+            </linearGradient>
+            <radialGradient id="lgc" cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stop-color="#fff"/><stop offset="55%" stop-color="#e07878"/><stop offset="100%" stop-color="#e07878" stop-opacity="0"/>
+            </radialGradient>
+          </defs>
+          <g transform="translate(0,0)">
+            <circle cx="52" cy="60" r="41" fill="none" stroke="url(#lgl)" stroke-width=".8" opacity=".4" stroke-dasharray="1.5 6" class="spin" style="animation-duration:24s"/>
+            <circle cx="52" cy="60" r="36" fill="rgba(224,120,120,.05)" stroke="url(#lgl)" stroke-width="2.2" opacity=".9"/>
+            <path d="M39 26 L43 13 L49 24 Z" fill="url(#lgl)"/>
+            <path d="M65 26 L61 13 L55 24 Z" fill="url(#lgl)"/>
+            <polyline points="52,36 66.1,79.4 29.2,52.6 74.8,52.6 37.9,79.4 52,36" fill="none" stroke="#8a7070" stroke-width="1.4" opacity=".9" stroke-linejoin="round"/>
+            <g fill="#e07878">
+              <circle cx="52" cy="36" r="2.6"/><circle cx="74.8" cy="52.6" r="2.6"/>
+              <circle cx="66.1" cy="79.4" r="2.6"/><circle cx="37.9" cy="79.4" r="2.6"/>
+              <circle cx="29.2" cy="52.6" r="2.6" fill="#d94f4f"/>
+            </g>
+            <circle cx="52" cy="60" r="12" fill="url(#lgc)"/>
+            <circle cx="52" cy="60" r="5" fill="#d94f4f" class="pulse" style="animation-duration:2.2s"/>
+            <circle cx="52" cy="60" r="1.8" fill="#fff"/>
+          </g>
+          <text x="114" y="57" fill="url(#lgl)" font-size="27" font-weight="900" letter-spacing="3" style="filter:drop-shadow(0 1.5px 0 #fff)" font-family="-apple-system,'PingFang SC','Microsoft YaHei',sans-serif">星链智核</text>
+          <text x="115" y="80" fill="#8a7070" opacity=".6" font-size="8.5" letter-spacing="1.8" font-family="Segoe UI,Roboto,sans-serif">STARLINK CORE · AGENT</text>
+        </svg>
+        <svg class="logo-dark" viewBox="0 0 320 120" aria-hidden="true">
+          <defs>
+            <linearGradient id="lg5" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%" stop-color="#6ee7ff"/><stop offset="100%" stop-color="#a78bfa"/>
+            </linearGradient>
+            <radialGradient id="lg5c" cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stop-color="#fff"/><stop offset="60%" stop-color="#6ee7ff"/><stop offset="100%" stop-color="#6ee7ff" stop-opacity="0"/>
+            </radialGradient>
+          </defs>
+          <g transform="translate(-20,0)">
+            <circle cx="60" cy="60" r="34" fill="none" stroke="#2b3148" stroke-width="1" stroke-dasharray="2 7" class="spin" style="animation-duration:20s"/>
+            <polygon points="60,30 86,45 86,75 60,90 34,75 34,45" fill="none" stroke="url(#lg5)" stroke-width="1.3" opacity=".6"/>
+            <g stroke="url(#lg5)" stroke-width="1" opacity=".7" class="flow" style="animation-duration:3s">
+              <line x1="60" y1="60" x2="60" y2="30"/><line x1="60" y1="60" x2="86" y2="75"/><line x1="60" y1="60" x2="34" y2="75"/>
+            </g>
+            <g fill="#fff"><circle cx="60" cy="30" r="3"/><circle cx="86" cy="45" r="3" fill="#ff5c8a"/><circle cx="86" cy="75" r="3"/><circle cx="60" cy="90" r="3"/><circle cx="34" cy="75" r="3"/><circle cx="34" cy="45" r="3"/></g>
+            <circle cx="60" cy="60" r="16" fill="url(#lg5c)"/><circle cx="60" cy="60" r="7" fill="#fff" class="pulse" style="animation-duration:2.2s"/>
+          </g>
+          <text x="100" y="57" fill="#fff" font-size="24" font-weight="800" letter-spacing="2.5" font-family="-apple-system,'PingFang SC','Microsoft YaHei',sans-serif">星链智核</text>
+          <text x="101" y="81" fill="#8b90a4" font-size="8.5" letter-spacing="1.6" font-family="Segoe UI,Roboto,sans-serif">STARLINK CORE · AGENT</text>
+        </svg>
+      </span>
+      <button class="icon-btn srch-float" title="搜索历史对话" onclick="openSearch()"><svg class="ic"><use href="#i-search"/></svg></button>
+    </div>
 
-        function send() {
-            if (es) return;   // 已有流在跑，防重复发送
+    <nav class="nav">
+      <div class="nav-item" onclick="newChat()"><svg class="ic"><use href="#i-edit"/></svg><span class="txt">新对话</span></div>
+      <div class="nav-item" onclick="location.href='knowledge.html'"><svg class="ic"><use href="#i-book"/></svg><span class="txt">知识库</span></div>
+      <div class="nav-item" onclick="location.href='config.html'"><svg class="ic"><use href="#i-gear"/></svg><span class="txt">我的配置</span></div>
+      <div class="nav-item" onclick="location.href='profile.html'"><svg class="ic"><use href="#i-layers"/></svg><span class="txt">个人信息</span></div>
+      <div class="nav-item"><svg class="ic"><use href="#i-grid"/></svg><span class="txt">更多</span><span class="tail"><svg class="ic"><use href="#i-chev-r"/></svg></span></div>
+    </nav>
 
-            const input = document.getElementById('input');
-            const text = input.value.trim();
-            if (!text) return;
+    <div class="side-scroll">
+      <div class="sec-title">最近</div>
+      <div class="recent" id="recent"><div class="recent-empty">加载中…</div></div>
+    </div>
 
-            const chat = document.getElementById('chat');
+    <div class="side-foot">
+      <span class="avatar" id="userAvatar" onclick="openAvatar()" title="点击更换头像">
+        <svg class="av-demon" viewBox="0 0 32 32" aria-hidden="true">
+          <defs><radialGradient id="avd" cx="50%" cy="38%" r="75%"><stop offset="0%" stop-color="#1c1633"/><stop offset="100%" stop-color="#0c0f18"/></radialGradient></defs>
+          <circle cx="16" cy="16" r="16" fill="url(#avd)"/>
+          <path d="M9.5 10 L6.5 4 L12.5 7.6 Z" fill="#8f7bfa"/>
+          <path d="M22.5 10 L25.5 4 L19.5 7.6 Z" fill="#8f7bfa"/>
+          <ellipse cx="16" cy="18.5" rx="7.5" ry="7" fill="#2a1b3d"/>
+          <circle cx="12.8" cy="17.5" r="1.5" fill="#ff5c8a"/>
+          <circle cx="19.2" cy="17.5" r="1.5" fill="#ff5c8a"/>
+          <path d="M13.5 22 Q16 23.8 18.5 22" stroke="#8f7bfa" stroke-width="1.2" fill="none" stroke-linecap="round"/>
+        </svg>
+        <svg class="av-angel" viewBox="0 0 32 32" aria-hidden="true">
+          <defs><radialGradient id="ava" cx="50%" cy="38%" r="75%"><stop offset="0%" stop-color="#fff6e2"/><stop offset="100%" stop-color="#ffe3bd"/></radialGradient></defs>
+          <circle cx="16" cy="16" r="16" fill="url(#ava)"/>
+          <circle cx="16" cy="7.5" r="3.6" fill="none" stroke="#ffd166" stroke-width="1.8"/>
+          <path d="M9.5 10 L7 4.8 L12.5 8.4 Z" fill="#e07878"/>
+          <path d="M22.5 10 L25 4.8 L19.5 8.4 Z" fill="#e07878"/>
+          <ellipse cx="16" cy="18" rx="7" ry="6.5" fill="#fff6e5" stroke="#e8d9c0" stroke-width=".6"/>
+          <circle cx="12.8" cy="17" r="1.4" fill="#4a2b2b"/>
+          <circle cx="19.2" cy="17" r="1.4" fill="#4a2b2b"/>
+          <circle cx="10.8" cy="20" r="1.5" fill="#f2a2a2" opacity=".75"/>
+          <circle cx="21.2" cy="20" r="1.5" fill="#f2a2a2" opacity=".75"/>
+          <path d="M13.5 21 Q16 23 18.5 21" stroke="#4a2b2b" stroke-width="1.1" fill="none" stroke-linecap="round"/>
+        </svg>
+      </span>
+      <span class="name" id="footName">星链用户</span>
+    </div>
+  </aside>
 
-            const userDiv = document.createElement('div');
-            userDiv.className = 'user';
-            userDiv.textContent = text;
-            chat.appendChild(userDiv);
+  <!-- ===== 右侧主区 ===== -->
+  <section class="main">
+    <header class="topbar">
+      <button class="icon-btn" id="toggleSide" title="折叠侧栏"><svg class="ic"><use href="#i-panel"/></svg></button>
+      <button class="icon-btn" title="编辑"><svg class="ic"><use href="#i-edit"/></svg></button>
+      <div class="center">
+        <div class="title" id="curTitle">新对话</div>
+        <div class="sub">AI 生成可能有误 注意核实</div>
+      </div>
+      <div class="right">
+        <button class="icon-btn theme-btn" id="themeBtn" title="切换明暗主题">
+          <svg class="ic sun"><use href="#i-sun"/></svg>
+          <svg class="ic moon"><use href="#i-moon"/></svg>
+        </button>
+        <button class="dl-btn" style="display:inline-flex;align-items:center;gap:8px;height:32px;padding:0 12px;border-radius:8px;background:var(--bg-input);border:1px solid var(--line);color:var(--txt);font-size:13px;cursor:pointer" onclick="logout()">退出登录</button>
+      </div>
+      <div class="mini-panel" id="miniPanel">
+        <div class="nav-item" onclick="newChat()"><svg class="ic"><use href="#i-edit"/></svg><span class="txt">新对话</span></div>
+        <div class="nav-item" onclick="location.href='knowledge.html'"><svg class="ic"><use href="#i-book"/></svg><span class="txt">知识库</span></div>
+        <div class="nav-item" onclick="location.href='config.html'"><svg class="ic"><use href="#i-gear"/></svg><span class="txt">我的配置</span></div>
+        <div class="nav-item" onclick="location.href='profile.html'"><svg class="ic"><use href="#i-layers"/></svg><span class="txt">个人信息</span></div>
+        <div class="nav-item"><svg class="ic"><use href="#i-grid"/></svg><span class="txt">更多</span></div>
+      </div>
+    </header>
 
-            const aiDiv = document.createElement('div');
-            aiDiv.className = 'ai';
-            chat.appendChild(aiDiv);
+    <div class="messages" id="messages">
+      <div class="messages-inner" id="thread"></div>
+      <button class="to-bottom" id="toBottom" title="滚动到底"><svg class="ic"><use href="#i-arrow-d"/></svg></button>
+    </div>
 
-            es = new EventSource('/api/chat/stream?message=' + encodeURIComponent(text));
+    <div class="composer">
+      <div class="attach-panel" id="attachPanel" style="display:none">
+        <div class="ap-head">
+          <h4>上传文件，AI 自动识别内容</h4>
+          <button class="icon-btn" onclick="toggleAttach(false)" style="font-size:15px">✕</button>
+        </div>
+        <div class="ap-drop" id="apDrop">
+          <svg class="ic"><use href="#i-arrow-d"/></svg>
+          拖拽文件到此处，或 <b>点击选择文件</b>
+        </div>
+        <div class="ap-list" id="apList"></div>
+        <div class="ap-foot">
+          <span class="ap-tip">支持 pdf/word/excel/ppt/csv/txt/md，单文件 ≤ 20MB</span>
+          <button class="ap-send" id="apSend" disabled>上传并识别</button>
+        </div>
+      </div>
+      <div class="composer-box">
+        <textarea id="input" rows="1" placeholder="发消息或按住空格说话..."></textarea>
+        <div class="tools">
+          <button class="tool" id="attachBtn" title="上传文件"><svg class="ic"><use href="#i-plus"/></svg></button>
+          <span class="sep"></span>
+          <button class="tool"><svg class="ic"><use href="#i-chat"/></svg>对话 <svg class="ic" style="width:14px;height:14px"><use href="#i-chev-r"/></svg></button>
+          <button class="tool"><svg class="ic"><use href="#i-book"/></svg>知识库</button>
+          <button class="tool"><svg class="ic"><use href="#i-mic"/></svg>语音</button>
+          <div class="right">
+            <span class="mode">DeepSeek v4-flash</span>
+            <button class="send" id="send" title="发送">
+              <svg class="ic ic-send"><use href="#i-send"/></svg>
+              <svg class="ic ic-stop"><use href="#i-stop"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
 
-            // 命名事件：后端首推的 streamId（拿它才能调 /stop）
-            es.addEventListener('streamId', (e) => {
-                streamId = e.data;
-                document.getElementById('stopBtn').style.display = 'inline';
-            });
+<!-- 搜索历史弹窗 -->
+<div class="mask" id="searchMask">
+  <div class="search-modal">
+    <div class="sm-head">
+      <div class="sm-title">
+        <span class="sm-ic"><svg class="ic" style="width:16px;height:16px"><use href="#i-search"/></svg></span>
+        <h3>搜索历史对话</h3>
+      </div>
+      <button class="icon-btn" onclick="closeSearch()" style="font-size:16px">✕</button>
+    </div>
+    <input id="sQuery" placeholder="输入关键词，搜索对话内容…" />
+    <div class="s-results" id="sResults"></div>
+  </div>
+</div>
 
-            es.onmessage = (e) => {
-                aiDiv.textContent += e.data;   // 打字机：逐 token 追加
-            };
+<!-- 头像上传弹窗 -->
+<div class="mask" id="avatarMask">
+  <div class="avatar-modal">
+    <div class="am-head">
+      <h3>更换头像</h3>
+      <button class="icon-btn" onclick="closeAvatar()" style="font-size:16px">✕</button>
+    </div>
+    <div class="am-prev" id="amPrev"></div>
+    <input type="file" id="avFile" accept="image/*" style="display:none">
+    <div class="am-actions">
+      <button class="am-btn pick" onclick="document.getElementById('avFile').click()">选择图片</button>
+      <button class="am-btn ok" id="avSave" onclick="saveAvatar()" disabled>保存</button>
+      <button class="am-btn danger" onclick="resetAvatar()">恢复默认</button>
+    </div>
+  </div>
+</div>
 
-            es.onerror = () => {
-                es.close();
-                es = null;
-                streamId = null;
-                document.getElementById('stopBtn').style.display = 'none';
-            };
+<script>
+const $ = id => document.getElementById(id);
+const app = $('app'), messages = $('messages'), thread = $('thread'), input = $('input'), sendBtn = $('send');
+const token = localStorage.getItem('token');
+const userId = localStorage.getItem('userId');
+let streaming = false, currentSessionId = null;
 
-            input.value = '';
-        }
+if (!token) { location.replace('login.html'); }
 
-        // 点"停止"：调后端 /stop，按 streamId 终止当前流
-        function stopStream() {
-            if (!streamId) return;
-            fetch('/api/chat/stop?streamId=' + streamId)
-                .then(r => r.text())
-                .then(msg => {
-                    const sys = document.createElement('div');
-                    sys.className = 'sys';
-                    sys.textContent = '【已停止】' + msg;
-                    document.getElementById('chat').appendChild(sys);
-                });
-        }
-    </script>
+// 防回退：退出登录后浏览器"返回"可能从 bfcache 恢复本页——再查一次 token，没有就踢回登录页（replace 不产生历史记录）
+window.addEventListener('pageshow', e => {
+  if (!localStorage.getItem('token')) location.replace('login.html');
+});
+
+/* ===== 登录态 ===== */
+fetch('/api/user/me', { headers: { 'Authorization': 'Bearer ' + token } })
+  .then(r => r.json())
+  .then(j => { if (j.code !== 0) { location.href = 'login.html'; return; } $('footName').textContent = j.data.username || '用户'; })
+  .catch(() => {});
+
+/* ===== 主题 ===== */
+const root = document.documentElement;
+const savedTheme = localStorage.getItem('theme');
+if (savedTheme === 'light' || savedTheme === 'dark') root.dataset.theme = savedTheme;
+$('themeBtn').onclick = () => {
+  const next = root.dataset.theme === 'dark' ? 'light' : 'dark';
+  root.dataset.theme = next;
+  localStorage.setItem('theme', next);
+};
+
+/* ===== 头像 ===== */
+const userAvatar = $('userAvatar');
+let avatarData = localStorage.getItem('avatar') || null, pendingAvatar = null;
+function applyAvatar(){
+  if (avatarData) { userAvatar.style.backgroundImage = 'url(' + avatarData + ')'; userAvatar.style.backgroundSize = 'cover'; userAvatar.querySelectorAll('svg').forEach(s => s.style.display = 'none'); }
+  else { userAvatar.style.backgroundImage = ''; userAvatar.querySelectorAll('svg').forEach(s => s.style.display = ''); }
+}
+applyAvatar();
+const avSave = $('avSave'), amPrev = $('amPrev');
+function openAvatar(){ $('avatarMask').classList.add('show'); pendingAvatar = null; avSave.disabled = true;
+  if (avatarData) { amPrev.classList.remove('hint'); amPrev.style.backgroundImage = 'url(' + avatarData + ')'; }
+  else { amPrev.classList.add('hint'); amPrev.style.backgroundImage = ''; } }
+function closeAvatar(){ $('avatarMask').classList.remove('show'); }
+$('avFile').addEventListener('change', e => {
+  const f = e.target.files[0]; if (!f) return;
+  if (!f.type.startsWith('image/')) return;
+  const rd = new FileReader();
+  rd.onload = () => { pendingAvatar = rd.result; amPrev.classList.remove('hint'); amPrev.style.backgroundImage = 'url(' + pendingAvatar + ')'; avSave.disabled = false; };
+  rd.readAsDataURL(f);
+});
+function saveAvatar(){ if (!pendingAvatar) return; avatarData = pendingAvatar; localStorage.setItem('avatar', avatarData); applyAvatar(); closeAvatar(); }
+function resetAvatar(){ avatarData = null; localStorage.removeItem('avatar'); applyAvatar(); closeAvatar(); }
+$('avatarMask').addEventListener('click', e => { if (e.target === $('avatarMask')) closeAvatar(); });
+
+/* ===== 侧栏折叠 + 悬停小窗 ===== */
+$('toggleSide').onclick = () => app.classList.toggle('collapsed');
+const toggleBtn = $('toggleSide'), mini = $('miniPanel');
+let hideTimer;
+const showMini = () => { clearTimeout(hideTimer); mini.classList.add('show'); };
+const hideMini = () => { hideTimer = setTimeout(() => mini.classList.remove('show'), 200); };
+toggleBtn.addEventListener('mouseenter', () => { if (app.classList.contains('collapsed')) showMini(); });
+toggleBtn.addEventListener('mouseleave', hideMini);
+mini.addEventListener('mouseenter', showMini);
+mini.addEventListener('mouseleave', hideMini);
+
+/* ===== 滚动到底 ===== */
+const toBottom = $('toBottom');
+const scrollBottom = () => messages.scrollTop = messages.scrollHeight;
+toBottom.onclick = scrollBottom;
+messages.addEventListener('scroll', () => {
+  const atBottom = messages.scrollHeight - messages.scrollTop - messages.clientHeight < 60;
+  toBottom.style.opacity = atBottom ? '0' : '1';
+  toBottom.style.pointerEvents = atBottom ? 'none' : 'auto';
+});
+
+/* ===== 消息渲染 ===== */
+function addMsg(role, text){
+  const d = document.createElement('div');
+  d.className = 'msg ' + role;
+  const b = document.createElement('div');
+  b.className = 'bubble' + (text === '' ? ' typing' : '');
+  if (text === '') { b.innerHTML = '<i></i><i></i><i></i>'; }
+  else { b.textContent = text; }
+  d.appendChild(b);
+  thread.appendChild(d);
+  scrollBottom();
+  return b;
+}
+function fmtTime(iso){
+  if (!iso) return '';
+  const d = new Date(iso);
+  const pad = n => String(n).padStart(2, '0');
+  return (d.getMonth()+1) + '-' + pad(d.getDate()) + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+}
+
+/* ===== 历史列表 ===== */
+async function loadHistory(){
+  const box = $('recent');
+  try {
+    const r = await fetch('/api/chat/history?userId=' + encodeURIComponent(userId), { headers: { 'Authorization': 'Bearer ' + token } });
+    const j = await r.json();
+    if (j.code !== 0) { box.innerHTML = '<div class="recent-empty">历史加载失败</div>'; return; }
+    if (!j.data.length) { box.innerHTML = '<div class="recent-empty">还没有历史对话<br>先聊几句试试</div>'; return; }
+    box.innerHTML = j.data.map(s =>
+      '<div class="recent-item" data-sid="' + escapeHtml(s.sessionId) + '">' +
+        '<span class="name">' + escapeHtml(s.title) + '</span>' +
+        '<span class="t">' + fmtTime(s.time) + '</span>' +
+        '<button class="rm" title="删除会话" onclick="event.stopPropagation();delSession(this)">✕</button>' +
+      '</div>').join('');
+    box.querySelectorAll('.recent-item').forEach(el => el.onclick = () => openSession(el.dataset.sid, el));
+  } catch (e) { box.innerHTML = '<div class="recent-empty">历史加载失败</div>'; }
+}
+
+function openSession(sessionId, el){
+  currentSessionId = sessionId;
+  document.querySelectorAll('.recent-item').forEach(x => x.classList.remove('active'));
+  if (el) el.classList.add('active');
+  thread.innerHTML = '';
+  $('curTitle').textContent = '加载中…';
+  fetch('/api/chat/history/' + encodeURIComponent(sessionId) + '?userId=' + encodeURIComponent(userId), { headers: { 'Authorization': 'Bearer ' + token } })
+    .then(r => r.json())
+    .then(j => {
+      if (j.code !== 0) return;
+      $('curTitle').textContent = '历史对话';
+      j.data.forEach(m => {
+        if (m.role === 'user') addMsg('user', m.content);
+        else if (m.role === 'assistant') addMsg('assistant', m.content);
+      });
+    });
+}
+
+async function delSession(btn){
+  const el = btn.closest('.recent-item');
+  if (!el) return;
+  if (!confirm('删除该会话？不可恢复。')) return;
+  const sid = el.dataset.sid;
+  const r = await fetch('/api/chat/history/' + encodeURIComponent(sid) + '?userId=' + encodeURIComponent(userId),
+    { method: 'DELETE', headers: { 'Authorization': 'Bearer ' + token } });
+  const j = await r.json();
+  if (j.code === 0) {
+    if (currentSessionId === sid) newChat();
+    loadHistory();
+  }
+}
+
+function newChat(){
+  currentSessionId = null;
+  thread.innerHTML = '';
+  $('curTitle').textContent = '新对话';
+  document.querySelectorAll('.recent-item').forEach(x => x.classList.remove('active'));
+}
+
+/* ===== 搜索弹窗 ===== */
+const sQuery = $('sQuery'), sResults = $('sResults');
+function openSearch(){ $('searchMask').classList.add('show'); sQuery.value = ''; sResults.innerHTML = ''; setTimeout(() => sQuery.focus(), 50); }
+function closeSearch(){ $('searchMask').classList.remove('show'); }
+async function renderSearch(q){
+  if (!q.trim()) { sResults.innerHTML = ''; return; }
+  try {
+    const r = await fetch('/api/chat/search?userId=' + encodeURIComponent(userId) + '&q=' + encodeURIComponent(q.trim()),
+      { headers: { 'Authorization': 'Bearer ' + token } });
+    const j = await r.json();
+    if (j.code !== 0 || !j.data.length) { sResults.innerHTML = '<div class="s-empty">未找到相关对话</div>'; return; }
+    sResults.innerHTML = j.data.map(s =>
+      '<div class="s-item" data-sid="' + escapeHtml(s.sessionId) + '">' +
+        '<span class="s-dot"></span><span class="s-name">' + escapeHtml(s.title) + '</span>' +
+        '<span class="s-time">' + fmtTime(s.time) + '</span></div>').join('');
+    sResults.querySelectorAll('.s-item').forEach(el => el.onclick = () => {
+      closeSearch();
+      openSession(el.dataset.sid);
+      loadHistory();
+    });
+  } catch (e) { sResults.innerHTML = '<div class="s-empty">搜索失败</div>'; }
+}
+sQuery.addEventListener('input', e => renderSearch(e.target.value));
+sQuery.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); closeSearch(); } });
+$('searchMask').addEventListener('click', e => { if (e.target === $('searchMask')) closeSearch(); });
+
+/* ===== 输入框 ===== */
+const autoGrow = () => { input.style.height = 'auto'; input.style.height = Math.min(input.scrollHeight, 200) + 'px'; };
+input.addEventListener('input', autoGrow);
+
+/* ===== 发送（SSE 打字机） ===== */
+function send(){
+  if (streaming) return;
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = ''; autoGrow();
+  sendMsg(text);
+}
+
+function sendMsg(text){
+  addMsg('user', text);
+  const aiBubble = addMsg('assistant', '');
+  streaming = true;
+  sendBtn.classList.add('stop');
+  sendBtn.title = '停止';
+
+  let url = '/api/chat/stream?message=' + encodeURIComponent(text) + '&token=' + encodeURIComponent(token);
+  if (currentSessionId) url += '&sessionId=' + encodeURIComponent(currentSessionId);
+  const es = new EventSource(url);
+
+  es.addEventListener('streamId', e => { window.__streamId = e.data; });
+  es.addEventListener('sessionId', e => {
+    currentSessionId = e.data;   // 新会话的身份证：后续消息带回去，历史按它归组
+    loadHistory();
+  });
+  es.onmessage = e => {
+    aiBubble.classList.remove('typing');
+    aiBubble.textContent += e.data;
+    scrollBottom();
+  };
+  es.onerror = () => {
+    es.close();
+    streaming = false;
+    sendBtn.classList.remove('stop');
+    sendBtn.title = '发送';
+    if (currentSessionId) loadHistory();
+  };
+}
+
+function stopStream(){
+  if (!streaming) return;
+  fetch('/api/chat/stop?streamId=' + (window.__streamId || '') + '&token=' + encodeURIComponent(token)).catch(() => {});
+  streaming = false;
+  sendBtn.classList.remove('stop');
+  sendBtn.title = '发送';
+}
+
+/* ===== 上传识别 ===== */
+const attachPanel = $('attachPanel'), apDrop = $('apDrop'), apList = $('apList'), apSend = $('apSend');
+const apInput = document.createElement('input');
+apInput.type = 'file'; apInput.multiple = true;
+apInput.accept = '.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.csv,.txt,.md,.markdown';
+apInput.style.display = 'none';
+document.body.appendChild(apInput);
+let attachFiles = [];
+
+function toggleAttach(show){
+  const want = show === undefined ? attachPanel.style.display === 'none' : show;
+  attachPanel.style.display = want ? 'block' : 'none';
+  if (!want) attachFiles = [];
+  renderAttach();
+}
+$('attachBtn').onclick = () => toggleAttach();
+function fmtSize(n){ return n < 1024*1024 ? Math.max(1, Math.round(n/1024)) + ' KB' : (n/1024/1024).toFixed(1) + ' MB'; }
+function addAttachFiles(list){
+  [...list].forEach(f => {
+    if (f.size > 20*1024*1024) return;
+    if (attachFiles.some(x => x.name === f.name && x.size === f.size)) return;
+    attachFiles.push(f);
+  });
+  renderAttach();
+}
+function renderAttach(){
+  apList.innerHTML = attachFiles.map((f, i) =>
+    '<div class="ap-file"><span>📄</span><span class="fn">' + escapeHtml(f.name) + '</span><span class="fs">' + fmtSize(f.size) + '</span>' +
+    '<button class="rm" data-i="' + i + '">✕</button></div>').join('');
+  apList.querySelectorAll('.rm').forEach(b => b.onclick = () => { attachFiles.splice(+b.dataset.i, 1); renderAttach(); });
+  apSend.disabled = attachFiles.length === 0;
+}
+apDrop.addEventListener('dragover', e => { e.preventDefault(); apDrop.classList.add('drag'); });
+apDrop.addEventListener('dragleave', () => apDrop.classList.remove('drag'));
+apDrop.addEventListener('drop', e => { e.preventDefault(); apDrop.classList.remove('drag'); addAttachFiles(e.dataTransfer.files); });
+apDrop.addEventListener('click', () => apInput.click());
+apInput.addEventListener('change', () => { addAttachFiles(apInput.files); apInput.value = ''; });
+
+apSend.onclick = async () => {
+  if (!attachFiles.length) return;
+  const files = attachFiles.slice();
+  toggleAttach(false);
+  for (const f of files) {
+    const fd = new FormData();
+    fd.append('userId', userId);
+    fd.append('file', f);
+    try {
+      const r = await fetch('/api/file/parse', { method: 'POST', headers: { 'Authorization': 'Bearer ' + token }, body: fd });
+      const j = await r.json();
+      if (j.code !== 0) { addMsg('user', '📄 ' + f.name); addMsg('assistant', j.msg || '识别失败'); continue; }
+      const text = j.data.text.length > 3000 ? j.data.text.slice(0, 3000) + '…' : j.data.text;
+      addMsg('user', '📄 ' + f.name + '（' + fmtSize(j.data.size) + '）');
+      sendMsg('请分析我上传的文件「' + f.name + '」，内容如下：\n```\n' + text + '\n```\n请总结要点。');
+    } catch (e) {
+      addMsg('user', '📄 ' + f.name);
+      addMsg('assistant', '网络异常，识别失败');
+    }
+  }
+};
+
+/* ===== 其他 ===== */
+function logout(){ localStorage.removeItem('token'); localStorage.removeItem('userId'); location.replace('login.html'); }
+function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+$('send').onclick = () => { if (streaming) stopStream(); else send(); };
+input.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } });
+
+loadHistory();
+</script>
 </body>
 </html>

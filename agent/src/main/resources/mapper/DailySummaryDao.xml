@@ -31,4 +31,9 @@
         DELETE FROM daily_summary WHERE user_id = #{userId}
     </delete>
 
+    <!-- 账号合并：全部摘要改归另一用户 -->
+    <update id="transferUserId">
+        UPDATE daily_summary SET user_id = #{toUserId} WHERE user_id = #{fromUserId}
+    </update>
+
 </mapper>

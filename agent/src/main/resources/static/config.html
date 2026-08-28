@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>我的配置 - 星链智核</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#f3f1ec;--ink:#4a2b2b;--ink-soft:#8a7070;--ink-faint:#c4b3b3;
+  --pink-deep:#e07878;--red:#d94f4f;--green:#5aa87a;--white:#fffdf9;
+}
+body{min-height:100vh;background:var(--bg);font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Segoe UI',system-ui,sans-serif;color:var(--ink);display:flex;justify-content:center;padding:24px 16px}
+.card{width:420px;max-width:100%}
+.top{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
+.top h1{font-size:20px}
+.top .links{font-size:13px}
+.top .links a{color:var(--pink-deep);text-decoration:none;font-weight:600;margin-left:12px}
+.box{background:var(--white);border-radius:14px;padding:20px;box-shadow:0 6px 24px rgba(74,43,43,.06);margin-bottom:16px}
+.box h2{font-size:15px;margin-bottom:14px}
+.box .tip{font-size:11.5px;color:var(--ink-soft);line-height:1.7;margin-bottom:14px}
+.box .tip b{color:var(--pink-deep);font-weight:600}
+.row{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid rgba(74,43,43,.06);font-size:14px}
+.row:last-child{border-bottom:none}
+.row .k{color:var(--ink-soft)}
+.row .v{font-weight:600}
+.row .v.muted{color:var(--ink-faint);font-weight:400}
+.field{margin-bottom:12px}
+.field input{width:100%;padding:12px 13px;background:#fff;border:2px solid rgba(74,43,43,.1);border-radius:10px;font-size:14px;outline:none;color:var(--ink);transition:all .25s}
+.field input:focus{border-color:var(--pink-deep);box-shadow:0 0 0 3px rgba(224,120,120,.1)}
+.btn{width:100%;padding:13px;margin-top:8px;background:var(--ink);color:#fff;border:none;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer;transition:all .25s;letter-spacing:1px}
+.btn:hover:not(:disabled){transform:translateY(-1px);background:var(--pink-deep)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn.ghost{background:transparent;border:2px solid rgba(74,43,43,.15);color:var(--ink-soft)}
+.btn.ghost:hover{background:rgba(74,43,43,.04)}
+.toast{width:100%;padding:10px 14px;border-radius:10px;font-size:12px;margin-bottom:14px;display:none;text-align:center}
+.toast.error{display:block;background:rgba(217,79,79,.08);color:var(--red);border:1px solid rgba(217,79,79,.2)}
+.toast.success{display:block;background:rgba(90,168,122,.08);color:var(--green);border:1px solid rgba(90,168,122,.2)}
+.sp{display:inline-block;width:13px;height:13px;border:2px solid transparent;border-top-color:currentColor;border-radius:50%;animation:spin .5s linear infinite;vertical-align:middle;margin-right:5px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.mask{position:fixed;inset:0;background:rgba(74,43,43,.35);display:none;align-items:center;justify-content:center;z-index:99;padding:20px}
+.mask.show{display:flex}
+.dlg{background:#fffdf9;border-radius:14px;padding:22px;max-width:360px;width:100%;text-align:center}
+.dlg h3{font-size:16px;margin-bottom:10px}
+.dlg p{font-size:12.5px;color:var(--ink-soft);line-height:1.7;margin-bottom:18px;text-align:left}
+.dlg .btns{display:flex;gap:10px}
+.dlg .btns button{flex:1;padding:11px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;border:none}
+.dlg .cancel{background:rgba(74,43,43,.08);color:var(--ink-soft)}
+.dlg .ok{background:var(--red);color:#fff}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="top">
+    <h1>我的配置</h1>
+    <div class="links">
+      <a href="index.html">对话</a>
+      <a href="knowledge.html">知识库</a>
+      <a href="profile.html">个人信息</a>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <div class="box">
+    <h2>猎聘 Token</h2>
+    <p class="tip">
+      用于片区就业分析（租房决策流程的岗位数据）。Token 从猎聘官网 <b>/mcp/auth</b> 授权生成，
+      有效期 90 天，可随时重置。在微信里直接粘贴 Token 也会自动保存到你的账号，与这里等价。
+    </p>
+    <div class="row"><span class="k">状态</span><span class="v muted" id="vStatus">加载中…</span></div>
+    <div class="row"><span class="k">更新时间</span><span class="v muted" id="vUpdated">-</span></div>
+    <div class="field" style="margin-top:14px">
+      <input type="text" id="tk" placeholder="粘贴猎聘 Token（JWT 格式）" autocomplete="off" spellcheck="false">
+    </div>
+    <button class="btn" id="saveBtn" onclick="save()">保存 Token</button>
+    <button class="btn ghost" id="delBtn" onclick="openMask()">删除配置</button>
+  </div>
+</div>
+
+<!-- 删除确认弹窗 -->
+<div class="mask" id="mask">
+  <div class="dlg">
+    <h3>删除猎聘 Token</h3>
+    <p>删除后你的猎聘能力将不可用（片区就业分析会提示未配置）。如需恢复，重新粘贴 Token 即可。此操作只影响你自己的账号。</p>
+    <div class="btns">
+      <button class="cancel" onclick="closeMask()">取消</button>
+      <button class="ok" onclick="doDelete()">确认删除</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const $=id=>document.getElementById(id);
+const token=localStorage.getItem('token');
+const userId=localStorage.getItem('userId');
+if(!token){location.href='login.html';}
+
+function showToast(msg,type){const t=$('toast');t.textContent=msg;t.className='toast '+type;if(type==='error')setTimeout(()=>t.className='toast',4000);}
+function ld(btn,on,txt){btn.disabled=on;btn.innerHTML=on?'<span class="sp"></span>'+txt:txt;}
+function openMask(){$('mask').classList.add('show');}
+function closeMask(){$('mask').classList.remove('show');}
+
+// 加载配置状态（不返回 Token 明文）
+(async()=>{
+  try{
+    const r=await fetch('/api/config/liepin-token?userId='+encodeURIComponent(userId),{headers:{'Authorization':'Bearer '+token}});
+    const j=await r.json();
+    if(j.code!==0){showToast(j.msg||'加载失败','error');$('vStatus').textContent='未知';return;}
+    $('vStatus').textContent=j.data.configured?'已配置':'未配置';
+    $('vStatus').classList.toggle('muted',!j.data.configured);
+    $('vUpdated').textContent=j.data.updatedAt||'-';
+  }catch(e){showToast('网络异常','error');}
+})();
+
+// 保存
+async function save(){
+  const t=$('tk').value.trim();
+  if(!t){showToast('请粘贴 Token','error');return;}
+  ld($('saveBtn'),true,'保存中');
+  try{
+    const r=await fetch('/api/config/liepin-token?userId='+encodeURIComponent(userId)+'&token='+encodeURIComponent(t),{method:'POST',headers:{'Authorization':'Bearer '+token}});
+    const j=await r.json();
+    if(j.code!==0){showToast(j.msg||'保存失败','error');return;}
+    showToast('已保存','success');
+    $('tk').value='';
+    location.reload();
+  }catch(e){showToast('网络异常，请稍后重试','error');}
+  finally{ld($('saveBtn'),false,'保存 Token');}
+}
+
+// 删除
+async function doDelete(){
+  closeMask();
+  ld($('delBtn'),true,'删除中');
+  try{
+    const r=await fetch('/api/config/liepin-token?userId='+encodeURIComponent(userId),{method:'DELETE',headers:{'Authorization':'Bearer '+token}});
+    const j=await r.json();
+    if(j.code!==0){showToast(j.msg||'删除失败','error');return;}
+    showToast('已删除','success');
+    location.reload();
+  }catch(e){showToast('网络异常，请稍后重试','error');}
+  finally{ld($('delBtn'),false,'删除配置');}
+}
+</script>
+</body>
+</html>

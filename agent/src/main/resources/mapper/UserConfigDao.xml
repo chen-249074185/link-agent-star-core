@@ -22,4 +22,9 @@
         DELETE FROM user_config WHERE user_id = #{userId}
     </delete>
 
+    <!-- 账号合并：配置改归另一用户（user_id 主键冲突 → 调用方先删目标行再迁） -->
+    <update id="transferUserId">
+        UPDATE user_config SET user_id = #{toUserId} WHERE user_id = #{fromUserId}
+    </update>
+
 </mapper>
