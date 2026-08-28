@@ -67,7 +67,7 @@
 
 - 鉴权：请求头 `X-Admin-Token: <ADMIN_TOKEN>`（.env，gitignore），AdminAuthFilter 恒定时间比对，不一致 401
 - 管理工具约定：rag-mcp 的 `rag_admin_*` 前缀工具只给 /api/admin 直连，McpSkillRegistrar 跳过不注册给 LLM（防越权）
-- 页面：`/manage.html`（四 Tab，凭证存 localStorage）
+- 页面：`/manage.html`（四 Tab，凭证每次进入必输，仅存内存不落 localStorage）
 
 ## 规划中（W12 后续）
 

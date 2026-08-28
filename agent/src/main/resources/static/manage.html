@@ -139,7 +139,8 @@ input:focus{border-color:var(--accent)}
 </div>
 
 <script>
-let adminToken = localStorage.getItem('adminToken') || '';
+// 凭证只存内存，每次进入都要重新输入（不落 localStorage，防止共享电脑残留）
+let adminToken = '';
 
 function api(url, opts){
   opts = opts || {};
@@ -152,13 +153,13 @@ function api(url, opts){
 function esc(s){ return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 const $ = id => document.getElementById(id);
 
-/* ===== 凭证门 ===== */
+/* ===== 凭证门：每次进入必输 ===== */
 function showToken(){ $('tokenbar').style.display = 'flex'; }
 function hideToken(){ $('tokenbar').style.display = 'none'; }
-if (!adminToken) showToken();
+showToken();
 $('tokenOk').onclick = async () => {
   const t = $('adminTokenInput').value.trim();
-  adminToken = t; localStorage.setItem('adminToken', t);
+  adminToken = t;   // 仅内存，关闭页面即失效
   $('tokenErr').style.display = 'none';
   try {
     await api('/api/admin/health');
@@ -270,11 +271,8 @@ $('ragRefresh').onclick = loadRag;
 
 /* ===== 自检 ===== */
 (async function init(){
-  try {
-    await api('/api/admin/health');
-    hideToken(); $('statusTxt').textContent = '管理端已连接';
-    refreshAll();
-  } catch (e) { $('statusTxt').textContent = '等待凭证'; }
+  // 每次进入必须输入凭证：不自动带 token 探测，等用户在凭证门输入后由 tokenOk 触发加载
+  $('statusTxt').textContent = '等待凭证';
 })();
 </script>
 </body>
