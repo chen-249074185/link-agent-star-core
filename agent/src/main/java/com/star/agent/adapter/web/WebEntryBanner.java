@@ -23,7 +23,8 @@ public class WebEntryBanner implements ApplicationRunner {
     public void run(ApplicationArguments args) {
         String base = "http://localhost:" + port;
         logger.info("\n================ 星链智核 · Web 入口 ================\n" +
-                "  " + base + "/login.html\n" +
+                "  用户端: " + base + "/login.html\n" +
+                "  管理端: " + base + "/manage.html  (X-Admin-Token 每次进入必输)\n" +
                 "===================================================");
     }
 }
