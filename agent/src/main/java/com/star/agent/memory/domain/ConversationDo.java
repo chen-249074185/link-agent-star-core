@@ -10,6 +10,7 @@ public class ConversationDo {
     private String role;      // user / assistant / system
     private String content;   // 消息正文
     private LocalDateTime createdAt;   // 入库时间
+    private String sessionId; // 所属会话（一段对话的身份证，历史分组/继续对话用）
 
     public Long getId() {
         return id;
@@ -49,5 +50,13 @@ public class ConversationDo {
 
     public void setCreatedAt(LocalDateTime createdAt) {
         this.createdAt = createdAt;
+    }
+
+    public String getSessionId() {
+        return sessionId;
+    }
+
+    public void setSessionId(String sessionId) {
+        this.sessionId = sessionId;
     }
 }

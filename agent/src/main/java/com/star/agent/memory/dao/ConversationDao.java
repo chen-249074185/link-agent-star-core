@@ -31,4 +31,25 @@ public interface ConversationDao {
 
     // 账号合并：某用户全部对话改归另一用户（B 并入 A 后 B 删，历史保留）
     int transferUserId(String fromUserId, String toUserId);
+
+    // 查某用户最近 limit 条（时间正序，最早的在前；历史会话分组用）
+    List<ConversationDo> findByUserIdAsc(String userId, int limit);
+
+    // 查某用户一个会话的全部消息（会话详情/继续对话取上下文用）
+    List<ConversationDo> findBySession(String userId, String sessionId);
+
+    // 删某用户的一个会话
+    int deleteBySession(String userId, String sessionId);
+
+    // 查某用户还没打会话标记的行（老数据回填扫描用）
+    List<ConversationDo> findNullSession(String userId, int limit);
+
+    // 给某条消息打会话标记（老数据回填）
+    int updateSession(Long id, String sessionId);
+
+    // 查某会话属于哪个用户（防跨用户伪造 sessionId）
+    String findSessionOwner(String sessionId);
+
+    // 关键词搜内容（历史搜索用，时间倒序）
+    List<ConversationDo> searchByKeyword(String userId, String keyword, int limit);
 }

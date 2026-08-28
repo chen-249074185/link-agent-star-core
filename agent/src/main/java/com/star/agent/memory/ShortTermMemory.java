@@ -23,13 +23,20 @@ public class ShortTermMemory {
     }
 
     // 异步落库：用户消息和 AI 回答都存；写库失败只记日志，绝不影响对话主流程
+    // 老签名：无会话归属（不再使用，调用方应传 sessionId；保留兼容旧测试）
     public void saveAsync(String userId, String role, String content) {
+        saveAsync(userId, role, content, null);
+    }
+
+    // 异步落库（带会话归属：同一段对话复用同一 sessionId）
+    public void saveAsync(String userId, String role, String content, String sessionId) {
         CompletableFuture.runAsync(() -> {
             try {
                 ConversationDo c = new ConversationDo();
                 c.setUserId(userId);
                 c.setRole(role);
                 c.setContent(content);
+                c.setSessionId(sessionId);
                 mapper.insert(c);
             } catch (Exception e) {
                 logger.warn("短期记忆落库失败: {}", e.getMessage());

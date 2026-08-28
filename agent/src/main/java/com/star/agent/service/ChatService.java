@@ -10,9 +10,12 @@ import com.star.agent.llm.ModelRouter;
 import com.star.agent.llm.ToolCall;
 import com.star.agent.llm.ToolSpec;
 import com.star.agent.memory.ChatEntry;
+import com.star.agent.memory.ChatHistoryService;
 import com.star.agent.memory.DailySummaryService;
 import com.star.agent.memory.EphemeralMemory;
 import com.star.agent.memory.ShortTermMemory;
+import com.star.agent.memory.dao.ConversationDao;
+import com.star.agent.memory.domain.ConversationDo;
 import com.star.agent.scene.Scene;
 import com.star.agent.scene.ScenePolicy;
 import com.star.agent.scene.ScenePolicyConfig;
@@ -26,6 +29,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
@@ -44,6 +48,8 @@ public class ChatService {
     private final EphemeralMemory ephemeralMemory;   // 瞬时记忆：30 分钟会话上下文（memory=ephemeral 场景启用）
     private final ScenePolicyConfig scenePolicyConfig; // 查场景记忆策略（GROUP=none 不记）
     private final ShortTermMemory shortTermMemory;    // 短期记忆：对话永久落 MySQL
+    private final ChatHistoryService chatHistoryService;  // 会话归属校验 + 新会话 id
+    private final ConversationDao conversationDao;        // 会话上下文加载
     private final DailySummaryService dailySummaryService;  // 每日压缩：跨天对话前惰性补压
     private final SensitiveToolGuard sensitiveToolGuard;    // 敏感工具意图守卫（简历等需用户明确要求）
 
@@ -51,7 +57,8 @@ public class ChatService {
                        RentRequestDetector rentRequestDetector, RentDecisionWorkflow workflow,
                        EphemeralMemory ephemeralMemory, ScenePolicyConfig scenePolicyConfig,
                        ShortTermMemory shortTermMemory, DailySummaryService dailySummaryService,
-                       SensitiveToolGuard sensitiveToolGuard) {
+                       SensitiveToolGuard sensitiveToolGuard,
+                       ChatHistoryService chatHistoryService, ConversationDao conversationDao) {
         this.llmClient = llmClient;
         this.modelRouter = modelRouter;
         this.skillRegistry = skillRegistry;
@@ -63,6 +70,8 @@ public class ChatService {
         this.shortTermMemory = shortTermMemory;
         this.dailySummaryService = dailySummaryService;
         this.sensitiveToolGuard = sensitiveToolGuard;
+        this.chatHistoryService = chatHistoryService;
+        this.conversationDao = conversationDao;
     }
 
     public String chat(String userMessage, String userId, String scene) {
@@ -104,12 +113,13 @@ public class ChatService {
 
             if (resp.toolCalls().isEmpty()) {
                 logger.info("对话结束，共{}轮", round + 1);
-                // 记忆双写：瞬时(Redis 30分钟) + 短期(MySQL 永久落库)
+                // 记忆双写：瞬时(Redis 30分钟) + 短期(MySQL 永久落库，带会话归属)
                 if (memoryEnabled(scene)) {
                     ephemeralMemory.append(userId, userMessage, resp.content());
                     if (shortTermMemory != null) {
-                        shortTermMemory.saveAsync(userId, "user", userMessage);
-                        shortTermMemory.saveAsync(userId, "assistant", resp.content());
+                        String sessionId = resolveSession(userId);
+                        shortTermMemory.saveAsync(userId, "user", userMessage, sessionId);
+                        shortTermMemory.saveAsync(userId, "assistant", resp.content(), sessionId);
                     }
                 }
                 return resp.content();
@@ -157,12 +167,72 @@ public class ChatService {
         return policy != null && "ephemeral".equals(policy.memory());
     }
 
+    // 会话归属解析：前端点历史继续聊（requested 有效且属于该用户）→ 沿用；
+    // 否则（新对话或伪造 id）→ 生成新会话 id；userId 为空（未登录）→ null
+    public String resolveSessionId(String userId, String requested) {
+        if (userId == null) {
+            return null;
+        }
+        if (requested != null && !requested.isBlank() && chatHistoryService.owns(userId, requested)) {
+            return requested;
+        }
+        return ChatHistoryService.newSessionId();
+    }
+
     // SSE 打字机：按场景路由模型（创作→qwen-max，其余→deepseek-v4-flash），无工具调用
+    // userId 非空时对话结束落记忆（瞬时 Redis + 短期 MySQL），Web SSE 才进历史
     public void stream(String userMessage, String scene, Consumer<String> onToken) {
+        stream(userMessage, null, null, scene, onToken);
+    }
+
+    // sessionId：由 resolveSessionId 解析后传入（点历史=复用旧会话，新对话=新 id）
+    public void stream(String userMessage, String userId, String sessionId, String scene, Consumer<String> onToken) {
         LlmClient client = modelRouter.clientFor(Scene.valueOf(scene));
         logger.info("流式对话[{}] 路由模型: {}", scene, client.model());
+
         List<ChatMessage> messages = new ArrayList<>();
+        if (userId != null && sessionId != null) {
+            // 取该会话最近的上下文（最多 20 条，AI 记得之前聊过啥）
+            List<ConversationDo> history = conversationDao.findBySession(userId, sessionId);
+            int from = Math.max(0, history.size() - 20);
+            for (int i = from; i < history.size(); i++) {
+                messages.add(new ChatMessage(history.get(i).getRole(), history.get(i).getContent()));
+            }
+        }
         messages.add(new ChatMessage("user", userMessage));
-        client.stream(messages, List.of(), onToken);
+
+        StringBuilder full = new StringBuilder();   // 攒完整回复，结束落记忆用
+        client.stream(messages, List.of(), token -> {
+            full.append(token);
+            onToken.accept(token);
+        });
+        // 落记忆（与 chat() 同策略：memory=ephemeral 场景才记；失败只记日志）
+        if (userId != null && memoryEnabled(scene) && shortTermMemory != null) {
+            try {
+                ephemeralMemory.append(userId, userMessage, full.toString());
+            } catch (Exception e) {
+                logger.warn("瞬时记忆写入失败: {}", e.getMessage());
+            }
+            shortTermMemory.saveAsync(userId, "user", userMessage, sessionId);
+            shortTermMemory.saveAsync(userId, "assistant", full.toString(), sessionId);
+        }
+    }
+
+    // 微信链路会话归属：沿用最近一条消息的会话（30 分钟内），超时/无记录则开新会话
+    private String resolveSession(String userId) {
+        try {
+            List<ConversationDo> recent = shortTermMemory.findHistory(userId, 1);
+            if (recent != null && !recent.isEmpty() && recent.get(0).getSessionId() != null) {
+                ConversationDo last = recent.get(0);
+                if (last.getCreatedAt() != null
+                        && Duration.between(last.getCreatedAt(), java.time.LocalDateTime.now())
+                        .compareTo(Duration.ofMinutes(30)) <= 0) {
+                    return last.getSessionId();
+                }
+            }
+        } catch (Exception e) {
+            logger.warn("解析会话归属失败，开新会话: {}", e.getMessage());
+        }
+        return ChatHistoryService.newSessionId();
     }
 }

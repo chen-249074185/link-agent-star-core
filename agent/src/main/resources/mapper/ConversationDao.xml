@@ -6,8 +6,8 @@
     <!-- 存一条对话：created_at 用数据库默认时间，不传 -->
     <insert id="insert" parameterType="com.star.agent.memory.domain.ConversationDo"
             useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO conversation (user_id, role, content)
-        VALUES (#{userId}, #{role}, #{content})
+        INSERT INTO conversation (user_id, role, content, session_id)
+        VALUES (#{userId}, #{role}, #{content}, #{sessionId})
     </insert>
 
     <!-- 查某用户最近 limit 条：时间倒序（最新的在前） -->
@@ -43,5 +43,65 @@
     <delete id="deleteByUserId">
         DELETE FROM conversation WHERE user_id = #{userId}
     </delete>
+
+    <!-- 账号合并：全部对话改归另一用户（历史保留） -->
+    <update id="transferUserId">
+        UPDATE conversation SET user_id = #{toUserId} WHERE user_id = #{fromUserId}
+    </update>
+
+    <!-- 查某用户最近 limit 条：时间正序（最早的在前，历史会话分组用） -->
+    <select id="findByUserIdAsc" resultType="com.star.agent.memory.domain.ConversationDo">
+        SELECT id, user_id, role, content, created_at, session_id
+        FROM conversation
+        WHERE user_id = #{userId}
+        ORDER BY id ASC
+        LIMIT #{limit}
+    </select>
+
+    <!-- 查某用户 id 区间内的对话（某会话详情） -->
+    <select id="findBySession" resultType="com.star.agent.memory.domain.ConversationDo">
+        SELECT id, user_id, role, content, created_at, session_id
+        FROM conversation
+        WHERE user_id = #{userId}
+          AND session_id = #{sessionId}
+        ORDER BY id ASC
+    </select>
+
+    <!-- 删某用户的一个会话 -->
+    <delete id="deleteBySession">
+        DELETE FROM conversation
+        WHERE user_id = #{userId}
+          AND session_id = #{sessionId}
+    </delete>
+
+    <!-- 查某用户还没打会话标记的行（老数据回填扫描） -->
+    <select id="findNullSession" resultType="com.star.agent.memory.domain.ConversationDo">
+        SELECT id, user_id, role, content, created_at, session_id
+        FROM conversation
+        WHERE user_id = #{userId}
+          AND session_id IS NULL
+        ORDER BY id ASC
+        LIMIT #{limit}
+    </select>
+
+    <!-- 给某条消息打会话标记（老数据回填） -->
+    <update id="updateSession">
+        UPDATE conversation SET session_id = #{sessionId} WHERE id = #{id}
+    </update>
+
+    <!-- 查某会话属于哪个用户（防跨用户伪造 sessionId） -->
+    <select id="findSessionOwner" resultType="java.lang.String">
+        SELECT user_id FROM conversation WHERE session_id = #{sessionId} LIMIT 1
+    </select>
+
+    <!-- 关键词搜内容（历史搜索，时间倒序） -->
+    <select id="searchByKeyword" resultType="com.star.agent.memory.domain.ConversationDo">
+        SELECT id, user_id, role, content, created_at, session_id
+        FROM conversation
+        WHERE user_id = #{userId}
+          AND content LIKE CONCAT('%', #{keyword}, '%')
+        ORDER BY id DESC
+        LIMIT #{limit}
+    </select>
 
 </mapper>
