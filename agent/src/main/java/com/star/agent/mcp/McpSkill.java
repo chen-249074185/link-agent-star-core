@@ -23,6 +23,11 @@ public class McpSkill implements Skill {
 
     private static final String PREFIX = "mcp_";              // 工具名前缀：rag_search → mcp_rag_search
 
+    // 身份/内部字段白名单外的黑名单：只允许代码注入，绝不被 LLM 参数覆盖（防伪造他人身份访问，R10）
+    // mergeLlmArgs 遇到这些 key 直接跳过；execute() 里已用 ctx.userId() 注入正确值
+    private static final List<String> PROTECTED_ARGS = List.of(
+            "user_id", "kb_id", "is_base64", "user_token");
+
     private final McpSchema.Tool tool;                        // 原始 MCP 工具说明（名字/描述/Schema）
     private final McpConnection connection;                   // 调子进程的唯一通道
     private final SkillMeta meta;                             // 预构建（构造时算好，避免每次 execute 重算）
@@ -103,6 +108,8 @@ public class McpSkill implements Skill {
     }
 
     // 把 LLM 传来的 JSON 参数并入 MCP 参数（数值/布尔转成真实类型，别全塞字符串）
+    // 安全闸：PROTECTED_ARGS（user_id/kb_id/is_base64/user_token）跳过——身份/内部标志只能由 execute() 注入，
+    // 模型即便在参数里编造这些 key 也覆盖不了（防 LLM 伪造他人身份访问私有库，R10）
     private void mergeLlmArgs(Map<String, Object> args, String llmArgsJson) throws Exception {
         if (llmArgsJson == null || llmArgsJson.isBlank()) {
             return;
@@ -111,6 +118,9 @@ public class McpSkill implements Skill {
         Iterator<Map.Entry<String, JsonNode>> it = node.fields();
         while (it.hasNext()) {
             Map.Entry<String, JsonNode> e = it.next();
+            if (PROTECTED_ARGS.contains(e.getKey())) {
+                continue;   // 身份/内部字段不采信 LLM 值，保持 execute() 注入的 ctx.userId() 身份
+            }
             args.put(e.getKey(), toPlainValue(e.getValue()));
         }
     }

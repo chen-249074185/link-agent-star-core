@@ -4,7 +4,7 @@
 > 鉴权（W12 10-27 已启用）：
 > - 用户端：`/api/**`（除登录注册/采集白名单）必须带 `Authorization: Bearer <JWT>`，401 未登录；token 的 userId 与请求参数 userId 不一致 → 403（R10）
 > - SSE 特例：`EventSource` 不能带请求头，token 走 query 参数 `?token=xxx` 兜底
-> - 管理端：`/api/admin/**` 必须带 `X-Admin-Token: <ADMIN_TOKEN>`，不一致 401
+> - 管理端：`/api/admin/**` 必须带 `X-Admin-Token: <ADMIN_TOKEN_WEB>`，不一致 401
 
 ## 一、用户认证 `/api/user`（W12 新增）
 
@@ -84,7 +84,7 @@
 | GET | /api/admin/rag/kbs | 全用户知识库清单（rag_admin_list_all，超管视角） |
 | DELETE | /api/admin/rag/kb?userId=&kbId= | 超管删除任意知识库（rag_admin_delete_kb，跳过归属校验 + stderr 审计日志） |
 
-- 鉴权：请求头 `X-Admin-Token: <ADMIN_TOKEN>`（.env，gitignore），AdminAuthFilter 恒定时间比对，不一致 401
+- 鉴权：请求头 `X-Admin-Token: <ADMIN_TOKEN_WEB>`（.env，gitignore），AdminAuthFilter 恒定时间比对，不一致 401
 - 管理工具约定：rag-mcp 的 `rag_admin_*` 前缀工具只给 /api/admin 直连，McpSkillRegistrar 跳过不注册给 LLM（防越权）
 - 页面：`/manage.html`（四 Tab，凭证每次进入必输，仅存内存不落 localStorage）
 

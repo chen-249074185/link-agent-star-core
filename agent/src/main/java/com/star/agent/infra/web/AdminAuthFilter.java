@@ -15,7 +15,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 
 // 管理端鉴权过滤器（鉴权双轨之管理轨，W12 10-27）：
-//   /api/admin/** 必须带 X-Admin-Token 且与 .env 的 ADMIN_TOKEN 一致（恒定时间比较防时序攻击），否则 401
+//   /api/admin/** 必须带 X-Admin-Token 且与 .env 的 ADMIN_TOKEN_WEB 一致（恒定时间比较防时序攻击），否则 401
 //   与用户端 JWT 完全隔离：管理端无用户概念，超管视角看全库
 public class AdminAuthFilter extends OncePerRequestFilter {
 
@@ -42,7 +42,7 @@ public class AdminAuthFilter extends OncePerRequestFilter {
         }
         String adminToken = config.adminToken();
         if (adminToken.isBlank()) {
-            logger.error("ADMIN_TOKEN 未配置，管理端全部拒绝访问（.env 添加后重启）");
+            logger.error("ADMIN_TOKEN_WEB 未配置，管理端全部拒绝访问（.env 添加后重启）");
             AuthContext.writeError(response, 401, "管理端未配置");
             return;
         }

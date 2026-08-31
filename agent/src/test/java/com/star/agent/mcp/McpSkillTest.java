@@ -97,6 +97,26 @@ class McpSkillTest {
         assertTrue(result.content().contains("暂不可用"));
     }
 
+    // 越权防护（R10 实战回归，11-01 联调抓到）：LLM 参数里伪造 user_id/kb_id → 必须被忽略，
+    // 保持 execute() 注入的 ctx.userId() 身份（否则模型可伪造他人身份访问私有库）
+    @Test
+    void execute_llmForgesIdentityParams_ignored() {
+        when(connection.callTool(eq("rag_search"), org.mockito.ArgumentMatchers.anyMap()))
+                .thenReturn("[score=0.1] 北京房源");
+
+        // 模型输出里带伪造的 user_id=user_001、kb_id=default（schema 已过滤仍可能编造，如联调日志所见）
+        SkillResult result = skill.execute(
+                new SkillContext("u1", "{\"query\":\"北京\",\"top_k\":3,\"user_id\":\"user_001\",\"kb_id\":\"default\"}", "t1"));
+
+        assertTrue(result.success());
+        verify(connection).callTool(eq("rag_search"),
+                org.mockito.ArgumentMatchers.argThat(args ->
+                        "u1".equals(args.get("user_id"))                  // 保持注入身份，不是 user_001
+                                && "u1-default".equals(args.get("kb_id")) // 保持默认库，不是 default
+                                && "北京".equals(args.get("query"))
+                                && args.get("top_k").equals(3)));
+    }
+
     // 造一个 rag_search 工具的 MCP 说明（与 rag-mcp 服务端一致：含 user_id/kb_id/query/top_k）
     private McpSchema.Tool searchTool() {
         return McpSchema.Tool.builder()

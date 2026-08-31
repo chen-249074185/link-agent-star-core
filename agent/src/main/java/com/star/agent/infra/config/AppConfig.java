@@ -21,7 +21,7 @@ public class AppConfig {
 
     private final String dashScopeApiKey = firstOf("DASHSCOPE_API_KEY");
 
-    private final String adminToken = firstOf("ADMIN_TOKEN");
+    private final String adminToken = firstOf("ADMIN_TOKEN_WEB");
 
     private final String deepseekApiKey = firstOf("DEEPSEEK_API_KEY");
 

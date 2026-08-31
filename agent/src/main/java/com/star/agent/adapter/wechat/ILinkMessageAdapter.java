@@ -58,14 +58,24 @@ public class ILinkMessageAdapter implements MessageAdapter {
         }
         // 长回复分片模拟流式：微信 SDK 无"编辑已发消息"能力（无 updateText），
         // 用 startTyping（对方看到"正在输入"）+ 200 字/片逐条发送实现"打字机追加"效果
-        client.startTyping(userId);
+        boolean typing = false;
+        try {
+            client.startTyping(userId);
+            typing = true;
+        } catch (Exception e) {
+            // 打字提示 RPC 失败（如 GetTypingTicket 被服务端拒绝）只是装饰效果，
+            // 绝不能因此丢掉整条回复——降级为无打字提示直接分片发送
+            logger.warn("startTyping 失败，降级为无打字提示分片发送: {}", e.getMessage());
+        }
         try {
             for (String chunk : split(text)) {
                 client.sendText(userId, chunk);
                 Thread.sleep(CHUNK_INTERVAL_MS);
             }
         } finally {
-            client.stopTyping(userId);
+            if (typing) {
+                client.stopTyping(userId);
+            }
         }
     }
 

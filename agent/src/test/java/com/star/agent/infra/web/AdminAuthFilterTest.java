@@ -12,7 +12,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-// 管理端鉴权过滤器集成测试（真实 ADMIN_TOKEN，从 .env 读）：
+// 管理端鉴权过滤器集成测试（真实 ADMIN_TOKEN_WEB，从 .env 读）：
 // 无头 401 / 错误头 401 / 正确头放行 / 非管理路径不拦截
 @SpringBootTest(properties = {
         "linkagent.wechat.bot-enabled=false",
@@ -40,7 +40,7 @@ class AdminAuthFilterTest {
 
     @Test
     void correctToken_passes() throws Exception {
-        String adminToken = new AppConfig().adminToken();   // 真实 .env 的 ADMIN_TOKEN（测试 CWD=agent/agent 能读到）
+        String adminToken = new AppConfig().adminToken();   // 真实 .env 的 ADMIN_TOKEN_WEB（测试 CWD=agent/agent 能读到）
 
         mvc.perform(get("/api/admin/health").header("X-Admin-Token", adminToken))
                 .andExpect(status().isOk())

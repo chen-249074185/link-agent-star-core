@@ -226,6 +226,29 @@ class ILinkMessageAdapterTest {
         assertEquals(longText, String.join("", sent), "分片拼回应与原文一致");
     }
 
+    // 打字提示降级：startTyping RPC 失败（如 GetTypingTicket 被服务端拒绝，新 bot 首段对话常见）→
+    // 不能丢掉整条回复，降级为无打字提示直接分片发送（装饰可有可无，回复必须送达）
+    @Test
+    void send_longText_typingFails_stillSendsChunks() throws Exception {
+        adapter.attach(client);
+        String longText = "字".repeat(500);
+        java.util.List<String> sent = new java.util.ArrayList<>();
+        org.mockito.ArgumentCaptor<String> captor = org.mockito.ArgumentCaptor.forClass(String.class);
+        org.mockito.Mockito.doAnswer(inv -> {
+            sent.add(inv.getArgument(1));
+            return null;
+        }).when(client).sendText(org.mockito.ArgumentMatchers.eq("u1"), captor.capture());
+        org.mockito.Mockito.doThrow(new com.github.wechat.ilink.sdk.core.exception.ProtocolException(
+                "ret=-4, errcode=null, errmsg=GetTypingTicket rpc failed"))
+                .when(client).startTyping("u1");
+
+        adapter.send("u1", longText);
+
+        assertEquals(3, sent.size(), "startTyping 失败也应按 200+200+100 三片发出");
+        assertEquals(longText, String.join("", sent), "分片拼回应与原文一致");
+        verify(client, org.mockito.Mockito.never()).stopTyping("u1");
+    }
+
     // 长消息截断保护：超过 MAX_CHUNKS 片 → 截断 + 尾部提示
     @Test
     void send_overLimit_truncates() throws Exception {
