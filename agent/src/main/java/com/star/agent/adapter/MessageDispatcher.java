@@ -97,6 +97,13 @@ public class MessageDispatcher {
         running.set(false);
     }
 
+    // 清空待处理消息（重登换 client 后调用）：旧 client 拉进队列的消息在新 client 上没有 context token，
+    // 处理会导致 missing latest context token → 直接丢弃，让新 client 重新拉（消息可能重放但防重放登记保留）
+    public void clearPending() {
+        queue.clear();
+        logger.info("重登换 client，已清空 {} 条待处理消息", queue.size());
+    }
+
     // ===== fetcher：收消息 → 去重 → 入队（永远在收，不等人）=====
     private void fetchLoop() {
         long lastReconnectAt = 0;

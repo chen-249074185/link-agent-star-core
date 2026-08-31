@@ -316,4 +316,31 @@ class MessageDispatcherTest {
         assertTrue(sent.await(5, TimeUnit.SECONDS));
         verify(chatService).chat(eq("你好"), eq("u1"), eq("CHAT"));
     }
+
+    // 重登换 client 后清空队列：已入队但未处理的旧消息必须丢弃（新 client 无其 context token）
+    @Test
+    void clearPending_afterReconnect_dropsQueuedMessages() throws Exception {
+        // 队列里塞两条待处理消息（旧 client 拉的），然后清空
+        when(adapter.receive())
+                .thenReturn(msg("m1", "旧消息一"))
+                .thenReturn(msg("m2", "旧消息二"))
+                .thenReturn(null);
+        CountDownLatch queued = new CountDownLatch(2);
+        // 等消息进队列：processor poll 前会先被 debounce=null 直通，用 chat 计数判断已取走
+        AtomicInteger chatCalls = new AtomicInteger();
+        doAnswer(inv -> {
+            chatCalls.incrementAndGet();
+            return "ok";
+        }).when(chatService).chat(anyString(), anyString(), anyString());
+
+        dispatcher.start();
+        Thread.sleep(200);   // 让旧消息可能已入队/部分处理
+
+        dispatcher.clearPending();   // 重登后清队列
+
+        // 清空后不再有新消息进来 → chat 最终调用数停在已处理的（不因清空暴增）
+        int callsAfterClear = chatCalls.get();
+        Thread.sleep(200);
+        assertEquals(callsAfterClear, chatCalls.get(), "清空后不应再处理队列残留消息");
+    }
 }

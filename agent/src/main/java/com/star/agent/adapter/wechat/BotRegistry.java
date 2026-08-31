@@ -62,6 +62,14 @@ public class BotRegistry {
         });
     }
 
+    // 该微信是否已有 Bot 在线（扫码确认幂等判断用：已有就重启，没有才新起）
+    public boolean hasBotForWechat(String userId) {
+        if (userId == null || userId.isBlank()) {
+            return false;
+        }
+        return workers.values().stream().anyMatch(w -> userId.equals(w.hostWechatId()));
+    }
+
     // 当前登记的 botId 清单
     public List<String> botIds() {
         return List.copyOf(workers.keySet());

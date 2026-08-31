@@ -1,6 +1,5 @@
 package com.star.agent.adapter.wechat;
 
-import com.github.wechat.ilink.sdk.ILinkClient;
 import com.github.wechat.ilink.sdk.core.context.ResumeContext;
 import com.github.wechat.ilink.sdk.core.login.LoginContext;
 import com.star.agent.adapter.DebounceProcessor;
@@ -61,7 +60,8 @@ public class BotManager {
 
     // 启动恢复：扫表逐个免扫码恢复；空表 → 起一个新 Bot 等扫码
     public void startAll() {
-        List<String> botIds = sessionRepository.findAllBotIds();
+        // 同微信只恢复最新会话（防旧 botId 残留导致一微信多 client 顶号）
+        List<String> botIds = sessionRepository.findLatestBotIds();
         if (botIds.isEmpty()) {
             logger.info("无已保存会话，首次启动需要扫码登录");
             startBot(null);
@@ -104,16 +104,22 @@ public class BotManager {
         logger.info("用户 {} 聊天记录已清空：对话 {} 条、每日摘要 {} 条、瞬时记忆已删", userId, conversations, summaries);
     }
 
-    // 扫码确认后启动 Bot（10-31：Web 扫码只是官方侧登录，应用还得把会话拉上线，否则手机 Bot 不可用）
-    // 用确认返回的登录上下文（botToken/botId/userId/baseUrl）存会话仓库 → BotWorker.login 恢复直接生效；
-    // 同一微信只能有一个 bot：旧 botId 的 worker 全停 + 旧会话全清，只留新 Bot（否则多个 worker 重复收消息）
+    // 扫码确认后上线 Bot（10-31：Web 扫码只是官方侧登录，应用还得把会话拉上线，否则手机 Bot 不可用）
+    // 幂等设计（11-01 解耦）：同一微信已有 Bot 在线 → 只存会话不重启（运行中的 bot 会话正常，动了反而
+    // 造成新旧 worker 交接窗口：旧 worker 未退干净拿旧 client 发消息 → missing context token）
+    // 只有该微信没有 Bot 在线时才停旧清旧并新起（#newbot 顶号场景：一个微信只能有一个 bot）
     public void startFromScan(String botToken, String userId, String botId, String baseUrl) {
         if (botId == null || botId.isBlank()) {
             logger.warn("扫码确认缺少 botId，无法启动 Bot");
             return;
         }
         if (userId != null && !userId.isBlank()) {
-            botRegistry.stopAllWithUserId(userId);   // 停旧 worker（按宿主微信）
+            if (botRegistry.hasBotForWechat(userId)) {
+                logger.info("微信 {} 已有 Bot 在线，扫码确认仅更新会话，不重启", userId);
+                sessionRepository.save(ResumeContext.of(new LoginContext(botToken, userId, botId, baseUrl)));
+                return;
+            }
+            botRegistry.stopAllWithUserId(userId);   // 无该微信 Bot 在线：停旧 worker（按宿主微信）
             sessionRepository.deleteByUserId(userId);   // 清旧会话（重启只恢复新 bot）
         }
         LoginContext lc = new LoginContext(botToken, userId, botId, baseUrl);
@@ -123,11 +129,10 @@ public class BotManager {
     }
 
     private void startBot(String botId) {
-        ILinkClient client = ILinkClient.builder()
-                .config(ILinkConfigFactory.create())
-                .build();
+        // 一个 bot 一个 client：不在外面预建，交给 BotWorker 自建/管理生命周期
+        // （预建的 client 传进去后，BotWorker resume 时会换新 client，旧的自然泄漏关不掉 → 顶号 bug）
         ILinkMessageAdapter adapter = new ILinkMessageAdapter();
-        BotWorker worker = new BotWorker(botId, client, adapter, chatService, sceneDetector,
+        BotWorker worker = new BotWorker(botId, null, adapter, chatService, sceneDetector,
                 sessionRepository, this, multimediaHandler, debounce, new ReplySender(imageFetcher),
                 identityResolver);
         botRegistry.start(botId == null ? "new" : botId, worker);

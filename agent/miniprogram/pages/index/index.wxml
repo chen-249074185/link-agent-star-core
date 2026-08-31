@@ -1,0 +1,13 @@
+<view class="page">
+  <view class="chat">
+    <view class="msg {{m.role}}" wx:for="{{messages}}" wx:for-item="m" wx:key="index">
+      <view class="bubble">{{m.content}}</view>
+    </view>
+    <view id="bottom" />
+  </view>
+
+  <view class="input-bar">
+    <input class="ipt" placeholder="问我点什么…" value="{{input}}" bindinput="onInput" confirm-type="send" bindconfirm="onSend" />
+    <button class="send {{sending ? 'send-disabled' : ''}}" bindtap="onSend" disabled="{{sending}}">发送</button>
+  </view>
+</view>

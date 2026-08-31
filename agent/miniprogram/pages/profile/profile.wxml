@@ -1,0 +1,26 @@
+<view class="page">
+  <!-- 已登录：展示账号信息 -->
+  <block wx:if="{{logged}}">
+    <view class="card">
+      <view class="avatar">星</view>
+      <view class="info">
+        <view class="name">{{username}}</view>
+        <view class="uid">ID: {{userId}}</view>
+      </view>
+    </view>
+    <button class="logout" bindtap="onLogout">退出登录</button>
+  </block>
+
+  <!-- 未登录：登录表单 -->
+  <block wx:else>
+    <view class="login-box">
+      <view class="logo">星链智核</view>
+      <view class="sub">与 Web / 微信同一账号体系</view>
+      <input class="ipt" placeholder="用户名" value="{{username}}" bindinput="onUsername" />
+      <input class="ipt" placeholder="密码" password value="{{password}}" bindinput="onPassword" />
+      <button class="login-btn" bindtap="onLogin" loading="{{loading}}">登录</button>
+      <view class="err" wx:if="{{err}}">{{err}}</view>
+      <view class="hint">未注册？在小程序直接登录即可（后端"登录即注册"用户名路径暂不支持，请先用 Web 端注册，或填未占用用户名将自动创建）</view>
+    </view>
+  </block>
+</view>

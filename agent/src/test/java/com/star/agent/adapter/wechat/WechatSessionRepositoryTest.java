@@ -96,6 +96,21 @@ class WechatSessionRepositoryTest {
         assertTrue(ids.contains("repo-bot-bbb"), "测试数据应被扫到");
     }
 
+    // 同微信多 botId 去重（11-01 一微信一 Bot 原则）：扫码换 bot 会生成新 botId，
+    // 旧 botId 残留会导致重启同时恢复两个 Bot 连同一微信顶号 → 只留 saved_at 最新的
+    @Test
+    void findLatestBotIds_sameWechat_keepsNewest() {
+        // 同 user-1 微信下两个 botId（模拟扫码顶号后旧会话未删干净）
+        repository.save(fullContext("repo-bot-aaa"));
+        repository.save(fullContext("repo-bot-bbb"));
+        repository.updateSavedAt("repo-bot-aaa", LocalDateTime.now().minusDays(1));   // aaa 旧
+
+        List<String> ids = repository.findLatestBotIds();
+
+        assertTrue(ids.contains("repo-bot-bbb"), "最新的 bbb 应保留");
+        assertFalse(ids.contains("repo-bot-aaa"), "旧的 aaa 不应被恢复（同微信只留一个）");
+    }
+
     @Test
     void delete_removesSession() {
         repository.save(fullContext("repo-bot-ccc"));

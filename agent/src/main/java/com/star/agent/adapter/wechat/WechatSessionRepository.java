@@ -51,6 +51,23 @@ public class WechatSessionRepository {
         return mapper.findAll().stream().map(WechatSessionDo::getBotId).toList();
     }
 
+    // 同微信只保留最新会话的 botId（启动恢复用，防同微信多 botId 顶号）：
+    // 微信扫码换 bot 会生成新 botId，若旧 botId 会话没删干净，重启会同时恢复两个 Bot 连同一微信
+    // → 一个微信一个 Bot 原则：按 user_id 分组，只留 saved_at 最新的那个
+    public List<String> findLatestBotIds() {
+        return mapper.findAll().stream()
+                .collect(java.util.stream.Collectors.groupingBy(
+                        WechatSessionDo::getUserId,   // 按微信身份分组
+                        java.util.stream.Collectors.maxBy(
+                                java.util.Comparator.comparing(s -> s.getSavedAt() == null
+                                        ? java.time.LocalDateTime.MIN : s.getSavedAt()))))
+                .values().stream()
+                .filter(java.util.Optional::isPresent)
+                .map(java.util.Optional::get)
+                .map(WechatSessionDo::getBotId)
+                .toList();
+    }
+
     // 删除某 bot 的会话（登出命令/测试清理用）
     public void delete(String botId) {
         mapper.deleteByBotId(botId);

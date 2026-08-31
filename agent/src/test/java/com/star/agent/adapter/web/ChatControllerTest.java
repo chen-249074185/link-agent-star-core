@@ -59,6 +59,29 @@ class ChatControllerTest {
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("event:streamId")));
     }
 
+    // 非流式对话（W13 小程序降级用）：JWT 身份在 request attribute 时正常返回回复；未登录 401
+    @Test
+    void ask_returnsFullReply() throws Exception {
+        when(sceneDetector.detect(anyString())).thenReturn(Scene.CHAT);
+        when(chatService.resolveSessionId(eq("u1"), any())).thenReturn("s-abc");
+        when(chatService.chat(eq("你好"), eq("u1"), eq("CHAT"))).thenReturn("完整回复内容");
+
+        mockMvc.perform(get("/api/chat/ask")
+                        .param("message", "你好")
+                        .requestAttr(com.star.agent.infra.web.AuthContext.ATTR_USER_ID, "u1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(0))
+                .andExpect(jsonPath("$.data.reply").value("完整回复内容"))
+                .andExpect(jsonPath("$.data.sessionId").value("s-abc"));
+    }
+
+    @Test
+    void ask_notLoggedIn_returns401() throws Exception {
+        mockMvc.perform(get("/api/chat/ask").param("message", "你好"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(401));
+    }
+
     // 工具执行前推 tool 命名事件（前端展示"正在调用xxx"）；正文照常走 data 事件
     @Test
     void stream_emitsToolEventBeforeTokens() throws Exception {

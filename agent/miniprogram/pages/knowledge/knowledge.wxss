@@ -1,0 +1,8 @@
+/* pages/knowledge/knowledge.wxss */
+.container {
+  padding: 40rpx;
+}
+.title {
+  font-size: 36rpx;
+  font-weight: bold;
+}

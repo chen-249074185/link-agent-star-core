@@ -1,0 +1,56 @@
+/* pages/profile/profile.wxss */
+.page {
+  padding: 40rpx;
+}
+
+.card {
+  display: flex;
+  align-items: center;
+  background: #fff;
+  border-radius: 20rpx;
+  padding: 40rpx;
+  margin-bottom: 40rpx;
+}
+.avatar {
+  width: 100rpx;
+  height: 100rpx;
+  border-radius: 50%;
+  background: #4a6cf7;
+  color: #fff;
+  font-size: 44rpx;
+  text-align: center;
+  line-height: 100rpx;
+  margin-right: 24rpx;
+}
+.name { font-size: 34rpx; font-weight: bold; }
+.uid { font-size: 24rpx; color: #999; margin-top: 8rpx; }
+.logout {
+  background: #ff4d4f;
+  color: #fff;
+  border-radius: 12rpx;
+  font-size: 30rpx;
+}
+
+.login-box {
+  background: #fff;
+  border-radius: 20rpx;
+  padding: 60rpx 40rpx;
+  margin-top: 100rpx;
+}
+.logo { font-size: 44rpx; font-weight: bold; text-align: center; color: #4a6cf7; }
+.sub { font-size: 24rpx; color: #999; text-align: center; margin: 12rpx 0 40rpx; }
+.ipt {
+  background: #f5f6fa;
+  border-radius: 12rpx;
+  padding: 20rpx 24rpx;
+  margin-bottom: 24rpx;
+  font-size: 30rpx;
+}
+.login-btn {
+  background: #4a6cf7;
+  color: #fff;
+  border-radius: 12rpx;
+  font-size: 32rpx;
+}
+.err { color: #ff4d4f; font-size: 26rpx; margin-top: 16rpx; text-align: center; }
+.hint { font-size: 22rpx; color: #bbb; margin-top: 24rpx; line-height: 1.6; }

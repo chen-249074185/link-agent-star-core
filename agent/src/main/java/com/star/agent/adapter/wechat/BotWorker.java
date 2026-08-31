@@ -96,6 +96,11 @@ public class BotWorker implements Runnable, ReconnectHandler {
             forceScan = true;
             try {
                 login();
+                // 重登换了 client：旧 client 拉进队列的消息在新 client 上没有 context token，
+                // 处理会 missing latest context token → 清空让新 client 重新拉
+                if (dispatcher != null) {
+                    dispatcher.clearPending();
+                }
             } finally {
                 forceScan = false;
             }
@@ -113,6 +118,9 @@ public class BotWorker implements Runnable, ReconnectHandler {
                         .resumeContext(saved)
                         .build();
                 if ("LOGGED_IN".equals(resumeClient.getConnectionStatus().name())) {
+                    // 一个 bot 一个 client：替换前必须关掉旧连接（否则旧 client 心跳/长轮询还连服务端，
+                    // 顶掉新 client 会话 → sendText 报 missing latest context token / startTyping rpc failed）
+                    closeClient();
                     this.client = resumeClient;
                     adapter.attach(resumeClient);   // 恢复登录换了 client，必须重新绑定（坑7 同类）
                     // 恢复成功=会话仍有效：重存一份刷新 saved_at 续期（否则 7 天清理会误删还在跑的 bot）
@@ -126,6 +134,12 @@ public class BotWorker implements Runnable, ReconnectHandler {
         }
 
         System.out.println("需要扫码登录");
+        // 手动 main 链路可能已传入 client；Spring 链路 client 为 null → 自建（一个 bot 一个 client 的起点）
+        if (client == null) {
+            this.client = ILinkClient.builder()
+                    .config(ILinkConfigFactory.create())
+                    .build();
+        }
         String qr = client.executeLogin();
         String qrUrl = "https://api.qrserver.com/v1/create-qr-code/?size=300x300&data="
                 + URLEncoder.encode(qr, StandardCharsets.UTF_8);
@@ -149,6 +163,20 @@ public class BotWorker implements Runnable, ReconnectHandler {
         running = false;
         if (dispatcher != null) {
             dispatcher.stop();
+        }
+        closeClient();
+    }
+
+    // 关闭当前 client（幂等 null 安全）：一个 bot 一个 client，替换/停止时旧连接必须真正关闭，
+    // 否则残留心跳线程继续连服务端，顶掉新 client 的会话（missing latest context token 的根因）
+    private void closeClient() {
+        if (client != null) {
+            try {
+                client.close();
+            } catch (Exception e) {
+                logger.warn("关闭 client 失败（忽略）: {}", e.getMessage());
+            }
+            client = null;
         }
     }
 
