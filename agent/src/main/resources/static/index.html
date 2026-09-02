@@ -431,7 +431,7 @@ const $ = id => document.getElementById(id);
 const app = $('app'), messages = $('messages'), thread = $('thread'), input = $('input'), sendBtn = $('send');
 const token = sessionStorage.getItem('token');
 const userId = sessionStorage.getItem('userId');
-let streaming = false, currentSessionId = null;
+let streaming = false, currentSessionId = null, forceNew = false;
 
 if (!token) { location.replace('login.html'); }
 
@@ -573,6 +573,7 @@ async function delSession(btn){
 
 function newChat(){
   currentSessionId = null;
+  forceNew = true;   // 明确开新会话：下一条消息带 newSession=1，不被 30 分钟窗口并回旧会话
   thread.innerHTML = '';
   $('curTitle').textContent = '新对话';
   document.querySelectorAll('.recent-item').forEach(x => x.classList.remove('active'));
@@ -626,12 +627,14 @@ function sendMsg(text){
 
   let url = '/api/chat/stream?message=' + encodeURIComponent(text) + '&token=' + encodeURIComponent(token);
   if (currentSessionId) url += '&sessionId=' + encodeURIComponent(currentSessionId);
+  if (forceNew) url += '&newSession=1';
   const es = new EventSource(url);
   let pendingTool = false;   // 工具状态占位中：下一个正文 token 先清掉状态行再写正文
 
   es.addEventListener('streamId', e => { window.__streamId = e.data; });
   es.addEventListener('sessionId', e => {
     currentSessionId = e.data;   // 新会话的身份证：后续消息带回去，历史按它归组
+    forceNew = false;            // 新会话已建立，后续消息正常沿用
     loadHistory();
   });
   es.addEventListener('tool', e => {

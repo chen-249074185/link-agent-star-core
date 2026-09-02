@@ -2,6 +2,7 @@ package com.star.agent.adapter.web;
 
 import com.star.agent.infra.web.Result;
 import com.star.agent.mcp.McpConnection;
+import com.star.agent.skill.impl.PoiDocParser;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -11,7 +12,9 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.Base64;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -22,24 +25,45 @@ import java.util.Optional;
 @RequestMapping("/api/rag")
 public class RagController {
 
-    private final Optional<McpConnection> connection;   // mock=true 时无此 bean → 接口报"暂不可用"
+    // rag-mcp 原生支持的扩展名（直传不转换）
+    private static final List<String> RAG_NATIVE_EXTS = List.of("pdf", "txt", "md", "markdown");
 
-    public RagController(Optional<McpConnection> connection) {
+    private final Optional<McpConnection> connection;   // mock=true 时无此 bean → 接口报"暂不可用"
+    private final PoiDocParser poiDocParser;            // docx/xlsx/pptx/pdf/csv → 纯文本（11-02 起全 Java）
+
+    public RagController(Optional<McpConnection> connection, PoiDocParser poiDocParser) {
         this.connection = connection;
+        this.poiDocParser = poiDocParser;
     }
 
     // 上传文档（multipart 二进制文件）：绑定 userId；kbId 缺省 = 默认库
     // 二进制经 Base64 传 MCP（JSON 协议传不了裸二进制），rag-mcp 侧 is_base64 解码
+    // docx/xlsx/pptx/csv 等 rag-mcp 不认识的格式：先转纯文本，再当 .md 文档入库（rag-mcp 零改动）
     @PostMapping("/upload")
     public Result<String> upload(@RequestParam String userId,
                                  @RequestParam(required = false) String kbId,
                                  @RequestParam("file") MultipartFile file) throws IOException {
         String targetKb = kbId == null || kbId.isBlank() ? userId + "-default" : kbId;
+        String filename = file.getOriginalFilename() == null ? "未命名文件" : file.getOriginalFilename();
+        byte[] bytes = file.getBytes();
+        String ext = PoiDocParser.extOf(filename);
+        if (!RAG_NATIVE_EXTS.contains(ext)) {
+            if (!PoiDocParser.supports(ext)) {
+                return Result.fail(400, "不支持的文件类型（仅支持 pdf/txt/md/docx/xlsx/pptx/csv）");
+            }
+            String text = poiDocParser.parse(bytes, ext);
+            if (text == null) {
+                return Result.fail(400, "文档解析失败，请稍后重试或转成 txt/pdf 上传");
+            }
+            int dot = filename.lastIndexOf('.');
+            filename = (dot > 0 ? filename.substring(0, dot) : filename) + ".md";
+            bytes = text.getBytes(StandardCharsets.UTF_8);
+        }
         return call("rag_upload", Map.of(
                 "user_id", userId,
                 "kb_id", targetKb,
-                "filename", file.getOriginalFilename(),
-                "content", Base64.getEncoder().encodeToString(file.getBytes()),
+                "filename", filename,
+                "content", Base64.getEncoder().encodeToString(bytes),
                 "is_base64", true));
     }
 

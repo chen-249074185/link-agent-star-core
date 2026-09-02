@@ -15,7 +15,7 @@ import java.util.List;
 public class UploadService {
 
     private static final int EMBED_BATCH = 10;   // 批量向量化 batch 上限（对齐 EmbeddingClient 限制，text-embedding-v3 实测≤10）
-    private static final int MAX_FILE_BYTES = 10 * 1024 * 1024;   // 单文件 10MB 上限（10-01 安全加固）
+    private static final int MAX_FILE_BYTES = 50 * 1024 * 1024;   // 单文件 50MB 上限（10-01 安全加固，11-02 随小程序上传 1MB→50MB 调整）
     private static final List<String> ALLOWED_TYPES = List.of("pdf", "txt", "md", "markdown");  // 类型白名单
 
     private final DocumentParser parser;
@@ -81,10 +81,10 @@ public class UploadService {
         return last;
     }
 
-    // 大小校验：超 10MB 直接拒（防病态大文件把 embedding/入库拖垮）
+    // 大小校验：超 50MB 直接拒（防病态大文件把 embedding/入库拖垮）
     private void checkSize(byte[] content) {
         if (content != null && content.length > MAX_FILE_BYTES) {
-            throw new IllegalArgumentException("文件超过 10MB 上限: " + content.length + " 字节");
+            throw new IllegalArgumentException("文件超过 50MB 上限: " + content.length + " 字节");
         }
     }
 

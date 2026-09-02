@@ -9,9 +9,11 @@ import com.star.agent.llm.ChatResponse;
 import com.star.agent.llm.LlmClient;
 import com.star.agent.llm.ModelRouter;
 import com.star.agent.llm.ToolCall;
+import com.star.agent.memory.ChatHistoryService;
 import com.star.agent.memory.DailySummaryService;
 import com.star.agent.memory.EphemeralMemory;
 import com.star.agent.memory.ShortTermMemory;
+import com.star.agent.memory.domain.ConversationDo;
 import com.star.agent.scene.Scene;
 import com.star.agent.scene.ScenePolicy;
 import com.star.agent.scene.ScenePolicyConfig;
@@ -26,10 +28,13 @@ import com.star.agent.skill.impl.WeatherSkill;
 import com.star.agent.workflow.RentDecisionWorkflow;
 import org.junit.jupiter.api.Test;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyList;
@@ -306,5 +311,85 @@ class ChatServiceTest {
         service.streamWithTools("你好", null, null, "CHAT", tokens::add, t -> {});
 
         verify(llmClient, never()).streamWithTools(anyList(), anyList(), any());
+    }
+
+    // ==================== 会话归属解析（30 分钟滑动窗口，11-02） ====================
+    // 独立链路：mock ChatHistoryService（owns 判定）+ 共用 shortTermMemory（最近消息查询）
+    private final ChatHistoryService chatHistory = mock(ChatHistoryService.class);
+    private final ChatService sessionSvc = new ChatService(llmClient, router, registry, kernel, detector, workflow,
+            memory, scenePolicyConfig, shortTermMemory, dailySummaryService,
+            new com.star.agent.governance.SensitiveToolGuard(), chatHistory, null, null);
+
+    private static ConversationDo recentRow(String sessionId, LocalDateTime createdAt) {
+        ConversationDo row = new ConversationDo();
+        row.setUserId("user1");
+        row.setSessionId(sessionId);
+        row.setCreatedAt(createdAt);
+        return row;
+    }
+
+    // 30 分钟内发过消息（无前端 sessionId）→ 复用最近会话，重新计时
+    @Test
+    void resolveSessionId_within30Minutes_reusesRecentSession() {
+        when(shortTermMemory.findHistory(eq("user1"), eq(1)))
+                .thenReturn(List.of(recentRow("s-recent", LocalDateTime.now().minusMinutes(5))));
+
+        String session = sessionSvc.resolveSessionId("user1", null, false);
+
+        assertEquals("s-recent", session);
+    }
+
+    // 距上一条消息超过 30 分钟 → 新建会话
+    @Test
+    void resolveSessionId_after30Minutes_opensNewSession() {
+        when(shortTermMemory.findHistory(eq("user1"), eq(1)))
+                .thenReturn(List.of(recentRow("s-recent", LocalDateTime.now().minusMinutes(31))));
+
+        String session = sessionSvc.resolveSessionId("user1", null, false);
+
+        assertNotEquals("s-recent", session);
+        assertTrue(session.startsWith("s-"));
+    }
+
+    // 无历史记录 → 新建会话
+    @Test
+    void resolveSessionId_noHistory_opensNewSession() {
+        when(shortTermMemory.findHistory(eq("user1"), eq(1))).thenReturn(List.of());
+
+        String session = sessionSvc.resolveSessionId("user1", null, false);
+
+        assertTrue(session.startsWith("s-"));
+    }
+
+    // 前端主动传的会话（点历史继续聊）优先级最高，不被 30 分钟窗口覆盖
+    @Test
+    void resolveSessionId_requestedTakesPriorityOverWindow() {
+        when(chatHistory.owns("user1", "s-requested")).thenReturn(true);
+        when(shortTermMemory.findHistory(eq("user1"), eq(1)))
+                .thenReturn(List.of(recentRow("s-recent", LocalDateTime.now().minusMinutes(5))));
+
+        String session = sessionSvc.resolveSessionId("user1", "s-requested", false);
+
+        assertEquals("s-requested", session);
+    }
+
+    // 「新对话」按钮（forceNew）→ 即使 30 分钟内也强制新建，不并回旧会话
+    @Test
+    void resolveSessionId_forceNew_alwaysCreatesNewSession() {
+        when(chatHistory.owns("user1", "s-requested")).thenReturn(true);
+        when(shortTermMemory.findHistory(eq("user1"), eq(1)))
+                .thenReturn(List.of(recentRow("s-recent", LocalDateTime.now().minusMinutes(5))));
+
+        String session = sessionSvc.resolveSessionId("user1", "s-requested", true);
+
+        assertNotEquals("s-requested", session);
+        assertNotEquals("s-recent", session);
+        assertTrue(session.startsWith("s-"));
+    }
+
+    // 未登录 → null（不落库）
+    @Test
+    void resolveSessionId_nullUserId_returnsNull() {
+        assertEquals(null, sessionSvc.resolveSessionId(null, null, false));
     }
 }

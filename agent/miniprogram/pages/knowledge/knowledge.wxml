@@ -1,3 +1,25 @@
-<view class="container">
-  <text class="title">知识库</text>
+<view class="page">
+  <view class="head">
+    <button class="up" bindtap="chooseUpload" disabled="{{uploading}}">{{uploading ? '上传中…' : '上传文档'}}</button>
+  </view>
+
+  <view class="upbar" wx:if="{{uploading}}">
+    <view class="bar"><view class="fill" style="width: {{uploadProgress}}%;"></view></view>
+    <text class="uptxt">{{uploadStatus}} {{uploadProgress}}%</text>
+  </view>
+
+  <view class="list" wx:if="{{kbs.length}}">
+    <view class="row" wx:for="{{kbs}}" wx:key="kbId">
+      <view class="info">
+        <view class="name">{{item.name}}</view>
+        <view class="id">{{item.kbId}}</view>
+      </view>
+      <view class="del" data-id="{{item.kbId}}" data-name="{{item.name}}" catchtap="onDel">删除</view>
+    </view>
+  </view>
+
+  <view class="empty" wx:elif="{{!loading}}">
+    <text>暂无知识库</text>
+    <text class="tip">点击上方按钮上传文档，AI 将基于你的资料回答</text>
+  </view>
 </view>

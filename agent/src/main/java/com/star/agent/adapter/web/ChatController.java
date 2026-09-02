@@ -45,26 +45,28 @@ public class ChatController {
 
     // 非流式对话（W13 小程序降级用）：一次性返回完整回复（内部走 chat() 工具循环 + 记忆双写）
     // 小程序模拟器/部分真机拿不到 SSE 流式响应（res.data 为空、onChunkReceived 不触发）→ 用这个端点
-    // userId 从 JWT 取（AuthContext，与 /stream 一致）；sessionId 缺省=新会话
+    // userId 从 JWT 取（AuthContext，与 /stream 一致）；sessionId 缺省=30 分钟内复用最近会话；newSession=强制新会话
     @GetMapping("/ask")
     public Result<Map<String, Object>> ask(@RequestParam String message,
                                            @RequestParam(required = false) String sessionId,
+                                           @RequestParam(required = false, defaultValue = "false") boolean newSession,
                                            HttpServletRequest request) {
         String userId = AuthContext.userId(request);
         if (userId == null) {
             return Result.fail(401, "未登录");
         }
         String scene = sceneDetector.detect(message).name();
-        String session = chatService.resolveSessionId(userId, sessionId);
+        String session = chatService.resolveSessionId(userId, sessionId, newSession);
         String reply = chatService.chat(message, userId, scene);
         return Result.ok(Map.of("reply", reply, "sessionId", session));
     }
 
     // 打字机流：给每条流发"身份证"(streamId)并登记，支持 /stop 中途终止
-    // userId 从 JWT 取（AuthContext）；sessionId 前端传（点历史继续聊=复用，新对话=留空后端生成）
+    // userId 从 JWT 取（AuthContext）；sessionId 前端传（点历史继续聊=复用，留空=30 分钟内复用最近会话）；newSession=强制新会话
     @GetMapping(value = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter stream(@RequestParam String message,
                              @RequestParam(required = false) String sessionId,
+                             @RequestParam(required = false, defaultValue = "false") boolean newSession,
                              HttpServletRequest request) {
         String streamId = UUID.randomUUID().toString().substring(0, 8);   // 流身份证
         SseEmitter emitter = new SseEmitter(120_000L);                     // 喇叭（120s 超时）
@@ -81,7 +83,7 @@ public class ChatController {
 
         String scene = sceneDetector.detect(message).name();               // 三层识别定场景 → 决定走哪个模型
         String userId = AuthContext.userId(request);                       // JWT 里的身份（未登录=null）
-        String session = chatService.resolveSessionId(userId, sessionId);  // 点历史=沿用旧会话，新对话=新 id
+        String session = chatService.resolveSessionId(userId, sessionId, newSession);  // 点历史=沿用旧会话，新对话=新 id
 
         CompletableFuture.runAsync(() -> {                                 // 后台线程跑"读流"，主线程立刻返回
             try {

@@ -184,14 +184,24 @@ public class ChatService {
         return policy != null && "ephemeral".equals(policy.memory());
     }
 
-    // 会话归属解析：前端点历史继续聊（requested 有效且属于该用户）→ 沿用；
-    // 否则（新对话或伪造 id）→ 生成新会话 id；userId 为空（未登录）→ null
-    public String resolveSessionId(String userId, String requested) {
+    // 会话归属解析（四级优先级）：
+    // ① userId 为空（未登录）→ null（不落库）
+    // ② forceNew（前端「新对话」按钮）→ 强制新建会话
+    // ③ requested 有效且属于该用户（点历史继续聊/页面内连续对话）→ 沿用
+    // ④ 30 分钟滑动窗口兜底：最近一条消息在 30 分钟内 → 复用其会话并重新计时；超时/无记录才新建
+    public String resolveSessionId(String userId, String requested, boolean forceNew) {
         if (userId == null) {
             return null;
         }
+        if (forceNew) {
+            return ChatHistoryService.newSessionId();
+        }
         if (requested != null && !requested.isBlank() && chatHistoryService.owns(userId, requested)) {
             return requested;
+        }
+        String recent = recentSessionWithinWindow(userId);
+        if (recent != null) {
+            return recent;
         }
         return ChatHistoryService.newSessionId();
     }
@@ -241,6 +251,19 @@ public class ChatService {
 
     // 微信链路会话归属：沿用最近一条消息的会话（30 分钟内），超时/无记录则开新会话
     private String resolveSession(String userId) {
+        String recent = recentSessionWithinWindow(userId);
+        if (recent != null) {
+            return recent;
+        }
+        return ChatHistoryService.newSessionId();
+    }
+
+    // 30 分钟滑动窗口：查该用户最近一条消息，距现在 ≤30 分钟 → 复用其会话 id（重新计时）；否则 null
+    // 微信 chat() 与 Web 端 resolveSessionId 共用同一份规则
+    private String recentSessionWithinWindow(String userId) {
+        if (shortTermMemory == null) {
+            return null;
+        }
         try {
             List<ConversationDo> recent = shortTermMemory.findHistory(userId, 1);
             if (recent != null && !recent.isEmpty() && recent.get(0).getSessionId() != null) {
@@ -254,7 +277,7 @@ public class ChatService {
         } catch (Exception e) {
             logger.warn("解析会话归属失败，开新会话: {}", e.getMessage());
         }
-        return ChatHistoryService.newSessionId();
+        return null;
     }
 
     // ==================== SSE 流式 + 工具循环合流（W12 10-30，Web 私有库问答核心） ====================

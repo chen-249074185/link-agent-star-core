@@ -132,13 +132,13 @@ class UploadServiceTest {
                 () -> service.upload("u1", "kb1", "", "内容".getBytes(StandardCharsets.UTF_8)));
     }
 
-    // 超大文件：超过 10MB 拒绝（不解析不向量化，fail fast）
+    // 超大文件：超过 50MB 拒绝（不解析不向量化，fail fast）
     @Test
     void upload_oversizedFile_rejected() {
-        byte[] big = new byte[10 * 1024 * 1024 + 1];          // 10MB + 1 字节
+        byte[] big = new byte[50 * 1024 * 1024 + 1];          // 50MB + 1 字节
         IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
                 () -> service.upload("u1", "kb1", "大文件.txt", big));
-        assertTrue(ex.getMessage().contains("10MB"));
+        assertTrue(ex.getMessage().contains("50MB"));
     }
 
     // 错误类型：白名单外扩展名拒绝（fail fast，报错比 DocumentParser 更友好）

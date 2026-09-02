@@ -4,6 +4,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 // 全局异常处理（W12 起启用，W14 计划书再补 traceId/完整日志栈）：
@@ -23,6 +24,12 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(NoResourceFoundException.class)
     public void noResource(NoResourceFoundException e) throws NoResourceFoundException {
         throw e;   // 交还 Spring 默认处理（404 页面/JSON），别被兜底 Exception 转成 500
+    }
+
+    // 上传超过 Tomcat multipart 上限（50MB）→ 友好话术，不是"服务器内部错误"（W13 上传 500 排查发现）
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public Result<Void> uploadTooLarge(MaxUploadSizeExceededException e) {
+        return Result.fail(400, "文件过大（超过 50MB 限制）");
     }
 
     @ExceptionHandler(Exception.class)

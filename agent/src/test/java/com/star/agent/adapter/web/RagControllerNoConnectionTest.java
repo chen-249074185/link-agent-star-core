@@ -1,8 +1,10 @@
 package com.star.agent.adapter.web;
 
+import com.star.agent.skill.impl.PoiDocParser;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -16,6 +18,9 @@ class RagControllerNoConnectionTest {
 
     @Autowired
     private MockMvc mockMvc;
+
+    @MockBean
+    private PoiDocParser poiDocParser;   // RagController 构造依赖（docx 转换），切片测试要补 mock
 
     @Test
     void noConnection_returns503() throws Exception {

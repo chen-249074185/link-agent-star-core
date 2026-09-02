@@ -67,6 +67,19 @@
 			<version>0.12.6</version>
 			<scope>runtime</scope>
 		</dependency>
+		<!-- Apache POI（11-02 知识库 docx 上传）：纯 Java 解析 Word/Excel/PPT，
+			 替代 anydoc Node 子进程（实测 anydoc 在本机解析 docx 超时 60s 卡死） -->
+		<dependency>
+			<groupId>org.apache.poi</groupId>
+			<artifactId>poi-ooxml</artifactId>
+			<version>5.2.5</version>
+		</dependency>
+		<!-- PDFBox（11-02）：主程序 /api/file/parse 的 pdf 解析（rag-mcp 同款 2.0.31，anydoc 移除后补位） -->
+		<dependency>
+			<groupId>org.apache.pdfbox</groupId>
+			<artifactId>pdfbox</artifactId>
+			<version>2.0.31</version>
+		</dependency>
 
 		<dependency>
 			<groupId>com.mysql</groupId>

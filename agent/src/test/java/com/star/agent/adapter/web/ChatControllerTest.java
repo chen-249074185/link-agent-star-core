@@ -17,6 +17,7 @@ import java.util.Map;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
@@ -63,7 +64,7 @@ class ChatControllerTest {
     @Test
     void ask_returnsFullReply() throws Exception {
         when(sceneDetector.detect(anyString())).thenReturn(Scene.CHAT);
-        when(chatService.resolveSessionId(eq("u1"), any())).thenReturn("s-abc");
+        when(chatService.resolveSessionId(eq("u1"), any(), anyBoolean())).thenReturn("s-abc");
         when(chatService.chat(eq("你好"), eq("u1"), eq("CHAT"))).thenReturn("完整回复内容");
 
         mockMvc.perform(get("/api/chat/ask")

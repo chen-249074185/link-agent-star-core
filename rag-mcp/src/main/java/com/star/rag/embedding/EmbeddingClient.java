@@ -11,6 +11,10 @@ import java.net.http.HttpResponse;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
 // DashScope 文本向量客户端：调用 text-embedding-v3（OpenAI 兼容模式 /v1/embeddings）
 public class EmbeddingClient {
@@ -20,6 +24,7 @@ public class EmbeddingClient {
     private static final String MODEL = "text-embedding-v3";
     private static final int MAX_BATCH = 10;      // DashScope text-embedding-v3 单次请求 batch 上限（实测 400: should not be larger than 10）
     private static final int MAX_ATTEMPTS = 3;    // 每批发失败最多尝试次数
+    private static final int PARALLELISM = 4;     // 批次并发数（11-02 上传慢优化：39 批串行 ~60s → 4 并发 ~15s）
 
     private final String apiKey;
     private final String url;
@@ -40,15 +45,38 @@ public class EmbeddingClient {
         return embedBatch(List.of(text), 1).get(0);
     }
 
-    // 批量向量化：每批 ≤ batchSize（超 25 压到 25），分批串行调用，返回顺序与入参一致
+    // 批量向量化：每批 ≤ batchSize（超 MAX_BATCH 压到 MAX_BATCH）。
+    // 多批并发提交（固定 4 线程），结果按批次顺序归位——返回顺序与入参一致，且总耗时 ≈ 单批 × (批数/并发)
     public List<float[]> embedBatch(List<String> texts, int batchSize) {
         int batch = batchSize <= 0 ? MAX_BATCH : Math.min(batchSize, MAX_BATCH);
-        List<float[]> all = new ArrayList<>();
+        List<List<String>> batches = new ArrayList<>();
         for (int i = 0; i < texts.size(); i += batch) {
-            List<String> chunk = texts.subList(i, Math.min(i + batch, texts.size()));
-            all.addAll(embedBatchOnce(chunk));
+            batches.add(texts.subList(i, Math.min(i + batch, texts.size())));
         }
-        return all;
+        if (batches.isEmpty()) {
+            return List.of();
+        }
+        if (batches.size() == 1) {
+            return embedBatchOnce(batches.get(0));   // 单批无并发必要，快路径
+        }
+        ExecutorService pool = Executors.newFixedThreadPool(Math.min(PARALLELISM, batches.size()));
+        try {
+            List<Future<List<float[]>>> futures = batches.stream()
+                    .map(b -> pool.submit(() -> embedBatchOnce(b)))
+                    .toList();
+            List<float[]> all = new ArrayList<>();
+            for (Future<List<float[]>> f : futures) {
+                all.addAll(f.get());   // 按批次索引顺序归位：任一批失败 → 抛异常中断
+            }
+            return all;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("embedding 批量向量化被中断", e);
+        } catch (ExecutionException e) {
+            throw new RuntimeException("embedding 批量向量化失败: " + e.getCause().getMessage(), e.getCause());
+        } finally {
+            pool.shutdownNow();
+        }
     }
 
     // 发一个批量请求（input 传数组）：200 直接返回；429/5xx/网络错 → 指数退避重试，超 MAX_ATTEMPTS 抛异常

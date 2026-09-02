@@ -11,26 +11,27 @@ import com.star.agent.skill.SkillResult;
 import com.star.agent.skill.SkillType;
 import org.springframework.stereotype.Component;
 
+import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.List;
 
-// 文件识别技能：file_parse（EXT 层，独立调用）——把文档（pdf/word/excel/ppt/csv 等）内容解析成文本
-// 入参走 base64（与 rag_upload 同通道约定），解析由 AnyDocService 子进程完成；失败返回话术不抛异常
+// 文件识别技能：file_parse（EXT 层，独立调用）——把文档（pdf/word/excel/ppt/csv/txt/md）内容解析成文本
+// 入参走 base64（与 rag_upload 同通道约定），txt/md 直读、其余走 PoiDocParser（纯 Java）；失败返回话术不抛异常
 @Component
 public class FileParseSkill implements Skill {
 
     private final ObjectMapper mapper = new ObjectMapper();
-    private final AnyDocService anyDocService;
+    private final PoiDocParser poiDocParser;
 
-    public FileParseSkill(AnyDocService anyDocService) {
-        this.anyDocService = anyDocService;
+    public FileParseSkill(PoiDocParser poiDocParser) {
+        this.poiDocParser = poiDocParser;
     }
 
     @Override
     public SkillMeta meta() {
         return new SkillMeta(
                 "file_parse",
-                "解析文档内容为文本（支持 pdf/word/excel/ppt/csv/odt/rtf/epub/txt/md），输入文件名和 base64 编码的文件内容",
+                "解析文档内容为文本（支持 pdf/txt/md/docx/xlsx/pptx/csv），输入文件名和 base64 编码的文件内容",
                 JsonSchemaBuilder.object()
                         .addString("filename", "文件名（含扩展名），如 简历.docx", true)
                         .addString("content_base64", "文件内容 Base64 编码", true)
@@ -52,9 +53,9 @@ public class FileParseSkill implements Skill {
                 return new SkillResult(false, "请提供文件名和文件内容（base64）");
             }
             byte[] content = Base64.getDecoder().decode(contentBase64);
-            String text = anyDocService.parse(content, filename);
+            String text = parseText(content, filename);
             if (text == null) {
-                return new SkillResult(false, "无法识别该文件（仅支持 pdf/word/excel/ppt/csv/odt/rtf/epub/txt/md）");
+                return new SkillResult(false, "无法识别该文件（仅支持 pdf/txt/md/docx/xlsx/pptx/csv）");
             }
             return new SkillResult(true, "已解析「" + filename + "」，内容如下：\n" + text);
         } catch (IllegalArgumentException e) {
@@ -62,5 +63,14 @@ public class FileParseSkill implements Skill {
         } catch (Exception e) {
             return new SkillResult(false, "文件解析失败: " + e.getMessage());
         }
+    }
+
+    // txt/md 直读；其余走 PoiDocParser
+    private String parseText(byte[] content, String filename) {
+        String ext = PoiDocParser.extOf(filename);
+        if ("txt".equals(ext) || "md".equals(ext) || "markdown".equals(ext)) {
+            return new String(content, StandardCharsets.UTF_8);
+        }
+        return poiDocParser.parse(content, ext);
     }
 }

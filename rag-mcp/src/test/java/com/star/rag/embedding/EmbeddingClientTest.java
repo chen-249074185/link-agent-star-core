@@ -90,7 +90,7 @@ class EmbeddingClientTest {
         assertEquals(3.0f, vecs.get(2)[0]);
     }
 
-    // batchSize 封顶 10：30 段文本 → 3 批（10+10+10），不超限
+    // batchSize 封顶 10：30 段文本 → 3 批（10+10+10），不超限（多批并发，批次记录顺序不定 → 只断言总和）
     @Test
     void batch_cappedAt10() {
         EmbeddingClient client = new EmbeddingClient("test-key", baseUrl);
@@ -100,7 +100,8 @@ class EmbeddingClientTest {
         List<float[]> vecs = client.embedBatch(texts, 25);
 
         assertEquals(3, requestCount.get());            // 分 3 批
-        assertEquals(List.of(10, 10, 10), requestInputSizes);// 每批 10
+        assertEquals(30, requestInputSizes.stream().mapToInt(Integer::intValue).sum());  // 每批 ≤10，合计 30
+        assertTrue(requestInputSizes.stream().allMatch(n -> n <= 10));
         assertEquals(30, vecs.size());
     }
 
