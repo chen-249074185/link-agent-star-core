@@ -186,6 +186,61 @@
   transform: translate(-50%, -40%);
 }
 
+/* ===== 猎聘 Token 配置 ===== */
+.lp-box {
+  margin-top: 24rpx;
+}
+.lp-ipt {
+  width: 100%;
+  background: #f2f4fb;
+  border-radius: 16rpx;
+  padding: 20rpx 24rpx;
+  font-size: 26rpx;
+  box-sizing: border-box;
+}
+.lp-err {
+  color: #e54d42;
+  font-size: 23rpx;
+  margin-top: 12rpx;
+}
+.lp-btn {
+  margin-top: 18rpx;
+  background: linear-gradient(135deg, #5b7cfa, #8a6df0);
+  color: #fff;
+  border-radius: 40rpx;
+  font-size: 28rpx;
+  font-weight: 600;
+  padding: 16rpx 0;
+  border: none;
+  line-height: 1.6;
+}
+.lp-btn::after {
+  border: none;
+}
+.lp-btn[disabled] {
+  background: #c3cae8;
+  color: #fff;
+}
+.lp-actions {
+  display: flex;
+  gap: 20rpx;
+  margin-top: 22rpx;
+}
+.lp-act {
+  flex: 1;
+  text-align: center;
+  background: #f2f4fb;
+  border-radius: 36rpx;
+  padding: 16rpx 0;
+  font-size: 26rpx;
+  color: #5b7cfa;
+  font-weight: 600;
+}
+.lp-act.danger {
+  color: #e54d42;
+  background: rgba(229, 77, 66, 0.08);
+}
+
 /* ===== 退出登录 ===== */
 .logout {
   margin: 40rpx 28rpx 0;

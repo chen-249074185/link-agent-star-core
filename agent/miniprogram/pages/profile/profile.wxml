@@ -36,6 +36,21 @@
       </view>
     </view>
 
+    <view class="sync-card">
+      <view class="sync-title">猎聘求职</view>
+      <view class="sync-desc" wx:if="{{!lpConfigured}}">配置猎聘 Token 后，可查岗位 / 精筛 / 读简历（获取：猎聘官网 mcp/auth 登录生成）</view>
+      <view class="sync-desc" wx:else>已配置<text wx:if="{{lpUpdatedAt}}"> · {{lpUpdatedAt}}</text></view>
+      <view class="lp-box" wx:if="{{lpEditing || !lpConfigured}}">
+        <input class="lp-ipt" placeholder="粘贴你的猎聘 Token" value="{{lpToken}}" bindinput="onLpToken" />
+        <view class="lp-err" wx:if="{{lpErr}}">{{lpErr}}</view>
+        <button class="lp-btn" bindtap="saveLpToken" loading="{{lpSaving}}" disabled="{{lpSaving}}">保存 Token</button>
+      </view>
+      <view class="lp-actions" wx:else>
+        <view class="lp-act" bindtap="toggleLpEdit">更换</view>
+        <view class="lp-act danger" bindtap="removeLpToken">删除</view>
+      </view>
+    </view>
+
     <view class="logout" bindtap="onLogout">退出登录</view>
   </block>
 

@@ -1,5 +1,5 @@
 // pages/profile/profile.js
-const { post } = require('../../utils/request')
+const { get, post, delete: del } = require('../../utils/request')
 
 Page({
   data: {
@@ -9,7 +9,13 @@ Page({
     avatar: '星',
     password: '',
     loading: false,
-    err: ''
+    err: '',
+    lpConfigured: false,    // 猎聘 Token 是否已配置
+    lpUpdatedAt: '',
+    lpToken: '',
+    lpEditing: false,       // 输入框展开
+    lpSaving: false,
+    lpErr: ''
   },
 
   onShow() {
@@ -22,9 +28,60 @@ Page({
         userId: app.globalData.userId,
         avatar: (wx.getStorageSync('username') || '星').slice(0, 1).toUpperCase()
       })
+      this.loadLpStatus()
     } else {
       this.setData({ logged: false })
     }
+  },
+
+  // 猎聘 Token 配置状态（不返回明文）
+  loadLpStatus() {
+    const app = getApp()
+    get('/api/config/liepin-token', { userId: app.globalData.userId })
+      .then(d => this.setData({ lpConfigured: !!d.configured, lpUpdatedAt: d.updatedAt || '' }))
+      .catch(() => {})
+  },
+
+  onLpToken(e) { this.setData({ lpToken: e.detail.value }) },
+
+  toggleLpEdit() {
+    this.setData({ lpEditing: !this.data.lpEditing, lpErr: '' })
+  },
+
+  saveLpToken() {
+    const t = (this.data.lpToken || '').trim()
+    if (!t) {
+      this.setData({ lpErr: '请输入猎聘 Token' })
+      return
+    }
+    const app = getApp()
+    this.setData({ lpSaving: true })
+    post('/api/config/liepin-token', { userId: app.globalData.userId, token: t })
+      .then(() => {
+        this.setData({ lpConfigured: true, lpToken: '', lpEditing: false, lpErr: '', lpSaving: false })
+        wx.showToast({ title: '已保存', icon: 'success' })
+      })
+      .catch(e => {
+        this.setData({ lpSaving: false, lpErr: (e && e.msg) || '保存失败' })
+      })
+  },
+
+  removeLpToken() {
+    wx.showModal({
+      title: '删除猎聘配置',
+      content: '删除后猎聘岗位/简历功能不可用，需重新配置 Token。',
+      confirmColor: '#e54d42',
+      success: res => {
+        if (!res.confirm) return
+        const app = getApp()
+        del('/api/config/liepin-token', { userId: app.globalData.userId })
+          .then(() => {
+            this.setData({ lpConfigured: false, lpUpdatedAt: '', lpToken: '', lpEditing: false })
+            wx.showToast({ title: '已删除', icon: 'success' })
+          })
+          .catch(e => wx.showToast({ title: (e && e.msg) || '删除失败', icon: 'none' }))
+      }
+    })
   },
 
   onUsername(e) { this.setData({ username: e.detail.value }) },

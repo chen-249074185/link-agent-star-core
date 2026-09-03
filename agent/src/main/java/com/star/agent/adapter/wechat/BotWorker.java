@@ -127,6 +127,15 @@ public class BotWorker implements Runnable, ReconnectHandler {
                     if (sessionRepository != null) {
                         sessionRepository.save(saved);
                     }
+                    // 恢复后预热拉一次消息（11-01 遗留根治）：重启恢复时 context 池是空的，
+                    // 服务端在首次 getUpdates 才下发各会话上下文 token → 首条消息 poll 与发送竞态
+                    // 报 missing latest context token；主动拉一次让服务端把 token 下发完，
+                    // 顺带把恢复期间积压的消息拉进 pending 队列（dispatcher 启动后正常处理不丢）
+                    try {
+                        adapter.receive();
+                    } catch (Exception e) {
+                        logger.warn("恢复后预热拉取失败（忽略，dispatcher 兜底）: {}", e.getMessage());
+                    }
                     System.out.println("会话恢复成功，免扫码登录");
                     return;
                 }
