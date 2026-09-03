@@ -57,7 +57,8 @@ public class ChatController {
         }
         String scene = sceneDetector.detect(message).name();
         String session = chatService.resolveSessionId(userId, sessionId, newSession);
-        String reply = chatService.chat(message, userId, scene);
+        // 落库与返回必须用同一个会话：chat() 传入解析结果，否则返回的 sessionId 与数据实际归属脱节
+        String reply = chatService.chat(message, userId, scene, session);
         return Result.ok(Map.of("reply", reply, "sessionId", session));
     }
 

@@ -21,6 +21,7 @@ import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -65,7 +66,8 @@ class ChatControllerTest {
     void ask_returnsFullReply() throws Exception {
         when(sceneDetector.detect(anyString())).thenReturn(Scene.CHAT);
         when(chatService.resolveSessionId(eq("u1"), any(), anyBoolean())).thenReturn("s-abc");
-        when(chatService.chat(eq("你好"), eq("u1"), eq("CHAT"))).thenReturn("完整回复内容");
+        // 解析出的会话必须传给 chat() 落库（11-05 修复：返回与落库同一会话）
+        when(chatService.chat(eq("你好"), eq("u1"), eq("CHAT"), eq("s-abc"))).thenReturn("完整回复内容");
 
         mockMvc.perform(get("/api/chat/ask")
                         .param("message", "你好")
@@ -74,6 +76,8 @@ class ChatControllerTest {
                 .andExpect(jsonPath("$.code").value(0))
                 .andExpect(jsonPath("$.data.reply").value("完整回复内容"))
                 .andExpect(jsonPath("$.data.sessionId").value("s-abc"));
+
+        verify(chatService).chat(eq("你好"), eq("u1"), eq("CHAT"), eq("s-abc"));
     }
 
     @Test

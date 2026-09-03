@@ -147,6 +147,19 @@ class ChatServiceTest {
         verify(shortTermMemory).saveAsync(eq("user1"), eq("assistant"), eq("杭州滨江区房价偏高，建议预算放宽"), anyString());
     }
 
+    // 会话一致性回归（11-05 真 bug）：调用方传入 sessionId 时，落库必须用同一个——
+    // 否则"返回的 session"与"实际归属"脱节（ask 端点连续对话分成两个记录）
+    @Test
+    void chat_withExplicitSessionId_persistsToThatSession() {
+        when(llmClient.chat(anyList(), anyList()))
+                .thenReturn(new ChatResponse("杭州滨江区房价偏高，建议预算放宽", List.of()));
+
+        service.chat("滨江区", "user1", "CHAT", "s-explicit");
+
+        verify(shortTermMemory).saveAsync(eq("user1"), eq("user"), eq("滨江区"), eq("s-explicit"));
+        verify(shortTermMemory).saveAsync(eq("user1"), eq("assistant"), eq("杭州滨江区房价偏高，建议预算放宽"), eq("s-explicit"));
+    }
+
     // 瞬时记忆：GROUP 场景（memory=none）不读历史也不写记忆
     @Test
     void groupScene_skipsMemory() {

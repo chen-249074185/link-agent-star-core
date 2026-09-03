@@ -93,6 +93,13 @@ public class ChatService {
     }
 
     public String chat(String userMessage, String userId, String scene) {
+        return chat(userMessage, userId, scene, null);
+    }
+
+    // sessionId：由调用方（如 ask 端点 resolveSessionId）解析后传入，落库用同一个会话——
+    // 否则"返回的 session"与"实际落库的 session"各算一套会脱节（11-05 小程序连续对话
+    // 分成两个记录的真 bug）；null = 微信链路，内部 resolveSession（30 分钟窗口）
+    public String chat(String userMessage, String userId, String scene, String sessionId) {
         logger.info("开始对话: {}", userMessage);
 
         // 双模式路由：完整租房需求 → 直跑工作流（跳过 LLM）；否则走自由问答工具循环
@@ -139,9 +146,9 @@ public class ChatService {
                 if (memoryEnabled(scene)) {
                     ephemeralMemory.append(userId, userMessage, resp.content());
                     if (shortTermMemory != null) {
-                        String sessionId = resolveSession(userId);
-                        shortTermMemory.saveAsync(userId, "user", userMessage, sessionId);
-                        shortTermMemory.saveAsync(userId, "assistant", resp.content(), sessionId);
+                        String sid = sessionId != null ? sessionId : resolveSession(userId);
+                        shortTermMemory.saveAsync(userId, "user", userMessage, sid);
+                        shortTermMemory.saveAsync(userId, "assistant", resp.content(), sid);
                     }
                 }
                 return resp.content();
