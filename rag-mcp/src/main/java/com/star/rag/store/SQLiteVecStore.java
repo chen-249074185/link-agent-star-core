@@ -44,6 +44,11 @@ public class SQLiteVecStore implements VectorStore, KnowledgeBaseRepository {
                     "metadata_json TEXT," +
                     "created_at TEXT NOT NULL DEFAULT (datetime('now','localtime')))");
             st.execute("CREATE INDEX IF NOT EXISTS idx_chunks_user ON chunks (user_id, kb_id)");
+            // 分文件删除（11-03）：chunks 加 filename 列——老库没有该列，幂等补列（PRAGMA 检查）
+            if (!columnExists("chunks", "filename")) {
+                st.execute("ALTER TABLE chunks ADD COLUMN filename TEXT");
+                st.execute("CREATE INDEX IF NOT EXISTS idx_chunks_file ON chunks (user_id, kb_id, filename)");
+            }
             // W8(09-29)：user 表 + knowledge_base 表，知识库归属显式化（R10）
             st.execute("CREATE TABLE IF NOT EXISTS users (" +
                     "user_id TEXT PRIMARY KEY," +
@@ -58,17 +63,18 @@ public class SQLiteVecStore implements VectorStore, KnowledgeBaseRepository {
 
     // 存切片：正文/向量进 chunks 表，向量进 vec_chunks 虚拟表（rowid 对应）；返回新行号（回滚追踪用）
     @Override
-    public int insertChunk(String userId, String kbId, String content, float[] embedding, String metadataJson) {
+    public int insertChunk(String userId, String kbId, String content, String filename, float[] embedding, String metadataJson) {
         try {
             String vecJson = toJson(embedding);
             // 先插普通表拿自增 id（rowid 就是 vec 表的 rowid）
             PreparedStatement ps = conn.prepareStatement(
-                    "INSERT INTO chunks (kb_id, user_id, content, embedding, metadata_json) VALUES (?,?,?,?,?)");
+                    "INSERT INTO chunks (kb_id, user_id, content, filename, embedding, metadata_json) VALUES (?,?,?,?,?,?)");
             ps.setString(1, kbId);
             ps.setString(2, userId);
             ps.setString(3, content);
-            ps.setString(4, vecJson);
-            ps.setString(5, metadataJson);
+            ps.setString(4, filename);
+            ps.setString(5, vecJson);
+            ps.setString(6, metadataJson);
             ps.executeUpdate();
             int rowId = ps.getGeneratedKeys().getInt(1);
             ps.close();
@@ -173,6 +179,54 @@ public class SQLiteVecStore implements VectorStore, KnowledgeBaseRepository {
             return Math.max(vecDeleted, deleted);
         } catch (Exception e) {
             throw new RuntimeException("删除知识库失败: " + e.getMessage(), e);
+        }
+    }
+
+    // 列出库内文件：按 filename 分组（块数 + 最后入库时间），老数据 filename 为 null 归 "(未知文件)"
+    @Override
+    public List<FileInfo> listFiles(String userId, String kbId) {
+        try (PreparedStatement ps = conn.prepareStatement(
+                "SELECT filename, COUNT(*) AS cnt, MAX(created_at) AS last_at " +
+                        "FROM chunks WHERE user_id = ? AND kb_id = ? " +
+                        "GROUP BY filename ORDER BY last_at DESC")) {
+            ps.setString(1, userId);
+            ps.setString(2, kbId);
+            List<FileInfo> list = new ArrayList<>();
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    String name = rs.getString("filename");
+                    list.add(new FileInfo(
+                            name == null ? "(未知文件)" : name,
+                            rs.getInt("cnt"),
+                            rs.getString("last_at")));
+                }
+            }
+            return list;
+        } catch (Exception e) {
+            throw new RuntimeException("列出库内文件失败: " + e.getMessage(), e);
+        }
+    }
+
+    // 按文件名删库内全部切片：先查该文件的 rowid 列表，再 vec/chunks 双删
+    @Override
+    public int deleteFile(String userId, String kbId, String filename) {
+        try {
+            List<Integer> rowIds = new ArrayList<>();
+            try (PreparedStatement ps = conn.prepareStatement(
+                    "SELECT id FROM chunks WHERE user_id = ? AND kb_id = ? AND filename = ?")) {
+                ps.setString(1, userId);
+                ps.setString(2, kbId);
+                ps.setString(3, filename);
+                try (ResultSet rs = ps.executeQuery()) {
+                    while (rs.next()) {
+                        rowIds.add(rs.getInt(1));
+                    }
+                }
+            }
+            deleteChunks(userId, rowIds);   // 复用双删逻辑（vec_chunks 按 rowid + chunks 按 id）
+            return rowIds.size();
+        } catch (Exception e) {
+            throw new RuntimeException("删除文件失败: " + e.getMessage(), e);
         }
     }
 
@@ -379,6 +433,20 @@ public class SQLiteVecStore implements VectorStore, KnowledgeBaseRepository {
             sb.append(arr[i]);
         }
         return sb.append("]").toString();
+    }
+
+    // 表里是否已有某列（老库升级幂等用：CREATE TABLE IF NOT EXISTS 不会给已有表加列）
+    private boolean columnExists(String table, String column) throws Exception {
+        try (PreparedStatement ps = conn.prepareStatement("PRAGMA table_info(" + table + ")")) {
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    if (column.equals(rs.getString("name"))) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
     }
 
     public void close() throws Exception {

@@ -52,11 +52,11 @@ public class UploadService {
         // ⑦ 批量向量化：在入库前全做完——这里失败则一块都没入库，无需回滚
         List<float[]> vecs = embedding.embedBatch(chunks, EMBED_BATCH);
 
-        // ⑧ 逐块入库：记录行号，供失败回滚
+        // ⑧ 逐块入库：记录行号，供失败回滚；filename 随块入库（分文件删除/列表的归属依据）
         List<Integer> inserted = new ArrayList<>();
         try {
             for (int i = 0; i < chunks.size(); i++) {
-                int rowId = store.insertChunk(userId, kbId, chunks.get(i), vecs.get(i), "{}");
+                int rowId = store.insertChunk(userId, kbId, chunks.get(i), safeName, vecs.get(i), "{}");
                 inserted.add(rowId);
             }
         } catch (Exception e) {

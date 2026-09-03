@@ -173,7 +173,7 @@ class UploadServiceTest {
         }
 
         @Override
-        public int insertChunk(String userId, String kbId, String content, float[] embedding, String metadataJson) {
+        public int insertChunk(String userId, String kbId, String content, String filename, float[] embedding, String metadataJson) {
             int id = ++inserts;
             if (inserts == failAt) {
                 throw new RuntimeException("模拟入库失败");
@@ -189,6 +189,16 @@ class UploadServiceTest {
         @Override
         public List<SearchHit> search(String userId, String kbId, float[] queryEmbedding, int topK, double threshold) {
             return List.of();
+        }
+
+        @Override
+        public List<FileInfo> listFiles(String userId, String kbId) {
+            return List.of();
+        }
+
+        @Override
+        public int deleteFile(String userId, String kbId, String filename) {
+            return 0;
         }
 
         @Override

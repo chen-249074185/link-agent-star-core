@@ -164,6 +164,38 @@ class RagControllerTest {
                         "u1".equals(args.get("user_id")) && "kb1".equals(args.get("kb_id"))));
     }
 
+    // files（分文件列表）：kbId 缺省默认库，透传调 rag_list_files
+    @Test
+    void files_listsDefaultKbFiles() throws Exception {
+        when(connection.callTool(eq("rag_list_files"), anyMap())).thenReturn("笔记.txt | 3 块 | 2026-11-02 10:00:00");
+
+        mockMvc.perform(get("/api/rag/files").param("userId", "u1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(0));
+
+        verify(connection).callTool(eq("rag_list_files"),
+                org.mockito.ArgumentMatchers.argThat(args ->
+                        "u1".equals(args.get("user_id")) && "u1-default".equals(args.get("kb_id"))));
+    }
+
+    // delete-file（分文件删除）：透传 userId+kbId+filename
+    @Test
+    void deleteFile_removesSingleFile() throws Exception {
+        when(connection.callTool(eq("rag_delete_file"), anyMap())).thenReturn("已删除文件: 笔记.txt（3 块）");
+
+        mockMvc.perform(delete("/api/rag/delete-file")
+                        .param("userId", "u1")
+                        .param("filename", "笔记.txt"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data").value("已删除文件: 笔记.txt（3 块）"));
+
+        verify(connection).callTool(eq("rag_delete_file"),
+                org.mockito.ArgumentMatchers.argThat(args ->
+                        "u1".equals(args.get("user_id"))
+                                && "u1-default".equals(args.get("kb_id"))
+                                && "笔记.txt".equals(args.get("filename"))));
+    }
+
     // search：kbId 缺省默认库 + topK 数值保真
     @Test
     void search_usesDefaultKbAndTopK() throws Exception {

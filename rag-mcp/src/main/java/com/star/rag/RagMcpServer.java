@@ -105,9 +105,13 @@ McpServer.sync(transport)
                             uploadTool(uploader, guard, kbRepo),
                             searchTool(store, embedding, guard, kbRepo),
                             listKbsTool(kbRepo),
+                            listFilesTool(store, guard, kbRepo),
+                            deleteFileTool(store, guard, kbRepo),
                             deleteTool(store, guard, kbRepo),
                             transferTool(store, guard, kbRepo),
                             adminListAllTool(kbRepo),
+                            adminListFilesTool(store, kbRepo),
+                            adminDeleteFileTool(store, kbRepo),
                             adminDeleteTool(kbRepo)
                     )
                     .build();
@@ -232,7 +236,81 @@ McpServer.sync(transport)
                 .build();
     }
 
-    // 工具4：删除某知识库（含库内全部切片）；归属校验：不是自己的库不能删
+    // 工具4（分文件删除）：列出库内文件（filename | 块数 | 最后入库时间）——文件级列表/删除的前半截
+    private static SyncToolSpecification listFilesTool(VectorStore store, KnowledgeBaseGuard guard,
+                                                       KnowledgeBaseRepository kbRepo) {
+        McpSchema.Tool tool = McpSchema.Tool.builder()
+                .name("rag_list_files")
+                .description("列出指定用户知识库内的全部文件（文件名 | 切片块数 | 最后入库时间）")
+                .inputSchema(new McpSchema.JsonSchema("object",
+                        Map.of(
+                                "user_id", Map.of("type", "string"),
+                                "kb_id", Map.of("type", "string")
+                        ),
+                        List.of("user_id", "kb_id"), null, null, null))
+                .build();
+        return SyncToolSpecification.builder()
+                .tool(tool)
+                .callHandler((exchange, request) -> {
+                    Map<String, Object> args = request.arguments();
+                    String userId = String.valueOf(args.get("user_id"));
+                    String kbId = String.valueOf(args.get("kb_id"));
+                    kbRepo.ensureUserWithDefaultKb(userId);
+                    String denied = guard.checkAccess(userId, kbId);
+                    if (denied != null) {
+                        return errorResult(denied);
+                    }
+                    List<VectorStore.FileInfo> files = store.listFiles(userId, kbId);
+                    StringBuilder sb = new StringBuilder();
+                    for (VectorStore.FileInfo f : files) {
+                        sb.append(f.filename()).append(" | ").append(f.chunkCount()).append(" 块 | ")
+                                .append(f.lastTime() == null ? "" : f.lastTime()).append("\n");
+                    }
+                    return McpSchema.CallToolResult.builder()
+                            .content(List.of(new McpSchema.TextContent(
+                                    sb.isEmpty() ? "知识库暂无文件" : sb.toString().trim())))
+                            .build();
+                })
+                .build();
+    }
+
+    // 工具5（分文件删除）：按文件名删除库内全部切片（其他文件不动）；归属校验：不是自己的库不能删
+    private static SyncToolSpecification deleteFileTool(VectorStore store, KnowledgeBaseGuard guard,
+                                                        KnowledgeBaseRepository kbRepo) {
+        McpSchema.Tool tool = McpSchema.Tool.builder()
+                .name("rag_delete_file")
+                .description("删除指定用户知识库内的单个文件及其全部切片（同名文件重复上传的块一起删）")
+                .inputSchema(new McpSchema.JsonSchema("object",
+                        Map.of(
+                                "user_id", Map.of("type", "string"),
+                                "kb_id", Map.of("type", "string"),
+                                "filename", Map.of("type", "string")
+                        ),
+                        List.of("user_id", "kb_id", "filename"), null, null, null))
+                .build();
+        return SyncToolSpecification.builder()
+                .tool(tool)
+                .callHandler((exchange, request) -> {
+                    Map<String, Object> args = request.arguments();
+                    String userId = String.valueOf(args.get("user_id"));
+                    String kbId = String.valueOf(args.get("kb_id"));
+                    String filename = String.valueOf(args.get("filename"));
+                    kbRepo.ensureUserWithDefaultKb(userId);
+                    String denied = guard.checkAccess(userId, kbId);
+                    if (denied != null) {
+                        return errorResult(denied);
+                    }
+                    int deleted = store.deleteFile(userId, kbId, filename);
+                    return McpSchema.CallToolResult.builder()
+                            .content(List.of(new McpSchema.TextContent(
+                                    deleted > 0 ? "已删除文件: " + filename + "（" + deleted + " 块）"
+                                            : "未找到文件: " + filename)))
+                            .build();
+                })
+                .build();
+    }
+
+    // 工具6：删除某知识库（含库内全部切片）；归属校验：不是自己的库不能删
     private static SyncToolSpecification deleteTool(VectorStore store, KnowledgeBaseGuard guard,
                                                     KnowledgeBaseRepository kbRepo) {
         McpSchema.Tool tool = McpSchema.Tool.builder()
@@ -264,7 +342,7 @@ McpServer.sync(transport)
                 .build();
     }
 
-    // 工具5：账号合并——from 用户的全部知识库并入 to 用户（默认库内容并入 to 默认库，非默认库改归属）
+    // 工具7：账号合并——from 用户的全部知识库并入 to 用户（默认库内容并入 to 默认库，非默认库改归属）
     // 主程序账号合并（bind-email 触发）用；迁移失败抛异常 → 主程序事务回滚不删被并入账号（补偿语义）
     private static SyncToolSpecification transferTool(VectorStore store, KnowledgeBaseGuard guard,
                                                       KnowledgeBaseRepository kbRepo) {
@@ -296,7 +374,7 @@ McpServer.sync(transport)
                 .build();
     }
 
-    // 工具6（管理端）：列出全部用户的知识库——超管全库视角，不做归属过滤
+    // 工具8（管理端）：列出全部用户的知识库——超管全库视角，不做归属过滤
     // 命名约定 rag_admin_ 前缀：主程序 McpSkillRegistrar 识别并跳过，绝不注册给 LLM 当技能（防越权调用）
     private static SyncToolSpecification adminListAllTool(KnowledgeBaseRepository kbRepo) {
         McpSchema.Tool tool = McpSchema.Tool.builder()
@@ -321,7 +399,70 @@ McpServer.sync(transport)
                 .build();
     }
 
-    // 工具7（管理端）：删除任意用户的知识库——超管权限，跳过归属校验（普通 delete 工具过 guard 会拒他人库）
+    // 工具10（管理端）：列出任意用户库内的文件——超管视角，不做归属过滤
+    private static SyncToolSpecification adminListFilesTool(VectorStore store, KnowledgeBaseRepository kbRepo) {
+        McpSchema.Tool tool = McpSchema.Tool.builder()
+                .name("rag_admin_list_files")
+                .description("管理端：列出任意用户知识库内的全部文件（文件名 | 切片块数 | 最后入库时间）")
+                .inputSchema(new McpSchema.JsonSchema("object",
+                        Map.of(
+                                "user_id", Map.of("type", "string"),
+                                "kb_id", Map.of("type", "string")
+                        ),
+                        List.of("user_id", "kb_id"), null, null, null))
+                .build();
+        return SyncToolSpecification.builder()
+                .tool(tool)
+                .callHandler((exchange, request) -> {
+                    Map<String, Object> args = request.arguments();
+                    String userId = String.valueOf(args.get("user_id"));
+                    String kbId = String.valueOf(args.get("kb_id"));
+                    List<VectorStore.FileInfo> files = store.listFiles(userId, kbId);
+                    StringBuilder sb = new StringBuilder();
+                    for (VectorStore.FileInfo f : files) {
+                        sb.append(f.filename()).append(" | ").append(f.chunkCount()).append(" 块 | ")
+                                .append(f.lastTime() == null ? "" : f.lastTime()).append("\n");
+                    }
+                    return McpSchema.CallToolResult.builder()
+                            .content(List.of(new McpSchema.TextContent(
+                                    sb.isEmpty() ? "知识库暂无文件" : sb.toString().trim())))
+                            .build();
+                })
+                .build();
+    }
+
+    // 工具11（管理端）：删除任意用户库内的单个文件——超管权限，跳过归属校验 + 审计日志（stderr）
+    private static SyncToolSpecification adminDeleteFileTool(VectorStore store, KnowledgeBaseRepository kbRepo) {
+        McpSchema.Tool tool = McpSchema.Tool.builder()
+                .name("rag_admin_delete_file")
+                .description("管理端：删除任意用户知识库内的单个文件及其全部切片（超管权限，跳过归属校验）")
+                .inputSchema(new McpSchema.JsonSchema("object",
+                        Map.of(
+                                "user_id", Map.of("type", "string"),
+                                "kb_id", Map.of("type", "string"),
+                                "filename", Map.of("type", "string")
+                        ),
+                        List.of("user_id", "kb_id", "filename"), null, null, null))
+                .build();
+        return SyncToolSpecification.builder()
+                .tool(tool)
+                .callHandler((exchange, request) -> {
+                    Map<String, Object> args = request.arguments();
+                    String userId = String.valueOf(args.get("user_id"));
+                    String kbId = String.valueOf(args.get("kb_id"));
+                    String filename = String.valueOf(args.get("filename"));
+                    System.err.println("[审计] 管理员删除文件: userId=" + userId + " kbId=" + kbId + " file=" + filename);
+                    int deleted = store.deleteFile(userId, kbId, filename);
+                    return McpSchema.CallToolResult.builder()
+                            .content(List.of(new McpSchema.TextContent(
+                                    deleted > 0 ? "已删除文件: " + filename + "（" + deleted + " 块）"
+                                            : "未找到文件: " + filename)))
+                            .build();
+                })
+                .build();
+    }
+
+    // 工具12（管理端）：删除任意用户的知识库——超管权限，跳过归属校验（普通 delete 工具过 guard 会拒他人库）
     // 审计日志走 stderr（stdio 协议铁律：stdout 只允许 JSON-RPC 消息）
     private static SyncToolSpecification adminDeleteTool(KnowledgeBaseRepository kbRepo) {
         McpSchema.Tool tool = McpSchema.Tool.builder()

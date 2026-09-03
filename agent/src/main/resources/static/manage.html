@@ -123,11 +123,24 @@ input:focus{border-color:var(--accent)}
     <span class="hint">全用户知识库视角（超管），删除不经过归属校验并记录审计日志</span>
     <button class="btn" id="ragRefresh">刷新</button>
   </div>
-  <table>
-    <thead><tr><th>kb_id</th><th>所属用户</th><th>名称</th><th></th></tr></thead>
-    <tbody id="ragRows"></tbody>
-  </table>
-  <div class="empty" id="ragEmpty" style="display:none">暂无知识库</div>
+  <div id="ragKbView">
+    <table>
+      <thead><tr><th>kb_id</th><th>所属用户</th><th>名称</th><th></th></tr></thead>
+      <tbody id="ragRows"></tbody>
+    </table>
+    <div class="empty" id="ragEmpty" style="display:none">暂无知识库</div>
+  </div>
+  <div id="ragFileView" style="display:none">
+    <div class="toolbar">
+      <button class="btn" id="ragBack">← 返回库列表</button>
+      <span class="hint" id="ragFileTitle"></span>
+    </div>
+    <table>
+      <thead><tr><th>文件名</th><th>块数</th><th>最后入库</th><th></th></tr></thead>
+      <tbody id="ragFileRows"></tbody>
+    </table>
+    <div class="empty" id="ragFileEmpty" style="display:none">该库暂无文件</div>
+  </div>
 </div>
 
 <!-- 凭证门 -->
@@ -245,8 +258,11 @@ $('logRefresh').onclick = loadLogs;
 $('logQ').addEventListener('keydown', e => { if (e.key === 'Enter') loadLogs(); });
 
 /* ===== RAG 管理 ===== */
+let curKb = null;   // 当前打开的知识库 {user, kb}
+
 async function loadRag(){
   try {
+    if (curKb) { loadRagFiles(curKb.user, curKb.kb); return; }
     const j = await api('/api/admin/rag/kbs');
     const empty = $('ragEmpty');
     if (j.code !== 0) { $('ragRows').innerHTML = '<tr><td colspan="4" class="empty">' + esc(j.msg || j.message || '') + '</td></tr>'; empty.style.display = 'none'; return; }
@@ -260,17 +276,57 @@ async function loadRag(){
         '<td>' + esc(kb) + '</td>' +
         '<td>' + esc(user) + '</td>' +
         '<td>' + esc(name) + '</td>' +
-        '<td><button class="btn danger" data-kb="' + esc(kb) + '" data-u="' + esc(user) + '">删除</button></td>' +
+        '<td style="white-space:nowrap">' +
+          '<button class="btn" data-u="' + esc(user) + '" data-kb="' + esc(kb) + '" data-n="' + esc(name) + '">打开</button> ' +
+          '<button class="btn danger" data-kb="' + esc(kb) + '" data-u="' + esc(user) + '">删除</button>' +
+        '</td>' +
       '</tr>';
     }).join('');
-    $('ragRows').querySelectorAll('button').forEach(b => b.onclick = async () => {
-      if (!confirm('确认删除知识库「' + b.dataset.kb + '」（用户 ' + b.dataset.u + '）？不可恢复。')) return;
-      await api('/api/admin/rag/kb?userId=' + encodeURIComponent(b.dataset.u) + '&kbId=' + encodeURIComponent(b.dataset.kb), { method: 'DELETE' });
-      loadRag();
+    $('ragRows').querySelectorAll('button').forEach(b => {
+      if (b.textContent === '删除') {
+        b.onclick = async () => {
+          if (!confirm('确认删除知识库「' + b.dataset.kb + '」（用户 ' + b.dataset.u + '）？不可恢复。')) return;
+          await api('/api/admin/rag/kb?userId=' + encodeURIComponent(b.dataset.u) + '&kbId=' + encodeURIComponent(b.dataset.kb), { method: 'DELETE' });
+          loadRag();
+        };
+      } else {
+        b.onclick = () => { curKb = { user: b.dataset.u, kb: b.dataset.kb, name: b.dataset.n }; loadRagFiles(curKb.user, curKb.kb); };
+      }
     });
   } catch (e) {}
 }
+
+// 打开库：文件级列表 + 单文件删除
+async function loadRagFiles(user, kb){
+  try {
+    const j = await api('/api/admin/rag/files?userId=' + encodeURIComponent(user) + '&kbId=' + encodeURIComponent(kb));
+    $('ragKbView').style.display = 'none';
+    $('ragFileView').style.display = 'block';
+    $('ragFileTitle').textContent = '库 ' + kb + '（用户 ' + user + '）';
+    const rows = $('ragFileRows'), empty = $('ragFileEmpty');
+    if (j.code !== 0) { rows.innerHTML = '<tr><td colspan="4" class="empty">' + esc(j.msg || j.message || '') + '</td></tr>'; empty.style.display = 'none'; return; }
+    const lines = (j.data || '').split('\n').filter(Boolean);
+    if (!lines.length) { rows.innerHTML = ''; empty.style.display = 'block'; return; }
+    empty.style.display = 'none';
+    rows.innerHTML = lines.map(l => {
+      const parts = l.split(' | ');
+      return '<tr>' +
+        '<td>' + esc(parts[0] || '') + '</td>' +
+        '<td>' + esc(parts[1] || '') + '</td>' +
+        '<td style="color:var(--txt2)">' + esc(parts[2] || '') + '</td>' +
+        '<td><button class="btn danger" data-f="' + esc(parts[0] || '') + '">删除</button></td>' +
+      '</tr>';
+    }).join('');
+    rows.querySelectorAll('button').forEach(b => b.onclick = async () => {
+      if (!confirm('确认删除文件「' + b.dataset.f + '」？（用户 ' + user + '，库 ' + kb + '）不可恢复。')) return;
+      await api('/api/admin/rag/file?userId=' + encodeURIComponent(user) + '&kbId=' + encodeURIComponent(kb) + '&filename=' + encodeURIComponent(b.dataset.f), { method: 'DELETE' });
+      loadRagFiles(user, kb);
+    });
+  } catch (e) {}
+}
+
 $('ragRefresh').onclick = loadRag;
+$('ragBack').onclick = () => { curKb = null; $('ragFileView').style.display = 'none'; $('ragKbView').style.display = 'block'; loadRag(); };
 
 /* ===== 自检 ===== */
 (async function init(){

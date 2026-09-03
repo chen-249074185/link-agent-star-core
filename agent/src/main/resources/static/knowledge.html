@@ -70,13 +70,13 @@ body{min-height:100vh;background:var(--bg);font-family:-apple-system,BlinkMacSys
 
   <div class="box">
     <h2>上传资料</h2>
-    <p class="tip">支持 pdf / txt / md，单文件 ≤ 10MB。上传后自动切片入库，可用作对话问答与租房决策的资料源。</p>
-    <div class="field"><input type="file" id="file" accept=".pdf,.txt,.md,.markdown"></div>
+    <p class="tip">支持 pdf / txt / md / docx / xlsx / pptx / csv，单文件 ≤ 50MB。上传后自动切片入库，可用作对话问答与租房决策的资料源。</p>
+    <div class="field"><input type="file" id="file" accept=".pdf,.txt,.md,.markdown,.docx,.xlsx,.pptx,.csv"></div>
     <button class="btn" id="upBtn" onclick="upload()">上传到默认知识库</button>
   </div>
 
   <div class="box">
-    <h2>知识库列表</h2>
+    <h2>知识库文件</h2>
     <div id="kbList"><div class="empty">加载中…</div></div>
   </div>
 
@@ -92,8 +92,8 @@ body{min-height:100vh;background:var(--bg);font-family:-apple-system,BlinkMacSys
 <!-- 删除确认弹窗 -->
 <div class="mask" id="mask">
   <div class="dlg">
-    <h3>删除知识库</h3>
-    <p id="delDesc">删除后该库内全部资料将被清除，不可恢复。默认库删除后内容清空（重建为空库）。</p>
+    <h3>删除文件</h3>
+    <p id="delDesc">删除后该文件的全部内容将从知识库清除，不可恢复。</p>
     <div class="btns">
       <button class="cancel" onclick="closeMask()">取消</button>
       <button class="ok" onclick="doDelete()">确认删除</button>
@@ -107,31 +107,31 @@ const token=sessionStorage.getItem('token');
 const userId=sessionStorage.getItem('userId');
 if(!token){location.href='login.html';}
 
-let delKb=null;   // 待删除的 kbId
+let delFile=null;   // 待删除的文件名
 
 function showToast(msg,type){const t=$('toast');t.textContent=msg;t.className='toast '+type;if(type==='error')setTimeout(()=>t.className='toast',4000);}
 function ld(btn,on,txt){btn.disabled=on;btn.innerHTML=on?'<span class="sp"></span>'+txt:txt;}
 function openMask(desc){$('delDesc').textContent=desc;$('mask').classList.add('show');}
-function closeMask(){$('mask').classList.remove('show');delKb=null;}
+function closeMask(){$('mask').classList.remove('show');delFile=null;}
 
-// 知识库列表
+// 知识库文件列表（默认库，文件级：文件名 | 块数 | 时间）
 async function loadKbs(){
   try{
-    const r=await fetch('/api/rag/list?userId='+encodeURIComponent(userId),{headers:{'Authorization':'Bearer '+token}});
+    const r=await fetch('/api/rag/files?userId='+encodeURIComponent(userId),{headers:{'Authorization':'Bearer '+token}});
     const j=await r.json();
     if(j.code!==0){showToast(j.msg||'加载失败','error');$('kbList').innerHTML='<div class="empty">加载失败</div>';return;}
     const lines=j.data.split('\n').map(s=>s.trim()).filter(Boolean);
-    if(!lines.length){$('kbList').innerHTML='<div class="empty">暂无知识库</div>';return;}
+    if(!lines.length){$('kbList').innerHTML='<div class="empty">知识库暂无文件</div>';return;}
     $('kbList').innerHTML=lines.map(line=>{
-      const i=line.indexOf('|');
-      const kb=i>=0?line.slice(0,i).trim():line;
-      const name=i>=0?line.slice(i+1).trim():'';
+      const parts=line.split('|').map(s=>s.trim());
+      const name=parts[0]||line;
+      const meta=[parts[1],parts[2]].filter(Boolean).join(' · ');
       const d=document.createElement('div');
       d.className='row';
-      d.innerHTML='<span class="k">'+escapeHtml(name||kb)+'<br><small>'+escapeHtml(kb)+'</small></span>';
+      d.innerHTML='<span class="k">'+escapeHtml(name)+'<br><small>'+escapeHtml(meta)+'</small></span>';
       const b=document.createElement('button');
       b.className='mini';b.textContent='删除';
-      b.onclick=()=>{delKb=kb;openMask('确认删除知识库「'+name+'」？该库内全部资料将被清除，不可恢复。');};
+      b.onclick=()=>{delFile=name;openMask('确认删除文件「'+name+'」？该文件的全部内容将从知识库清除，不可恢复。');};
       d.appendChild(b);
       return d.outerHTML;
     }).join('');
@@ -157,12 +157,12 @@ async function upload(){
   finally{ld($('upBtn'),false,'上传到默认知识库');}
 }
 
-// 删除（确认后）
+// 删除文件（确认后）
 async function doDelete(){
-  if(!delKb)return;
+  if(!delFile)return;
   closeMask();
   try{
-    const r=await fetch('/api/rag/delete?userId='+encodeURIComponent(userId)+'&kbId='+encodeURIComponent(delKb),{method:'DELETE',headers:{'Authorization':'Bearer '+token}});
+    const r=await fetch('/api/rag/delete-file?userId='+encodeURIComponent(userId)+'&filename='+encodeURIComponent(delFile),{method:'DELETE',headers:{'Authorization':'Bearer '+token}});
     const j=await r.json();
     if(j.code!==0){showToast(j.msg||'删除失败','error');return;}
     showToast(j.data||'已删除','success');

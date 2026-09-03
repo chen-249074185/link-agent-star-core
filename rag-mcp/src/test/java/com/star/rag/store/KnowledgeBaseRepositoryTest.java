@@ -66,7 +66,7 @@ class KnowledgeBaseRepositoryTest {
     void deleteKb_removesChunksAndRow() {
         store.ensureUserWithDefaultKb("u1");
         KnowledgeBaseRepository.KnowledgeBase work = store.createKb("u1", "工作资料");
-        store.insertChunk("u1", work.kbId(), "工作内容", axis(0), "{}");
+        store.insertChunk("u1", work.kbId(), "工作内容", "测试.txt", axis(0), "{}");
 
         store.deleteKb("u1", work.kbId());
 
@@ -94,7 +94,7 @@ class KnowledgeBaseRepositoryTest {
     void adminDelete_removesAnotherUsersKb() {
         store.ensureUserWithDefaultKb("u1");
         store.ensureUserWithDefaultKb("u2");
-        store.insertChunk("u2", "u2-default", "u2 的私有内容", axis(0), "{}");
+        store.insertChunk("u2", "u2-default", "u2 的私有内容", "测试.txt", axis(0), "{}");
 
         store.deleteKb("u2", "u2-default");   // 管理员视角：直接删 u2 的库
 

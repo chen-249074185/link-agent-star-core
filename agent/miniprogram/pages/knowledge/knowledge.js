@@ -1,11 +1,12 @@
 // pages/knowledge/knowledge.js
-// 知识库管理：上传文档（wx.uploadFile multipart）/ 列表 / 删除（二次确认）
+// 知识库管理：上传文档（wx.uploadFile multipart）/ 文件列表 / 按文件删除（二次确认）
+// 列表按文件粒度（对齐夏令营项目模式）：每个文件独立删除，不再整库笼统删除
 // 后端 /api/rag/*：userId 从登录态取，JWT 由 request.js 自动注入（上传走 wx.uploadFile 单独带 header）
 const { get, delete: del } = require('../../utils/request')
 
 Page({
   data: {
-    kbs: [],
+    files: [],
     loading: false,
     uploading: false,
     uploadProgress: 0,      // 0-100：HTTP 上传阶段实时进度
@@ -18,24 +19,25 @@ Page({
       wx.switchTab({ url: '/pages/profile/profile' })
       return
     }
-    this.loadKbs()
+    this.loadFiles()
   },
 
-  // MCP 透传文本：每行 "kb_id | name"，解析成列表
-  loadKbs() {
+  // MCP 透传文本：每行 "filename | N 块 | 时间"，解析成文件列表
+  loadFiles() {
     const app = getApp()
     this.setData({ loading: true })
-    get('/api/rag/list', { userId: app.globalData.userId })
+    get('/api/rag/files', { userId: app.globalData.userId })
       .then(data => {
         const lines = String(data || '').split('\n').map(s => s.trim()).filter(Boolean)
-        const kbs = lines.map(line => {
-          const i = line.indexOf('|')
+        const files = lines.map(line => {
+          const parts = line.split('|').map(s => s.trim())
           return {
-            kbId: i >= 0 ? line.slice(0, i).trim() : line,
-            name: i >= 0 ? line.slice(i + 1).trim() : line
+            name: parts[0] || line,
+            count: parts[1] || '',
+            time: parts[2] || ''
           }
         })
-        this.setData({ kbs, loading: false })
+        this.setData({ files, loading: false })
       })
       .catch(e => {
         this.setData({ loading: false })
@@ -78,7 +80,7 @@ Page({
               const j = JSON.parse(res.data)
               if (j.code === 0) {
                 wx.showToast({ title: j.data || '上传成功', icon: 'success' })
-                that.loadKbs()
+                that.loadFiles()
               } else {
                 wx.showToast({ title: j.msg || '上传失败', icon: 'none' })
               }
@@ -97,25 +99,25 @@ Page({
     })
   },
 
-  // 删除（二次确认）
+  // 按文件删除（二次确认）
   onDel(e) {
-    const kb = e.currentTarget.dataset
+    const file = e.currentTarget.dataset
     wx.showModal({
-      title: '删除知识库',
-      content: '确认删除「' + kb.name + '」？库内全部资料将被清除，不可恢复。',
+      title: '删除文件',
+      content: '确认删除「' + file.name + '」？该文件的全部内容将被清除，不可恢复。',
       confirmColor: '#e54d42',
       success: res => {
-        if (res.confirm) this.doDelete(kb)
+        if (res.confirm) this.doDelete(file.name)
       }
     })
   },
 
-  doDelete(kb) {
+  doDelete(name) {
     const app = getApp()
-    del('/api/rag/delete', { userId: app.globalData.userId, kbId: kb.id })
+    del('/api/rag/delete-file', { userId: app.globalData.userId, filename: name })
       .then(data => {
         wx.showToast({ title: data || '已删除', icon: 'success' })
-        this.loadKbs()
+        this.loadFiles()
       })
       .catch(e => wx.showToast({ title: (e && e.msg) || '删除失败', icon: 'none' }))
   }

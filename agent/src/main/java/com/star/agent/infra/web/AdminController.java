@@ -26,6 +26,8 @@ import java.util.Optional;
 //   GET  /api/admin/logs?q=&max=           → 日志检索（traceId 可查）【日志审计 Tab】
 //   GET  /api/admin/rag/kbs                → 全用户知识库清单【RAG 管理 Tab】
 //   DELETE /api/admin/rag/kb?userId=&kbId= → 超管删除任意知识库
+//   GET  /api/admin/rag/files?userId=&kbId= → 某库内文件清单（打开库看文件）
+//   DELETE /api/admin/rag/file?userId=&kbId=&filename= → 超管删除库内单个文件
 @RestController
 @RequestMapping("/api/admin")
 public class AdminController {
@@ -105,6 +107,19 @@ public class AdminController {
     @DeleteMapping("/rag/kb")
     public Result<String> ragDeleteKb(@RequestParam String userId, @RequestParam String kbId) {
         return ragCall("rag_admin_delete_kb", Map.of("user_id", userId, "kb_id", kbId));
+    }
+
+    // RAG 管理：某库内文件清单（rag_admin_list_files，打开库看文件用）
+    @GetMapping("/rag/files")
+    public Result<String> ragFiles(@RequestParam String userId, @RequestParam String kbId) {
+        return ragCall("rag_admin_list_files", Map.of("user_id", userId, "kb_id", kbId));
+    }
+
+    // RAG 管理：超管删除库内单个文件（rag_admin_delete_file，跳过归属校验 + 审计日志）
+    @DeleteMapping("/rag/file")
+    public Result<String> ragDeleteFile(@RequestParam String userId, @RequestParam String kbId,
+                                        @RequestParam String filename) {
+        return ragCall("rag_admin_delete_file", Map.of("user_id", userId, "kb_id", kbId, "filename", filename));
     }
 
     private Result<String> ragCall(String tool, Map<String, Object> args) {

@@ -43,9 +43,9 @@ class SQLiteVecStoreTest {
 
     @Test
     void insertAndSearch_findsClosest() {
-        store.insertChunk("u1", "kb1", "北京的秋天很美", axis(0), "{}");
-        store.insertChunk("u1", "kb1", "上海的夏天很热", axis(1), "{}");
-        store.insertChunk("u1", "kb1", "杭州的春天多雨", axis(2), "{}");
+        store.insertChunk("u1", "kb1", "北京的秋天很美", "测试.txt", axis(0), "{}");
+        store.insertChunk("u1", "kb1", "上海的夏天很热", "测试.txt", axis(1), "{}");
+        store.insertChunk("u1", "kb1", "杭州的春天多雨", "测试.txt", axis(2), "{}");
 
         // 查询向量 = 第 0 维方向 → 应命中"北京"那条（距离最小）
         List<VectorStore.SearchHit> hits = store.search("u1", "kb1", axis(0), 3, 1.5);
@@ -56,7 +56,7 @@ class SQLiteVecStoreTest {
     // 私有库隔离：u1 的库搜不到 u2 的内容
     @Test
     void search_isolatedByUser() {
-        store.insertChunk("u1", "kb1", "只有用户1能看到的内容", axis(0), "{}");
+        store.insertChunk("u1", "kb1", "只有用户1能看到的内容", "测试.txt", axis(0), "{}");
 
         List<VectorStore.SearchHit> hits = store.search("u2", "kb1", axis(0), 5, 1.5);
         assertEquals(0, hits.size());
@@ -64,8 +64,8 @@ class SQLiteVecStoreTest {
 
     @Test
     void deleteByKb_removesAll() {
-        store.insertChunk("u1", "kb1", "甲", axis(0), "{}");
-        store.insertChunk("u1", "kb1", "乙", axis(1), "{}");
+        store.insertChunk("u1", "kb1", "甲", "测试.txt", axis(0), "{}");
+        store.insertChunk("u1", "kb1", "乙", "测试.txt", axis(1), "{}");
 
         int deleted = store.deleteByKb("u1", "kb1");
         assertTrue(deleted >= 2);
@@ -76,7 +76,7 @@ class SQLiteVecStoreTest {
     // 阈值过滤：距离超过 threshold 的不返回（vec0 默认 L2 距离，正交向量距离=√2≈1.414）
     @Test
     void search_respectsThreshold() {
-        store.insertChunk("u1", "kb1", "正交向量", axis(0), "{}");
+        store.insertChunk("u1", "kb1", "正交向量", "测试.txt", axis(0), "{}");
 
         // 查询 = 第 1 维（与 0 维正交，L2 距离 √2）→ 阈值 1.0 下应被过滤
         List<VectorStore.SearchHit> hits = store.search("u1", "kb1", axis(1), 5, 1.0);
@@ -89,7 +89,7 @@ class SQLiteVecStoreTest {
     void search_respectsTopK(int topK) {
         // 插入 5 条："片段i" 对应"第 i 维方向"
         for (int i = 0; i < 5; i++) {
-            store.insertChunk("u1", "kb1", "片段" + i, axis(i), "{}");
+            store.insertChunk("u1", "kb1", "片段" + i, "测试.txt", axis(i), "{}");
         }
 
         // 查询 = 第 0 维方向 → "片段0" 距离 0 最相关
@@ -113,8 +113,8 @@ class SQLiteVecStoreTest {
     @ParameterizedTest
     @ValueSource(doubles = {0.5, 1.0})
     void search_tightThresholdFiltersFar(double threshold) {
-        store.insertChunk("u1", "kb1", "最近", axis(0), "{}");
-        store.insertChunk("u1", "kb1", "正交远", axis(1), "{}");
+        store.insertChunk("u1", "kb1", "最近", "测试.txt", axis(0), "{}");
+        store.insertChunk("u1", "kb1", "正交远", "测试.txt", axis(1), "{}");
 
         List<VectorStore.SearchHit> hits = store.search("u1", "kb1", axis(0), 5, threshold);
         assertEquals(1, hits.size());
@@ -125,8 +125,8 @@ class SQLiteVecStoreTest {
     @ParameterizedTest
     @ValueSource(doubles = {1.5, 2.0})
     void search_looseThresholdAllowsNear(double threshold) {
-        store.insertChunk("u1", "kb1", "最近", axis(0), "{}");
-        store.insertChunk("u1", "kb1", "正交远", axis(1), "{}");
+        store.insertChunk("u1", "kb1", "最近", "测试.txt", axis(0), "{}");
+        store.insertChunk("u1", "kb1", "正交远", "测试.txt", axis(1), "{}");
 
         List<VectorStore.SearchHit> hits = store.search("u1", "kb1", axis(0), 5, threshold);
         assertEquals(2, hits.size());
@@ -140,7 +140,7 @@ class SQLiteVecStoreTest {
         for (int i = 0; i < 1000; i++) {
             float[] v = randomVec(rand);
             vecs.add(v);
-            store.insertChunk("u1", "kb1", "基准片段" + i, v, "{}");
+            store.insertChunk("u1", "kb1", "基准片段" + i, "测试.txt", v, "{}");
         }
 
         // 预热一次：JIT 编译 + 连接/页缓存就绪，不算进基准（第一次查询通常偏慢）
@@ -185,7 +185,7 @@ class SQLiteVecStoreTest {
     void guard_allowsOwner_deniesIntruder() {
         KnowledgeBaseGuard guard = new KnowledgeBaseGuard(store);
         store.ensureUserWithDefaultKb("u1");
-        store.insertChunk("u1", "u1-default", "只有u1的内容", axis(0), "{}");
+        store.insertChunk("u1", "u1-default", "只有u1的内容", "测试.txt", axis(0), "{}");
 
         assertTrue(guard.checkAccess("u1", "u1-default") == null);   // 主人 → 放行
         assertTrue(guard.checkAccess("u2", "u1-default") != null);   // 入侵者 → 拒绝（含审计日志）
@@ -195,9 +195,9 @@ class SQLiteVecStoreTest {
     // deleteChunks 按行号删：只删指定的，别的保留（上传回滚真实路径）
     @Test
     void deleteChunks_removesOnlySpecified() {
-        int r1 = store.insertChunk("u1", "kb1", "甲", axis(0), "{}");
-        int r2 = store.insertChunk("u1", "kb1", "乙", axis(1), "{}");
-        int r3 = store.insertChunk("u1", "kb1", "丙", axis(2), "{}");
+        int r1 = store.insertChunk("u1", "kb1", "甲", "测试.txt", axis(0), "{}");
+        int r2 = store.insertChunk("u1", "kb1", "乙", "测试.txt", axis(1), "{}");
+        int r3 = store.insertChunk("u1", "kb1", "丙", "测试.txt", axis(2), "{}");
 
         store.deleteChunks("u1", List.of(r1, r3));   // 删甲和丙，留乙
 
@@ -210,10 +210,10 @@ class SQLiteVecStoreTest {
     // 检索结果按内容去重只保留一条；重复块不再霸占 topK 名额
     @Test
     void search_dedupesDuplicateContent() {
-        store.insertChunk("u1", "kb1", "北京海淀两居室6500元", axis(0), "{}");
-        store.insertChunk("u1", "kb1", "北京海淀两居室6500元", axis(0), "{}");   // 重复上传第 2 次
-        store.insertChunk("u1", "kb1", "北京海淀两居室6500元", axis(0), "{}");   // 重复上传第 3 次
-        store.insertChunk("u1", "kb1", "上海单间3800元", axis(1), "{}");
+        store.insertChunk("u1", "kb1", "北京海淀两居室6500元", "测试.txt", axis(0), "{}");
+        store.insertChunk("u1", "kb1", "北京海淀两居室6500元", "测试.txt", axis(0), "{}");   // 重复上传第 2 次
+        store.insertChunk("u1", "kb1", "北京海淀两居室6500元", "测试.txt", axis(0), "{}");   // 重复上传第 3 次
+        store.insertChunk("u1", "kb1", "上海单间3800元", "测试.txt", axis(1), "{}");
 
         List<VectorStore.SearchHit> hits = store.search("u1", "kb1", axis(0), 5, 1.5);
 
@@ -226,8 +226,8 @@ class SQLiteVecStoreTest {
     @Test
     void search_dedupThenTopKTruncation() {
         for (int i = 0; i < 5; i++) {
-            store.insertChunk("u1", "kb1", "重复块A", axis(0), "{}");   // 5 份相同内容
-            store.insertChunk("u1", "kb1", "片段" + i, axis(i), "{}");
+            store.insertChunk("u1", "kb1", "重复块A", "测试.txt", axis(0), "{}");   // 5 份相同内容
+            store.insertChunk("u1", "kb1", "片段" + i, "测试.txt", axis(i), "{}");
         }
 
         List<VectorStore.SearchHit> hits = store.search("u1", "kb1", axis(0), 3, 1.5);
@@ -241,14 +241,60 @@ class SQLiteVecStoreTest {
         assertEquals(1, dupCount, "重复块A 只出现一次");
     }
 
+    // 分文件列表：同名文件多块聚合一条（块数+最后时间），不同文件分开；老数据无文件名归"(未知文件)"
+    @Test
+    void listFiles_groupsByFilename() {
+        store.insertChunk("u1", "kb1", "甲一", "a.txt", axis(0), "{}");
+        store.insertChunk("u1", "kb1", "甲二", "a.txt", axis(1), "{}");
+        store.insertChunk("u1", "kb1", "乙一", "b.md", axis(2), "{}");
+        store.insertChunk("u1", "kb2", "别的库", "c.txt", axis(3), "{}");
+
+        List<VectorStore.FileInfo> files = store.listFiles("u1", "kb1");
+
+        assertEquals(2, files.size());
+        assertEquals("a.txt", files.get(0).filename());
+        assertEquals(2, files.get(0).chunkCount());
+        assertEquals("b.md", files.get(1).filename());
+        assertEquals(1, files.get(1).chunkCount());
+    }
+
+    // 分文件删除：只删指定文件的所有块，其他文件不动；vec/chunks 双删后检索不到
+    @Test
+    void deleteFile_removesOnlyThatFile() {
+        store.insertChunk("u1", "kb1", "甲一", "a.txt", axis(0), "{}");
+        store.insertChunk("u1", "kb1", "甲二", "a.txt", axis(1), "{}");
+        store.insertChunk("u1", "kb1", "乙一", "b.md", axis(2), "{}");
+
+        int deleted = store.deleteFile("u1", "kb1", "a.txt");
+
+        assertEquals(2, deleted, "同名文件两块全删");
+        assertEquals(1, store.listFiles("u1", "kb1").size(), "只剩 b.md");
+        List<VectorStore.SearchHit> hits = store.search("u1", "kb1", axis(2), 5, 1.5);
+        assertEquals(1, hits.size(), "b.md 的内容仍可检索");
+        assertEquals("乙一", hits.get(0).content());
+        // 删除不存在的文件：返回 0 不报错
+        assertEquals(0, store.deleteFile("u1", "kb1", "不存在.txt"));
+    }
+
+    // 分文件删除的隔离：u2 删不到 u1 库的文件（调用方 guard 负责拒绝，底层也按用户隔离）
+    @Test
+    void deleteFile_isolatedByUser() {
+        store.insertChunk("u1", "kb1", "甲的", "a.txt", axis(0), "{}");
+
+        int deleted = store.deleteFile("u2", "kb1", "a.txt");
+
+        assertEquals(0, deleted, "u2 删不到 u1 的文件");
+        assertEquals(1, store.listFiles("u1", "kb1").size());
+    }
+
     // 账号合并：from 默认库内容并入 to 默认库、非默认库改归属、越权隔离仍生效、from 身份清理
     @Test
     void transferTo_mergesKbsIntoToUser() {
         store.ensureUserWithDefaultKb("u1");
         store.ensureUserWithDefaultKb("u2");
-        store.insertChunk("u2", "u2-default", "B默认库内容", axis(0), "{}");
+        store.insertChunk("u2", "u2-default", "B默认库内容", "测试.txt", axis(0), "{}");
         String customKb = store.createKb("u2", "自定义库").kbId();
-        store.insertChunk("u2", customKb, "B自定义库内容", axis(1), "{}");
+        store.insertChunk("u2", customKb, "B自定义库内容", "测试.txt", axis(1), "{}");
 
         store.transferTo("u2", "u1");
 

@@ -73,6 +73,23 @@ public class RagController {
         return call("rag_list_kbs", Map.of("user_id", userId));
     }
 
+    // 列出库内文件（分文件删除的列表：文件名 | 块数 | 最后入库时间；kbId 缺省 = 默认库）
+    @GetMapping("/files")
+    public Result<String> files(@RequestParam String userId,
+                                @RequestParam(required = false) String kbId) {
+        String targetKb = kbId == null || kbId.isBlank() ? userId + "-default" : kbId;
+        return call("rag_list_files", Map.of("user_id", userId, "kb_id", targetKb));
+    }
+
+    // 删除库内单个文件（分文件删除；kbId 缺省 = 默认库）
+    @DeleteMapping("/delete-file")
+    public Result<String> deleteFile(@RequestParam String userId,
+                                     @RequestParam(required = false) String kbId,
+                                     @RequestParam String filename) {
+        String targetKb = kbId == null || kbId.isBlank() ? userId + "-default" : kbId;
+        return call("rag_delete_file", Map.of("user_id", userId, "kb_id", targetKb, "filename", filename));
+    }
+
     // 删除我的知识库（破坏性操作；用户体系后加二次确认）
     @DeleteMapping("/delete")
     public Result<String> delete(@RequestParam String userId, @RequestParam String kbId) {
