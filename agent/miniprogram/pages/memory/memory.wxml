@@ -1,17 +1,22 @@
 <view class="page">
-  <view class="head" wx:if="{{!viewing}}">
-    <view class="search">
-      <input class="ipt" placeholder="搜索对话内容" value="{{keyword}}" bindinput="onSearch" confirm-type="search" bindconfirm="doSearch" />
-      <view class="btn" bindtap="doSearch">搜索</view>
-    </view>
-  </view>
-  <view class="head" wx:else>
-    <view class="back" bindtap="backToList">← 返回列表</view>
+  <!-- 顶部品牌区 -->
+  <view class="hero">
+    <view class="hero-title">对话记忆</view>
+    <view class="hero-sub">微信 / Web / 小程序三端同步 · 对话历史安全保存</view>
   </view>
 
   <block wx:if="{{!viewing}}">
+    <!-- 搜索 -->
+    <view class="search">
+      <view class="search-ico"></view>
+      <input class="s-ipt" placeholder="搜索对话内容" value="{{keyword}}" bindinput="onSearch" confirm-type="search" bindconfirm="doSearch" />
+      <view class="s-btn" bindtap="doSearch">搜索</view>
+    </view>
+
+    <!-- 会话列表 -->
     <view class="list" wx:if="{{sessions.length}}">
       <view class="row" wx:for="{{sessions}}" wx:key="sessionId" data-sid="{{item.sessionId}}" bindtap="openDetail">
+        <view class="s-ico c{{index < 5 ? index : 4}}">{{index + 1}}</view>
         <view class="info">
           <view class="title">{{item.title}}</view>
           <view class="meta">{{item.time}} · {{item.count}} 条</view>
@@ -19,18 +24,26 @@
         <view class="del" data-sid="{{item.sessionId}}" catchtap="onDel">删除</view>
       </view>
     </view>
+
+    <!-- 空状态 -->
     <view class="empty" wx:elif="{{!loading}}">
-      <text>暂无对话记录</text>
-      <text class="tip">去对话页聊几句，历史会保存在这里</text>
+      <view class="empty-ico"></view>
+      <view class="empty-t">暂无对话记录</view>
+      <view class="empty-s">去对话页聊几句，历史会保存在这里</view>
     </view>
   </block>
 
+  <!-- 详情视图 -->
   <view class="detail" wx:else>
+    <view class="dhead">
+      <view class="back" bindtap="backToList">← 返回列表</view>
+    </view>
     <scroll-view scroll-y class="dscroll">
       <view class="msg {{item.role}}" wx:for="{{detail}}" wx:key="index">
+        <view class="dava {{item.role}}"></view>
         <view class="bubble">{{item.content}}</view>
       </view>
+      <view class="empty" wx:if="{{!detail.length}}">该会话暂无内容</view>
     </scroll-view>
-    <view class="empty" wx:if="{{!detail.length}}">该会话暂无内容</view>
   </view>
 </view>

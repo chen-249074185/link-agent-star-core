@@ -6,6 +6,7 @@ Page({
     logged: false,
     username: '',
     userId: '',
+    avatar: '星',
     password: '',
     loading: false,
     err: ''
@@ -18,7 +19,8 @@ Page({
       this.setData({
         logged: true,
         username: wx.getStorageSync('username') || '',
-        userId: app.globalData.userId
+        userId: app.globalData.userId,
+        avatar: (wx.getStorageSync('username') || '星').slice(0, 1).toUpperCase()
       })
     } else {
       this.setData({ logged: false })
@@ -43,7 +45,7 @@ Page({
         wx.setStorageSync('token', data.token)
         wx.setStorageSync('userId', data.userId)
         wx.setStorageSync('username', username)
-        this.setData({ logged: true, userId: data.userId, username, loading: false })
+        this.setData({ logged: true, userId: data.userId, username, avatar: username.slice(0, 1).toUpperCase(), loading: false })
         wx.showToast({ title: '登录成功', icon: 'success' })
       })
       .catch(e => {

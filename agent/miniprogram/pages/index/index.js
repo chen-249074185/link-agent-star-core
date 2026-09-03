@@ -6,6 +6,8 @@ Page({
     messages: [],
     input: '',
     sending: false,
+    thinking: false,      // 助手"正在思考"三点动画气泡
+    focused: false,       // 输入框聚焦（卡片高亮）
     scrollInto: ''
   },
 
@@ -18,6 +20,20 @@ Page({
 
   onInput(e) { this.setData({ input: e.detail.value }) },
 
+  onFocus() { this.setData({ focused: true }) },
+  onBlur() { this.setData({ focused: false }) },
+
+  // 快捷示例：点欢迎语示例直接发送
+  onQuick() {
+    this.setData({ input: '在北京租房，预算6000，通勤30分钟内' })
+    this.onSend()
+  },
+
+  now() {
+    const d = new Date()
+    return d.getHours().toString().padStart(2, '0') + ':' + d.getMinutes().toString().padStart(2, '0')
+  },
+
   onSend() {
     const text = (this.data.input || '').trim()
     console.log('[chat] onSend text=', text, 'sending=', this.data.sending, 'token=', !!app.globalData.token)
@@ -27,8 +43,8 @@ Page({
       return
     }
 
-    const messages = this.data.messages.concat([{ role: 'user', content: text }])
-    this.setData({ messages, input: '', sending: true })
+    const messages = this.data.messages.concat([{ role: 'user', content: text, time: this.now() }])
+    this.setData({ messages, input: '', sending: true, thinking: true, scrollInto: 'bottom' })
     console.log('[chat] 发送后 messages 数量=', messages.length)
     this.streamChat(text)
   },
@@ -48,24 +64,24 @@ Page({
       success(res) {
         console.log('[chat] ask 请求完成 statusCode=', res.statusCode, 'body=', JSON.stringify(res.data).slice(0, 200))
         if (res.statusCode === 401) {
-          that.setData({ sending: false })
+          that.setData({ sending: false, thinking: false })
           that.pushAssistant('登录已过期，请到"我的"重新登录')
           wx.switchTab({ url: '/pages/profile/profile' })
           return
         }
         const j = res.data || {}
         if (j.code === 0 && j.data && j.data.reply) {
+          that.setData({ sending: false, thinking: false })
           that.appendAssistant(j.data.reply)
-          that.setData({ sending: false })
           console.log('[chat] 回复后 messages 数量=', that.data.messages.length, '最后一条=', JSON.stringify(that.data.messages[that.data.messages.length - 1]).slice(0, 100))
         } else {
-          that.setData({ sending: false })
+          that.setData({ sending: false, thinking: false })
           that.pushAssistant((j.msg) || '请求失败，请重试')
         }
       },
       fail(err) {
         console.error('[chat] ask 请求失败', err)
-        that.setData({ sending: false })
+        that.setData({ sending: false, thinking: false })
         that.pushAssistant('请求失败，请重试')
       }
     })
@@ -83,7 +99,7 @@ Page({
   },
 
   pushAssistant(content) {
-    const messages = this.data.messages.concat([{ role: 'assistant', content }])
+    const messages = this.data.messages.concat([{ role: 'assistant', content, time: this.now() }])
     this.setData({ messages, scrollInto: 'bottom' })
   }
 })

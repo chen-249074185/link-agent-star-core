@@ -1,13 +1,43 @@
 <view class="page">
-  <view class="chat">
-    <view class="msg {{m.role}}" wx:for="{{messages}}" wx:for-item="m" wx:key="index">
-      <view class="bubble">{{m.content}}</view>
+  <!-- 消息区 -->
+  <scroll-view class="chat" scroll-y scroll-into-view="{{scrollInto}}" scroll-with-animation>
+    <view class="inner">
+      <view class="welcome" wx:if="{{!messages.length}}">
+        <view class="w-ico"></view>
+        <view class="w-t">你好，我是星链智核</view>
+        <view class="w-s">租房决策 · 知识库问答 · 求职猎聘 · 多模态对话</view>
+        <view class="w-chip" bindtap="onQuick">试试："在北京租房，预算6000，通勤30分钟内"</view>
+      </view>
+
+      <view class="msg {{m.role}}" wx:for="{{messages}}" wx:for-item="m" wx:key="index">
+        <view class="mava {{m.role}}"></view>
+        <view class="wrap">
+          <view class="bubble">{{m.content}}</view>
+          <view class="time">{{m.time}}</view>
+        </view>
+      </view>
+
+      <view class="msg assistant" wx:if="{{thinking}}">
+        <view class="mava assistant"></view>
+        <view class="wrap">
+          <view class="bubble typing"><view class="tdot"></view><view class="tdot"></view><view class="tdot"></view></view>
+        </view>
+      </view>
     </view>
     <view id="bottom" />
-  </view>
+  </scroll-view>
 
-  <view class="input-bar">
-    <input class="ipt" placeholder="问我点什么…" value="{{input}}" bindinput="onInput" confirm-type="send" bindconfirm="onSend" />
-    <button class="send {{sending ? 'send-disabled' : ''}}" bindtap="onSend" disabled="{{sending}}">发送</button>
+  <!-- 输入卡 -->
+  <view class="composer">
+    <view class="composer-inner">
+      <view class="composer-box {{focused ? 'focused' : ''}}">
+        <input class="ipt" placeholder="问我点什么…" placeholder-class="ipt-ph" value="{{input}}"
+               bindinput="onInput" confirm-type="send" bindconfirm="onSend"
+               bindfocus="onFocus" bindblur="onBlur" disabled="{{sending}}" />
+        <view class="send {{sending ? 'send-disabled' : ''}}" bindtap="onSend">
+          <view class="send-arrow"></view>
+        </view>
+      </view>
+    </view>
   </view>
 </view>

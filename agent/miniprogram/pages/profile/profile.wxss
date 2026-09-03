@@ -1,56 +1,333 @@
 /* pages/profile/profile.wxss */
 .page {
-  padding: 40rpx;
+  min-height: 100vh;
+  background: #f5f6fa;
+  padding-bottom: 60rpx;
+  box-sizing: border-box;
 }
 
-.card {
+/* ===== 顶部品牌区 ===== */
+.hero {
+  padding: 44rpx 36rpx 38rpx;
+  background: linear-gradient(135deg, #5b7cfa 0%, #7c6bf2 55%, #9b6df0 100%);
+  border-radius: 0 0 32rpx 32rpx;
+  box-shadow: 0 12rpx 32rpx rgba(91, 124, 250, 0.25);
+  position: relative;
+  overflow: hidden;
+}
+.hero::before {
+  content: '';
+  position: absolute;
+  width: 240rpx;
+  height: 240rpx;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.12);
+  right: -70rpx;
+  top: -90rpx;
+}
+.hero-ico {
+  width: 76rpx;
+  height: 76rpx;
+  border-radius: 22rpx;
+  background: rgba(255, 255, 255, 0.2);
+  border: 2rpx solid rgba(255, 255, 255, 0.35);
+  position: relative;
+  margin-bottom: 22rpx;
+}
+.hero-ico::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 30rpx;
+  height: 30rpx;
+  border: 5rpx solid #fff;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+}
+.hero-title {
+  color: #fff;
+  font-size: 40rpx;
+  font-weight: 700;
+  letter-spacing: 3rpx;
+}
+.hero-sub {
+  color: rgba(255, 255, 255, 0.78);
+  font-size: 23rpx;
+  margin-top: 8rpx;
+}
+
+/* ===== 已登录：用户卡片 ===== */
+.user-card {
   display: flex;
   align-items: center;
   background: #fff;
-  border-radius: 20rpx;
-  padding: 40rpx;
-  margin-bottom: 40rpx;
+  border-radius: 24rpx;
+  padding: 36rpx 32rpx;
+  margin: 28rpx 28rpx 0;
+  box-shadow: 0 6rpx 20rpx rgba(60, 74, 120, 0.07);
 }
 .avatar {
-  width: 100rpx;
-  height: 100rpx;
+  width: 110rpx;
+  height: 110rpx;
   border-radius: 50%;
-  background: #4a6cf7;
+  background: linear-gradient(135deg, #6f86ff, #9b6df0);
   color: #fff;
-  font-size: 44rpx;
-  text-align: center;
-  line-height: 100rpx;
-  margin-right: 24rpx;
+  font-size: 48rpx;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 28rpx;
+  flex-shrink: 0;
+  box-shadow: 0 8rpx 22rpx rgba(111, 134, 255, 0.35);
 }
-.name { font-size: 34rpx; font-weight: bold; }
-.uid { font-size: 24rpx; color: #999; margin-top: 8rpx; }
-.logout {
-  background: #ff4d4f;
-  color: #fff;
-  border-radius: 12rpx;
-  font-size: 30rpx;
+.u-info {
+  flex: 1;
+  min-width: 0;
+}
+.u-name {
+  font-size: 36rpx;
+  color: #2b2f3a;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.u-uid {
+  font-size: 23rpx;
+  color: #a0a6b8;
+  margin-top: 10rpx;
+  word-break: break-all;
+}
+.badge {
+  flex-shrink: 0;
+  font-size: 22rpx;
+  color: #3ddc97;
+  background: rgba(61, 220, 151, 0.12);
+  border-radius: 20rpx;
+  padding: 6rpx 18rpx;
+  font-weight: 600;
 }
 
-.login-box {
+/* ===== 三端互通卡 ===== */
+.sync-card {
+  background: #fff;
+  border-radius: 24rpx;
+  padding: 30rpx 32rpx;
+  margin: 22rpx 28rpx 0;
+  box-shadow: 0 6rpx 20rpx rgba(60, 74, 120, 0.07);
+}
+.sync-title {
+  font-size: 30rpx;
+  color: #2b2f3a;
+  font-weight: 700;
+}
+.sync-desc {
+  font-size: 24rpx;
+  color: #8a93a8;
+  line-height: 1.7;
+  margin-top: 12rpx;
+}
+.sync-items {
+  display: flex;
+  margin-top: 24rpx;
+}
+.sync-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  font-size: 22rpx;
+  color: #6b7285;
+}
+.si-ico {
+  width: 72rpx;
+  height: 72rpx;
+  border-radius: 20rpx;
+  margin-bottom: 12rpx;
+  position: relative;
+}
+.si-ico.i1 { background: linear-gradient(135deg, #5b7cfa, #7c6bf2); }
+.si-ico.i1::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 26rpx;
+  height: 30rpx;
+  border: 4rpx solid #fff;
+  border-radius: 6rpx;
+  transform: translate(-50%, -50%);
+}
+.si-ico.i2 { background: linear-gradient(135deg, #ffa14d, #f77d2e); }
+.si-ico.i2::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 32rpx;
+  height: 26rpx;
+  background: #fff;
+  border-radius: 6rpx;
+  transform: translate(-50%, -50%);
+}
+.si-ico.i3 { background: linear-gradient(135deg, #3ecf8e, #23a66a); }
+.si-ico.i3::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 0;
+  height: 0;
+  border-left: 16rpx solid transparent;
+  border-right: 16rpx solid transparent;
+  border-top: 26rpx solid #fff;
+  transform: translate(-50%, -40%);
+}
+
+/* ===== 退出登录 ===== */
+.logout {
+  margin: 40rpx 28rpx 0;
   background: #fff;
   border-radius: 20rpx;
-  padding: 60rpx 40rpx;
-  margin-top: 100rpx;
-}
-.logo { font-size: 44rpx; font-weight: bold; text-align: center; color: #4a6cf7; }
-.sub { font-size: 24rpx; color: #999; text-align: center; margin: 12rpx 0 40rpx; }
-.ipt {
-  background: #f5f6fa;
-  border-radius: 12rpx;
-  padding: 20rpx 24rpx;
-  margin-bottom: 24rpx;
+  text-align: center;
+  padding: 28rpx;
+  color: #e54d42;
   font-size: 30rpx;
+  font-weight: 600;
+  box-shadow: 0 6rpx 20rpx rgba(60, 74, 120, 0.07);
+}
+
+/* ===== 未登录：登录卡片 ===== */
+.login-box {
+  background: #fff;
+  border-radius: 28rpx;
+  padding: 56rpx 40rpx 44rpx;
+  margin: 56rpx 28rpx 0;
+  box-shadow: 0 10rpx 30rpx rgba(60, 74, 120, 0.08);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.login-ico {
+  width: 96rpx;
+  height: 96rpx;
+  border-radius: 28rpx;
+  background: linear-gradient(135deg, #5b7cfa, #9b6df0);
+  box-shadow: 0 12rpx 28rpx rgba(91, 124, 250, 0.32);
+  position: relative;
+  margin-bottom: 24rpx;
+}
+.login-ico::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 38rpx;
+  height: 38rpx;
+  border: 6rpx solid #fff;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+}
+.login-t {
+  font-size: 38rpx;
+  font-weight: 700;
+  color: #2b2f3a;
+}
+.login-s {
+  font-size: 24rpx;
+  color: #a0a6b8;
+  margin: 10rpx 0 36rpx;
+}
+.fld {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  background: #f2f4fb;
+  border-radius: 20rpx;
+  padding: 22rpx 26rpx;
+  margin-bottom: 22rpx;
+}
+.fld-ico {
+  width: 32rpx;
+  height: 32rpx;
+  margin-right: 20rpx;
+  flex-shrink: 0;
+  position: relative;
+}
+.fld-ico.u {
+  border: 4rpx solid #8a93a8;
+  border-radius: 50%;
+}
+.fld-ico.u::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 100%;
+  width: 40rpx;
+  height: 18rpx;
+  background: #8a93a8;
+  border-radius: 18rpx 18rpx 0 0;
+  transform: translateX(-50%);
+}
+.fld-ico.p {
+  border: 4rpx solid #8a93a8;
+  border-radius: 8rpx;
+}
+.fld-ico.p::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: 100%;
+  width: 20rpx;
+  height: 22rpx;
+  border: 4rpx solid #8a93a8;
+  border-bottom: none;
+  border-radius: 12rpx 12rpx 0 0;
+  transform: translateX(-50%);
+}
+.fld-ipt {
+  flex: 1;
+  font-size: 29rpx;
 }
 .login-btn {
-  background: #4a6cf7;
+  width: 100%;
+  margin-top: 8rpx;
+  background: linear-gradient(135deg, #5b7cfa, #9b6df0);
   color: #fff;
-  border-radius: 12rpx;
+  border-radius: 48rpx;
   font-size: 32rpx;
+  font-weight: 700;
+  letter-spacing: 8rpx;
+  padding: 20rpx 0;
+  box-shadow: 0 10rpx 26rpx rgba(91, 124, 250, 0.35);
+  border: none;
+  line-height: 1.6;
 }
-.err { color: #ff4d4f; font-size: 26rpx; margin-top: 16rpx; text-align: center; }
-.hint { font-size: 22rpx; color: #bbb; margin-top: 24rpx; line-height: 1.6; }
+.login-btn::after {
+  border: none;
+}
+.login-btn[disabled] {
+  background: #c3cae8;
+  color: #fff;
+  box-shadow: none;
+}
+.err {
+  width: 100%;
+  margin-top: 22rpx;
+  background: rgba(229, 77, 66, 0.08);
+  border: 1rpx solid rgba(229, 77, 66, 0.2);
+  border-radius: 14rpx;
+  padding: 16rpx 20rpx;
+  color: #e54d42;
+  font-size: 25rpx;
+  text-align: center;
+}
+.hint {
+  font-size: 22rpx;
+  color: #b0b6c6;
+  margin-top: 28rpx;
+  line-height: 1.7;
+  text-align: center;
+}

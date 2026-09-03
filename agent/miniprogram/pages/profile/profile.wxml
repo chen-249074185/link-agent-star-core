@@ -1,26 +1,61 @@
 <view class="page">
-  <!-- 已登录：展示账号信息 -->
+  <!-- 顶部品牌区 -->
+  <view class="hero">
+    <view class="hero-ico"></view>
+    <view class="hero-title">星链智核</view>
+    <view class="hero-sub">全域自适应多端 AI 智能助手</view>
+  </view>
+
+  <!-- 已登录 -->
   <block wx:if="{{logged}}">
-    <view class="card">
-      <view class="avatar">星</view>
-      <view class="info">
-        <view class="name">{{username}}</view>
-        <view class="uid">ID: {{userId}}</view>
+    <view class="user-card">
+      <view class="avatar">{{avatar}}</view>
+      <view class="u-info">
+        <view class="u-name">{{username}}</view>
+        <view class="u-uid">ID: {{userId}}</view>
+      </view>
+      <view class="badge">已登录</view>
+    </view>
+
+    <view class="sync-card">
+      <view class="sync-title">三端互通</view>
+      <view class="sync-desc">微信对话 · Web 网页 · 小程序 — 同一账号，知识库 / 记忆 / 猎聘配置完全同步</view>
+      <view class="sync-items">
+        <view class="sync-item">
+          <view class="si-ico i1"></view>
+          <text>私有知识库</text>
+        </view>
+        <view class="sync-item">
+          <view class="si-ico i2"></view>
+          <text>对话记忆</text>
+        </view>
+        <view class="sync-item">
+          <view class="si-ico i3"></view>
+          <text>租房决策</text>
+        </view>
       </view>
     </view>
-    <button class="logout" bindtap="onLogout">退出登录</button>
+
+    <view class="logout" bindtap="onLogout">退出登录</view>
   </block>
 
-  <!-- 未登录：登录表单 -->
+  <!-- 未登录 -->
   <block wx:else>
     <view class="login-box">
-      <view class="logo">星链智核</view>
-      <view class="sub">与 Web / 微信同一账号体系</view>
-      <input class="ipt" placeholder="用户名" value="{{username}}" bindinput="onUsername" />
-      <input class="ipt" placeholder="密码" password value="{{password}}" bindinput="onPassword" />
-      <button class="login-btn" bindtap="onLogin" loading="{{loading}}">登录</button>
+      <view class="login-ico"></view>
+      <view class="login-t">登录</view>
+      <view class="login-s">与 Web / 微信同一账号体系</view>
+      <view class="fld">
+        <view class="fld-ico u"></view>
+        <input class="fld-ipt" placeholder="用户名" value="{{username}}" bindinput="onUsername" />
+      </view>
+      <view class="fld">
+        <view class="fld-ico p"></view>
+        <input class="fld-ipt" placeholder="密码" password value="{{password}}" bindinput="onPassword" />
+      </view>
+      <button class="login-btn" bindtap="onLogin" loading="{{loading}}" disabled="{{loading}}">登 录</button>
       <view class="err" wx:if="{{err}}">{{err}}</view>
-      <view class="hint">未注册？在小程序直接登录即可（后端"登录即注册"用户名路径暂不支持，请先用 Web 端注册，或填未占用用户名将自动创建）</view>
+      <view class="hint">未注册？填一个未占用用户名直接登录将自动创建账号（与 Web 端注册互通）</view>
     </view>
   </block>
 </view>
