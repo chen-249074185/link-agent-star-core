@@ -29,6 +29,10 @@
 
   <!-- 输入卡 -->
   <view class="composer">
+    <view class="chat-tools">
+      <view class="newchat" bindtap="onNewChat">＋ 新对话</view>
+      <view class="session-tip" wx:if="{{sessionId}}">会话 {{sessionId}}</view>
+    </view>
     <view class="composer-inner">
       <view class="composer-box {{focused ? 'focused' : ''}}">
         <input class="ipt" placeholder="问我点什么…" placeholder-class="ipt-ph" value="{{input}}"

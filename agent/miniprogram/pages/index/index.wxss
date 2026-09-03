@@ -192,6 +192,29 @@
   background: #fff;
   box-shadow: 0 -6rpx 24rpx rgba(60, 74, 120, 0.06);
 }
+.chat-tools {
+  display: flex;
+  align-items: center;
+  margin: 0 auto 14rpx;
+  max-width: 720rpx;
+}
+.newchat {
+  font-size: 24rpx;
+  color: #5b7cfa;
+  font-weight: 600;
+  background: #f2f4fb;
+  border-radius: 26rpx;
+  padding: 8rpx 22rpx;
+}
+.session-tip {
+  margin-left: auto;
+  font-size: 20rpx;
+  color: #b0b6c6;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 40%;
+}
 .composer-inner {
   max-width: 720rpx;
   margin: 0 auto;
