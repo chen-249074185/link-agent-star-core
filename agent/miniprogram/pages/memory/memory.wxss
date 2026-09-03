@@ -82,6 +82,20 @@
   padding: 12rpx 34rpx;
 }
 
+/* ===== 清空全部 ===== */
+.clear-row {
+  padding: 0 28rpx 18rpx;
+  text-align: right;
+}
+.clear-all {
+  display: inline-block;
+  font-size: 24rpx;
+  color: #e54d42;
+  background: rgba(229, 77, 66, 0.08);
+  border-radius: 28rpx;
+  padding: 10rpx 28rpx;
+}
+
 /* ===== 会话卡片 ===== */
 .list {
   padding: 0 28rpx;

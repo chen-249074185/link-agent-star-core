@@ -154,6 +154,13 @@ public class ChatController {
         return Result.ok("已删除该会话");
     }
 
+    // 清空全部记忆（小程序记忆页"清空全部"）：对话 + 每日摘要 + Redis 瞬时记忆三处全清
+    @DeleteMapping("/clear-all")
+    public Result<String> clearAll(@RequestParam String userId) {
+        int n = chatHistoryService.clearAll(userId);
+        return Result.ok(n > 0 ? "已清空全部记忆（" + n + " 条对话）" : "记忆本就是空的");
+    }
+
     // 历史搜索：按内容关键词，命中行归并成会话（最新在前）
     @GetMapping("/search")
     public Result<List<Map<String, Object>>> searchHistory(@RequestParam String userId,

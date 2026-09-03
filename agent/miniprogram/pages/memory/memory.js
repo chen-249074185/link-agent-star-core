@@ -84,5 +84,25 @@ Page({
           .catch(err => wx.showToast({ title: (err && err.msg) || '删除失败', icon: 'none' }))
       }
     })
+  },
+
+  // 清空全部记忆：对话 + 每日摘要 + 瞬时记忆三处全清（二次确认）
+  onClearAll() {
+    const app = getApp()
+    wx.showModal({
+      title: '清空全部记忆',
+      content: '将删除该账号的全部对话记录、每日摘要与瞬时记忆，不可恢复。',
+      confirmColor: '#e54d42',
+      success: res => {
+        if (!res.confirm) return
+        del('/api/chat/clear-all', { userId: app.globalData.userId })
+          .then(data => {
+            wx.showToast({ title: data || '已清空', icon: 'success' })
+            this.setData({ viewing: false, detail: [], keyword: '' })
+            this.loadHistory()
+          })
+          .catch(err => wx.showToast({ title: (err && err.msg) || '清空失败', icon: 'none' }))
+      }
+    })
   }
 })

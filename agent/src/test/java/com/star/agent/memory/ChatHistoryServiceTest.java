@@ -32,6 +32,19 @@ class ChatHistoryServiceTest {
         mapper.deleteByUserId(userId);
     }
 
+    // 清空全部记忆：对话全删（+每日摘要+瞬时记忆由 clearAll 内部处理，此处验证对话列表归零）
+    @Test
+    void clearAll_removesEveryConversation() {
+        insert("user", "会话A第一条", "sa", LocalDateTime.of(2026, 10, 28, 9, 0));
+        insert("user", "会话B第一条", "sb", LocalDateTime.of(2026, 10, 28, 10, 0));
+
+        int deleted = service.clearAll(userId);
+
+        assertTrue(deleted >= 2);
+        assertEquals(0, service.list(userId).size(), "清空后会话列表应为空");
+        assertEquals(0, service.search(userId, "第一条").size(), "清空后搜索应为空");
+    }
+
     // 插一条指定会话和时间的流水
     private ConversationDo insert(String role, String content, String sessionId, LocalDateTime time) {
         ConversationDo c = new ConversationDo();

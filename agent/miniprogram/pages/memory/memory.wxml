@@ -6,11 +6,14 @@
   </view>
 
   <block wx:if="{{!viewing}}">
-    <!-- 搜索 -->
+    <!-- 搜索 + 清空 -->
     <view class="search">
       <view class="search-ico"></view>
       <input class="s-ipt" placeholder="搜索对话内容" value="{{keyword}}" bindinput="onSearch" confirm-type="search" bindconfirm="doSearch" />
       <view class="s-btn" bindtap="doSearch">搜索</view>
+    </view>
+    <view class="clear-row" wx:if="{{sessions.length}}">
+      <view class="clear-all" bindtap="onClearAll">清空全部记忆</view>
     </view>
 
     <!-- 会话列表 -->

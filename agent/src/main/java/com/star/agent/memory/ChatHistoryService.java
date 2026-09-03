@@ -1,9 +1,11 @@
 package com.star.agent.memory;
 
 import com.star.agent.memory.dao.ConversationDao;
+import com.star.agent.memory.dao.DailySummaryDao;
 import com.star.agent.memory.domain.ConversationDo;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
@@ -31,9 +33,14 @@ public class ChatHistoryService {
     private static final int MAX_TITLE = 20;      // 标题截断长度
 
     private final ConversationDao dao;
+    private final DailySummaryDao summaryDao;
+    private final EphemeralMemory ephemeralMemory;
 
-    public ChatHistoryService(ConversationDao dao) {
+    @Autowired   // 多构造器时 Spring 靠它挑（坑15 同类）
+    public ChatHistoryService(ConversationDao dao, DailySummaryDao summaryDao, EphemeralMemory ephemeralMemory) {
         this.dao = dao;
+        this.summaryDao = summaryDao;
+        this.ephemeralMemory = ephemeralMemory;
     }
 
     // 会话列表（最新在前）：{sessionId, title, time, count}
@@ -66,6 +73,17 @@ public class ChatHistoryService {
         int n = dao.deleteBySession(userId, sessionId);
         logger.info("删除会话 {}: {} 条", sessionId, n);
         return n > 0;
+    }
+
+    // 清空该用户的全部记忆：MySQL 短期记忆 + 每日摘要 + Redis 瞬时记忆三处全清
+    // （小程序记忆页"清空全部"与微信"删除聊天记录"命令同语义）
+    public int clearAll(String userId) {
+        int conversations = dao.deleteByUserId(userId);
+        int summaries = summaryDao.deleteByUserId(userId);
+        ephemeralMemory.delete(userId);
+        logger.info("用户 {} 记忆已全部清空：对话 {} 条、每日摘要 {} 条、瞬时记忆已删",
+                userId, conversations, summaries);
+        return conversations;
     }
 
     // 搜索：命中内容按 session_id 归并成会话（最新在前）
