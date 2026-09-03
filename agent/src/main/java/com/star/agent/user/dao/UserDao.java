@@ -28,6 +28,9 @@ public interface UserDao {
     // 绑定/换绑邮箱（账号合并用：先迁数据后改邮箱）
     int updateEmail(String userId, String email);
 
+    // 更新人设（用户自定义，11-05 起；persona 为 null 视作清除）
+    int updatePersona(String userId, String persona);
+
     // 删除账号（测试清理/注销用）
     int deleteByUserId(String userId);
 }

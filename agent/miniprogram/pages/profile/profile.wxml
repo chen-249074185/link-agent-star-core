@@ -36,6 +36,28 @@
       </view>
     </view>
 
+    <!-- 助手人设卡 -->
+    <view class="sync-card">
+      <view class="sync-title">助手人设</view>
+      <view class="sync-desc" wx:if="{{personaConfigured}}">当前：{{personaText}}</view>
+      <view class="sync-desc" wx:else>未设置 · 默认助手（可自定义人设或选预设）</view>
+      <view class="lp-actions" wx:if="{{!personaEditing}}">
+        <view class="lp-act" bindtap="togglePersonaEdit">{{personaConfigured ? '更换' : '设置'}}</view>
+        <view class="lp-act danger" wx:if="{{personaConfigured}}" bindtap="clearPersona">恢复默认</view>
+      </view>
+      <view class="lp-box" wx:if="{{personaEditing}}">
+        <view class="preset-row">
+          <view class="preset-chip" wx:for="{{presets}}" wx:key="id" data-id="{{item.id}}" bindtap="pickPreset">{{item.name}}</view>
+        </view>
+        <textarea class="persona-area" placeholder="自定义人设，如：你是东北雨姐，说话豪爽" value="{{personaDraft}}" bindinput="onPersonaInput" maxlength="200" />
+        <view class="lp-err" wx:if="{{personaErr}}">{{personaErr}}</view>
+        <view class="preset-actions">
+          <view class="lp-act" bindtap="togglePersonaEdit">取消</view>
+          <view class="lp-act primary" bindtap="savePersona">保存生效</view>
+        </view>
+      </view>
+    </view>
+
     <view class="sync-card">
       <view class="sync-title">猎聘求职</view>
       <view class="sync-desc" wx:if="{{!lpConfigured}}">配置猎聘 Token 后，可查岗位 / 精筛 / 读简历（获取：猎聘官网 mcp/auth 登录生成）</view>

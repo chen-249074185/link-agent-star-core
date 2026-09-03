@@ -62,7 +62,7 @@ class ChatServiceTest {
     private final DailySummaryService dailySummaryService = mock(DailySummaryService.class);
     // 真实 ScenePolicyConfig：CHAT 场景 memory=ephemeral（验证记忆接入）；GROUP 场景 memory=none（验证不记）
     private final ScenePolicyConfig scenePolicyConfig = new ScenePolicyConfig();
-    private final ChatService service = new ChatService(llmClient, router, registry, kernel, detector, workflow, memory, scenePolicyConfig, shortTermMemory, dailySummaryService, new com.star.agent.governance.SensitiveToolGuard(), null, null, null);
+    private final ChatService service = new ChatService(llmClient, router, registry, kernel, detector, workflow, memory, scenePolicyConfig, shortTermMemory, dailySummaryService, new com.star.agent.governance.SensitiveToolGuard(), null, null, null, null);
 
     public ChatServiceTest() {
         Map<Scene, ScenePolicy> policies = Map.of(
@@ -190,7 +190,7 @@ class ChatServiceTest {
         SkillRegistry registry2 = new SkillRegistry(List.of(weather, highRisk));
         ChatService svc = new ChatService(llmClient, router, registry2, kernel, detector, workflow,
                 memory, scenePolicyConfig, shortTermMemory, dailySummaryService,
-                new com.star.agent.governance.SensitiveToolGuard(), null, null, null);
+                new com.star.agent.governance.SensitiveToolGuard(), null, null, null, null);
 
         // 第一轮：模型请求 liepin_apply → 治理内核拒绝 → 模型把拒绝转述给用户
         when(llmClient.chat(anyList(), anyList()))
@@ -221,7 +221,7 @@ class ChatServiceTest {
         GovernanceKernel kernel2 = new GovernanceKernel(registry2, confirmStore, new InMemoryRateLimiter());
         ChatService svc = new ChatService(llmClient, router, registry2, kernel2, detector, workflow,
                 memory, scenePolicyConfig, shortTermMemory, dailySummaryService,
-                new com.star.agent.governance.SensitiveToolGuard(), null, null, null);
+                new com.star.agent.governance.SensitiveToolGuard(), null, null, null, null);
 
         when(llmClient.chat(anyList(), anyList()))
                 .thenReturn(new ChatResponse("", List.of(new ToolCall("c1", "mcp_liepin_resume", "{}"))))
@@ -244,7 +244,7 @@ class ChatServiceTest {
         GovernanceKernel kernel2 = new GovernanceKernel(registry2, confirmStore, new InMemoryRateLimiter());
         ChatService svc = new ChatService(llmClient, router, registry2, kernel2, detector, workflow,
                 memory, scenePolicyConfig, shortTermMemory, dailySummaryService,
-                new com.star.agent.governance.SensitiveToolGuard(), null, null, null);
+                new com.star.agent.governance.SensitiveToolGuard(), null, null, null, null);
 
         when(llmClient.chat(anyList(), anyList()))
                 .thenReturn(new ChatResponse("", List.of(new ToolCall("c1", "mcp_liepin_resume", "{}"))))
@@ -269,7 +269,7 @@ class ChatServiceTest {
         GovernanceKernel kernel2 = new GovernanceKernel(reg2, confirmStore, new InMemoryRateLimiter());
         ChatService svc = new ChatService(llmClient, router, reg2, kernel2, detector, workflow,
                 memory, scenePolicyConfig, shortTermMemory, dailySummaryService,
-                new com.star.agent.governance.SensitiveToolGuard(), null, null, null);
+                new com.star.agent.governance.SensitiveToolGuard(), null, null, null, null);
 
         List<String> tokens = new java.util.ArrayList<>();
         List<String> statuses = new java.util.ArrayList<>();
@@ -318,7 +318,7 @@ class ChatServiceTest {
     private final ChatHistoryService chatHistory = mock(ChatHistoryService.class);
     private final ChatService sessionSvc = new ChatService(llmClient, router, registry, kernel, detector, workflow,
             memory, scenePolicyConfig, shortTermMemory, dailySummaryService,
-            new com.star.agent.governance.SensitiveToolGuard(), chatHistory, null, null);
+            new com.star.agent.governance.SensitiveToolGuard(), chatHistory, null, null, null);
 
     private static ConversationDo recentRow(String sessionId, LocalDateTime createdAt) {
         ConversationDo row = new ConversationDo();

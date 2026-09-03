@@ -48,6 +48,17 @@ public class UserRepository {
         dao.updateEmail(userId, email);
     }
 
+    // 设置/覆盖人设（null = 清除恢复默认）
+    public void savePersona(String userId, String persona) {
+        dao.updatePersona(userId, persona);
+    }
+
+    // 当前人设文本（未设置返回 null）
+    public String findPersona(String userId) {
+        UserDo user = dao.findByUserId(userId);
+        return user == null ? null : user.getPersona();
+    }
+
     public void deleteByUserId(String userId) {
         dao.deleteByUserId(userId);
     }

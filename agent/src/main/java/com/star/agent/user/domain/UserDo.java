@@ -11,6 +11,7 @@ public class UserDo {
     private String passwordHash;    // BCrypt 哈希（邮箱注册可空=免密码走验证码）
     private String email;           // QQ 邮箱（可空=未绑定，唯一）
     private String wechatId;        // 绑定的微信身份（可空=未绑定，唯一；微信对话经它映射到本账号，10-31 起）
+    private String persona;         // 自定义人设文本（可空=默认；用户自由定义，11-05 起）
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
@@ -52,6 +53,14 @@ public class UserDo {
 
     public void setWechatId(String wechatId) {
         this.wechatId = wechatId;
+    }
+
+    public String getPersona() {
+        return persona;
+    }
+
+    public void setPersona(String persona) {
+        this.persona = persona;
     }
 
     public LocalDateTime getCreatedAt() {

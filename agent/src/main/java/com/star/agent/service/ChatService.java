@@ -24,6 +24,7 @@ import com.star.agent.skill.Skill;
 import com.star.agent.skill.SkillContext;
 import com.star.agent.skill.SkillRegistry;
 import com.star.agent.skill.SkillResult;
+import com.star.agent.user.PersonaManager;
 import com.star.agent.workflow.RentDecisionWorkflow;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -54,6 +55,7 @@ public class ChatService {
     private final DailySummaryService dailySummaryService;  // 每日压缩：跨天对话前惰性补压
     private final SensitiveToolGuard sensitiveToolGuard;    // 敏感工具意图守卫（简历等需用户明确要求）
     private final UsageStatsService usageStats;             // 调用统计埋点（管理端"调用统计"Tab，可空）
+    private final PersonaManager personaManager;            // 人设：自定义文本 → system prompt 注入（11-05，可空）
 
     public ChatService(@Qualifier("deepSeekLlmClient")LlmClient llmClient, ModelRouter modelRouter, SkillRegistry skillRegistry, GovernanceKernel governanceKernel,
                        RentRequestDetector rentRequestDetector, RentDecisionWorkflow workflow,
@@ -61,7 +63,7 @@ public class ChatService {
                        ShortTermMemory shortTermMemory, DailySummaryService dailySummaryService,
                        SensitiveToolGuard sensitiveToolGuard,
                        ChatHistoryService chatHistoryService, ConversationDao conversationDao,
-                       UsageStatsService usageStats) {
+                       UsageStatsService usageStats, PersonaManager personaManager) {
         this.llmClient = llmClient;
         this.modelRouter = modelRouter;
         this.skillRegistry = skillRegistry;
@@ -76,6 +78,18 @@ public class ChatService {
         this.chatHistoryService = chatHistoryService;
         this.conversationDao = conversationDao;
         this.usageStats = usageStats;
+        this.personaManager = personaManager;
+    }
+
+    // 人设注入：用户设置了自定义人设 → 消息开头插一条 system prompt（未设置零影响）
+    private void applyPersona(List<ChatMessage> messages, String userId) {
+        if (personaManager == null || userId == null) {
+            return;
+        }
+        String prompt = personaManager.systemPromptOf(userId);
+        if (prompt != null) {
+            messages.add(ChatMessage.fromSystem(prompt));
+        }
     }
 
     public String chat(String userMessage, String userId, String scene) {
@@ -105,6 +119,7 @@ public class ChatService {
             dailySummaryService.compressMissingForUser(userId);
         }
         List<ChatMessage> messages = new ArrayList<>();
+        applyPersona(messages, userId);   // 人设注入（未设置不插，默认助手）
         // 瞬时记忆：该场景要记的话，先把历史对话拼在最前面（AI 才记得"之前聊过啥"）
         if (memoryEnabled(scene)) {
             for (ChatEntry entry : ephemeralMemory.load(userId)) {
@@ -218,6 +233,7 @@ public class ChatService {
         logger.info("流式对话[{}] 路由模型: {}", scene, client.model());
 
         List<ChatMessage> messages = new ArrayList<>();
+        applyPersona(messages, userId);   // 人设注入（未设置不插，默认助手）
         if (userId != null && sessionId != null) {
             // 取该会话最近的上下文（最多 20 条，AI 记得之前聊过啥）
             List<ConversationDo> history = conversationDao.findBySession(userId, sessionId);
@@ -318,6 +334,7 @@ public class ChatService {
         }
 
         List<ChatMessage> messages = new ArrayList<>();
+        applyPersona(messages, userId);   // 人设注入（未设置不插，默认助手）
         if (userId != null && sessionId != null && conversationDao != null) {
             // 取该会话最近的上下文（最多 20 条，AI 记得之前聊过啥）
             List<ConversationDo> history = conversationDao.findBySession(userId, sessionId);
