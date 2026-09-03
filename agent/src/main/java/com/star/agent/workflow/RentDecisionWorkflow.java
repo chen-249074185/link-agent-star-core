@@ -26,6 +26,10 @@ public class RentDecisionWorkflow {
             "liepin_jobs", "mcp_liepin_search_jobs"
     );
 
+    // 共享房源库（11-03 方案1）：房源=通用公开数据（爬链家），全用户只读可检索。
+    // 真实模式 rag_search 固定检索共享库，不再依赖用户自己传房源；岗位仍走用户私有库
+    public static final String SHARED_HOUSES_KB = "kb-shared-houses";
+
     private final SkillRegistry skillRegistry;   // 技能花名册（含本地 @Component + 程序化注册的 MCP 技能）
     private final WorkflowEngine engine;         // 通用执行器（传送带）
 
@@ -66,9 +70,11 @@ public class RentDecisionWorkflow {
             new SkillNode("jobs", skill("liepin_jobs"),
                     "{\"city\":\"" + city + "\",\"keyword\":\"Java开发\",\"address\":\"" + city + "\"}"),
             // 工序2：RAG 房源检索（参数双兼容：Mock 读 city/maxPrice；真实 MCP 读 query 做语义检索）
+            // kb_id 固定共享房源库（只读全局库，房源=公开数据；McpSkill 白名单放行此值）
             new SkillNode("houses", skill("rag_search"),
                     "{\"city\":\"" + city + "\",\"maxPrice\":" + maxPrice
-                            + ",\"query\":\"" + city + " 预算" + maxPrice + "元以内 房源 租房\"}"),
+                            + ",\"query\":\"" + city + " 预算" + maxPrice + "元以内 房源 租房\""
+                            + ",\"kb_id\":\"" + SHARED_HOUSES_KB + "\"}"),
             // 工序3：通勤测算（mock 阶段固定示例坐标，真实房源带坐标后改动态）
             new SkillNode("commutes", skill("commute_estimate"),
                     "{\"origin\":\"116.481028,39.989643\",\"destination\":\"116.465302,40.004717\"}"),

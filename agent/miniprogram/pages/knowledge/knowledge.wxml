@@ -1,17 +1,43 @@
 <view class="page">
-  <view class="head">
-    <button class="up" bindtap="chooseUpload" disabled="{{uploading}}">{{uploading ? '上传中…' : '上传文档'}}</button>
+  <!-- 顶部品牌区 -->
+  <view class="hero">
+    <view class="hero-top">
+      <view class="hero-title">我的知识库</view>
+      <view class="hero-sub">上传文档，AI 将基于你的资料回答</view>
+    </view>
+    <button class="up" bindtap="chooseUpload" disabled="{{uploading}}">
+      <text class="up-ico"></text>{{uploading ? '上传中…' : '上传文档'}}
+    </button>
   </view>
 
-  <view class="upbar" wx:if="{{uploading}}">
-    <view class="bar"><view class="fill" style="width: {{uploadProgress}}%;"></view></view>
-    <text class="uptxt">{{uploadStatus}} {{uploadProgress}}%</text>
+  <!-- 共享房源库（公开数据，只读）：紧挨上传卡片下方 -->
+  <view class="shared-box">
+    <view class="shared-head">
+      <view class="shared-title">
+        <view class="shared-dot"></view>
+        <text>共享房源库</text>
+      </view>
+      <view class="shared-sub">34 城链家公开房源 · 全用户只读 · 租房决策自动引用</view>
+    </view>
+    <view class="shared-list" wx:if="{{sharedFiles.length}}">
+      <view class="srow" wx:for="{{sharedFiles}}" wx:key="name">
+        <view class="ficon sficon {{item.cls}}"><text>{{item.ext}}</text></view>
+        <view class="info">
+          <view class="sname">{{item.name}}</view>
+          <view class="smeta">{{item.count}}<text wx:if="{{item.time}}"> · {{item.time}}</text></view>
+        </view>
+        <view class="sread">只读</view>
+      </view>
+    </view>
+    <view class="sempty" wx:elif="{{!loadingShared}}">共享房源库加载中或暂不可用</view>
   </view>
 
-  <view class="tiprow" wx:if="{{files.length}}">默认知识库 · 共 {{files.length}} 个文件</view>
+  <view class="tiprow" wx:if="{{files.length}}">我的知识库 · 共 {{files.length}} 个文件</view>
 
+  <!-- 我的文件列表 -->
   <view class="list" wx:if="{{files.length}}">
     <view class="row" wx:for="{{files}}" wx:key="name">
+      <view class="ficon {{item.cls}}"><text>{{item.ext}}</text></view>
       <view class="info">
         <view class="name">{{item.name}}</view>
         <view class="meta">{{item.count}}<text wx:if="{{item.time}}"> · {{item.time}}</text></view>
@@ -20,8 +46,19 @@
     </view>
   </view>
 
-  <view class="empty" wx:elif="{{!loading}}">
-    <text>知识库暂无文件</text>
-    <text class="tip">点击上方按钮上传文档，AI 将基于你的资料回答</text>
+  <!-- 我的空状态 -->
+  <view class="empty" wx:if="{{!files.length && !loading}}">
+    <view class="empty-ico"></view>
+    <view class="empty-t">知识库暂无文件</view>
+    <view class="empty-s">点击上方按钮上传第一份文档</view>
+  </view>
+
+  <!-- 上传进度浮层 -->
+  <view class="upmask" wx:if="{{uploading}}">
+    <view class="upcard">
+      <view class="uptxt">{{uploadStatus}}</view>
+      <view class="bar"><view class="fill" style="width: {{uploadProgress}}%;"></view></view>
+      <text class="upnum">{{uploadProgress}}%</text>
+    </view>
   </view>
 </view>

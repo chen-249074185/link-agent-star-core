@@ -4,10 +4,27 @@
 // 后端 /api/rag/*：userId 从登录态取，JWT 由 request.js 自动注入（上传走 wx.uploadFile 单独带 header）
 const { get, delete: del } = require('../../utils/request')
 
+// 文件类型 → 图标配色（扩展名映射，未知类型归通用）
+const EXT_META = {
+  PDF: { cls: 't-pdf', label: 'PDF' },
+  DOCX: { cls: 't-doc', label: 'DOC' },
+  DOC: { cls: 't-doc', label: 'DOC' },
+  XLSX: { cls: 't-xls', label: 'XLS' },
+  XLS: { cls: 't-xls', label: 'XLS' },
+  PPTX: { cls: 't-ppt', label: 'PPT' },
+  PPT: { cls: 't-ppt', label: 'PPT' },
+  CSV: { cls: 't-csv', label: 'CSV' },
+  TXT: { cls: 't-txt', label: 'TXT' },
+  MD: { cls: 't-md', label: 'MD' },
+  MARKDOWN: { cls: 't-md', label: 'MD' }
+}
+
 Page({
   data: {
     files: [],
+    sharedFiles: [],       // 共享房源库（公开数据，全用户只读）
     loading: false,
+    loadingShared: false,
     uploading: false,
     uploadProgress: 0,      // 0-100：HTTP 上传阶段实时进度
     uploadStatus: ''        // ''=隐藏 / 上传中 / 正在向量化入库…（服务器处理阶段，上传已 100%）
@@ -20,29 +37,51 @@ Page({
       return
     }
     this.loadFiles()
+    this.loadSharedFiles()
   },
 
-  // MCP 透传文本：每行 "filename | N 块 | 时间"，解析成文件列表
+  // 解析 MCP 透传行 "filename | N 块 | 时间" → 文件对象（含类型图标）
+  parseFiles(data) {
+    const lines = String(data || '').split('\n').map(s => s.trim()).filter(Boolean)
+    return lines.map(line => {
+      const parts = line.split('|').map(s => s.trim())
+      const name = parts[0] || line
+      const dot = name.lastIndexOf('.')
+      const raw = dot > 0 ? name.slice(dot + 1).toUpperCase() : 'FILE'
+      const meta = EXT_META[raw] || { cls: 't-other', label: raw.length > 3 ? 'FILE' : raw }
+      return {
+        name,
+        count: parts[1] || '',
+        time: parts[2] || '',
+        cls: meta.cls,
+        ext: meta.label
+      }
+    })
+  },
+
+  // 我的私有知识库文件列表（默认库）
   loadFiles() {
     const app = getApp()
     this.setData({ loading: true })
     get('/api/rag/files', { userId: app.globalData.userId })
       .then(data => {
-        const lines = String(data || '').split('\n').map(s => s.trim()).filter(Boolean)
-        const files = lines.map(line => {
-          const parts = line.split('|').map(s => s.trim())
-          return {
-            name: parts[0] || line,
-            count: parts[1] || '',
-            time: parts[2] || ''
-          }
-        })
-        this.setData({ files, loading: false })
+        this.setData({ files: this.parseFiles(data), loading: false })
       })
       .catch(e => {
         this.setData({ loading: false })
         wx.showToast({ title: (e && e.msg) || '加载失败', icon: 'none' })
       })
+  },
+
+  // 共享房源库（公开数据，只读）：kbId=kb-shared-houses
+  loadSharedFiles() {
+    const app = getApp()
+    this.setData({ loadingShared: true })
+    get('/api/rag/files', { userId: app.globalData.userId, kbId: 'kb-shared-houses' })
+      .then(data => {
+        this.setData({ sharedFiles: this.parseFiles(data), loadingShared: false })
+      })
+      .catch(() => this.setData({ loadingShared: false }))
   },
 
   // 选文件（聊天记录里的文件）→ 上传到默认知识库

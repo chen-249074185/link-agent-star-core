@@ -84,7 +84,7 @@ class KnowledgeBaseRepositoryTest {
 
         List<KnowledgeBaseRepository.KnowledgeBase> all = store.listAll();
 
-        assertEquals(3, all.size());   // u1 默认 + u2 默认 + u2 工作资料
+        assertEquals(4, all.size());   // u1 默认 + u2 默认 + u2 工作资料 + 共享房源库（system）
         assertTrue(all.stream().anyMatch(k -> k.kbId().equals("u1-default")));
         assertTrue(all.stream().anyMatch(k -> k.kbId().equals(work.kbId()) && k.userId().equals("u2")));
     }

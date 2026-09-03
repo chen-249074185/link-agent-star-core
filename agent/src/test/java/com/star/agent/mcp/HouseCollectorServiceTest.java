@@ -47,7 +47,7 @@ class HouseCollectorServiceTest {
     void collect_writesFileThenUploads() throws Exception {
         when(crawl.callTool(eq("crawl_fetch"), anyMap())).thenReturn(sampleHtml("回龙观两居 首次出租", "55.00", "4200"));
         when(rag.callTool(eq("rag_upload"), anyMap())).thenReturn("已入库 1 块");
-        when(rag.callTool(eq("rag_delete_kb"), anyMap())).thenReturn("已删除知识库");
+        when(rag.callTool(eq("rag_admin_delete_kb"), anyMap())).thenReturn("已删除知识库");
 
         HouseCollectorService.CollectResult r = service.collect("u1", "北京", "https://bj.lianjia.com/zufang/");
 
@@ -58,7 +58,7 @@ class HouseCollectorServiceTest {
         assertTrue(fileContent.contains("回龙观两居"), "数据文件应含房源");
         assertTrue(fileContent.contains("月租4200元"));
         assertTrue(!fileContent.contains("首次出租"), "广告词应被清洗");
-        verify(rag).callTool(eq("rag_delete_kb"), anyMap());   // 覆盖语义：先删旧库防重复
+        verify(rag).callTool(eq("rag_admin_delete_kb"), anyMap());   // 覆盖语义：先清共享库防重复
         verify(rag).callTool(eq("rag_upload"), anyMap());
     }
 
@@ -94,12 +94,12 @@ class HouseCollectorServiceTest {
                 "成都 天府三街一居，面积45平，月租3200元",
                 java.nio.charset.StandardCharsets.UTF_8);
         when(rag.callTool(eq("rag_upload"), anyMap())).thenReturn("已入库 2 块");
-        when(rag.callTool(eq("rag_delete_kb"), anyMap())).thenReturn("已删除知识库");
+        when(rag.callTool(eq("rag_admin_delete_kb"), anyMap())).thenReturn("已删除知识库");
 
         String result = service.reindexAll("u1");
 
         assertTrue(result.contains("2 个城市"), "全部城市文件一起重建: " + result);
-        verify(rag, org.mockito.Mockito.times(1)).callTool(eq("rag_delete_kb"), anyMap());   // 只删一次旧库（防多城市互相覆盖）
+        verify(rag, org.mockito.Mockito.times(1)).callTool(eq("rag_admin_delete_kb"), anyMap());   // 只清一次共享库（防多城市互相覆盖）
         verify(rag, org.mockito.Mockito.times(2)).callTool(eq("rag_upload"), anyMap());
     }
 
@@ -123,17 +123,19 @@ class HouseCollectorServiceTest {
         assertEquals("北京 回龙观两居，面积55平，月租4200元\n\n北京 望京单间，面积28平，月租3800元", text);
     }
 
-    // 入库参数核对：user_id/kb_id 指向调用者默认库，filename 带城市
+    // 入库参数核对：房源固定写入共享房源库（system 身份，全用户只读可检索），filename 带城市
     @Test
-    void collect_uploadsToCallersDefaultKb() {
+    void collect_uploadsToSharedHousesKb() {
         when(crawl.callTool(eq("crawl_fetch"), anyMap())).thenReturn(sampleHtml("x", "30.00", "2000"));
         when(rag.callTool(eq("rag_upload"), anyMap())).thenReturn("ok");
-        when(rag.callTool(eq("rag_delete_kb"), anyMap())).thenReturn("ok");
+        when(rag.callTool(eq("rag_admin_delete_kb"), anyMap())).thenReturn("ok");
 
         service.collect("wx_u1", "杭州", "https://hz.lianjia.com/zufang/");
 
-        verify(rag).callTool(eq("rag_upload"), argMap(u -> "wx_u1".equals(u.get("user_id"))
-                && "wx_u1-default".equals(u.get("kb_id"))
+        verify(rag).callTool(eq("rag_admin_delete_kb"), argMap(u ->
+                HouseCollectorService.SHARED_HOUSES_KB.equals(u.get("kb_id"))));
+        verify(rag).callTool(eq("rag_upload"), argMap(u -> HouseCollectorService.SHARED_OWNER.equals(u.get("user_id"))
+                && HouseCollectorService.SHARED_HOUSES_KB.equals(u.get("kb_id"))
                 && "杭州链家房源.txt".equals(u.get("filename"))));
     }
 

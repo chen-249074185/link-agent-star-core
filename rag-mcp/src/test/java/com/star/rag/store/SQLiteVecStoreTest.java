@@ -287,6 +287,64 @@ class SQLiteVecStoreTest {
         assertEquals(1, store.listFiles("u1", "kb1").size());
     }
 
+    // ===== 共享房源库（11-03 方案1）：通用公开数据全用户只读可检索 =====
+
+    // 共享库内容存 system 名下，任何用户都能检索到（resolveOwner 自动换身份）
+    @Test
+    void search_sharedKb_visibleToAllUsers() {
+        store.insertChunk(SQLiteVecStore.SHARED_OWNER, SQLiteVecStore.SHARED_KB_ID,
+                "北京海淀学院路两居室月租6500元", "北京.txt", axis(0), "{}");
+
+        // u1/u2 都能命中共享库
+        List<VectorStore.SearchHit> hits = store.search("u1", SQLiteVecStore.SHARED_KB_ID, axis(0), 5, 1.5);
+        assertEquals(1, hits.size());
+        assertEquals("北京海淀学院路两居室月租6500元", hits.get(0).content());
+        List<VectorStore.SearchHit> hits2 = store.search("u2", SQLiteVecStore.SHARED_KB_ID, axis(0), 5, 1.5);
+        assertEquals(1, hits2.size());
+    }
+
+    // 共享库文件列表：任意用户可看（resolveOwner 生效）
+    @Test
+    void listFiles_sharedKb_visibleToAllUsers() {
+        store.insertChunk(SQLiteVecStore.SHARED_OWNER, SQLiteVecStore.SHARED_KB_ID, "内容", "北京.txt", axis(0), "{}");
+
+        List<VectorStore.FileInfo> files = store.listFiles("u1", SQLiteVecStore.SHARED_KB_ID);
+        assertEquals(1, files.size());
+        assertEquals("北京.txt", files.get(0).filename());
+    }
+
+    // 共享库删除：任意 userId 传共享库都按 system 身份定位（谁"看起来"在删都是 system 的数据——
+// 普通用户的写拦截在工具层 RagMcpServer handler，store 层只管身份解析）
+    @Test
+    void deleteFile_sharedKb_resolvesToSystemOwner() {
+        store.insertChunk(SQLiteVecStore.SHARED_OWNER, SQLiteVecStore.SHARED_KB_ID, "内容", "北京.txt", axis(0), "{}");
+
+        assertEquals(1, store.deleteFile("u1", SQLiteVecStore.SHARED_KB_ID, "北京.txt"),
+                "共享库按 system 身份定位删除（写权限由工具层拦普通用户）");
+        assertEquals(0, store.search("u1", SQLiteVecStore.SHARED_KB_ID, axis(0), 5, 1.5).size());
+    }
+
+    // Guard：共享库人人可读（不查归属）；私有库照旧越权拒绝
+    @Test
+    void guard_sharedKb_allowsEveryone() {
+        KnowledgeBaseGuard guard = new KnowledgeBaseGuard(store);
+        assertEquals(null, guard.checkAccess("u1", SQLiteVecStore.SHARED_KB_ID), "共享库放行");
+        assertEquals(null, guard.checkAccess("u2", SQLiteVecStore.SHARED_KB_ID), "共享库放行（任意用户）");
+        store.ensureUserWithDefaultKb("u1");
+        assertEquals(null, guard.checkAccess("u1", "u1-default"), "私有库主人放行");
+        assertTrue(guard.checkAccess("u2", "u1-default") != null, "私有库越权拒绝");
+    }
+
+    // 共享库归属行存在（system 名下，管理端可见）
+    @Test
+    void knowledgeBase_sharedRowExists() {
+        List<KnowledgeBaseRepository.KnowledgeBase> all = store.listAll();
+        boolean found = all.stream().anyMatch(kb ->
+                kb.kbId().equals(SQLiteVecStore.SHARED_KB_ID)
+                        && kb.userId().equals(SQLiteVecStore.SHARED_OWNER));
+        assertTrue(found, "共享房源库应在全库清单中（system 名下）");
+    }
+
     // 账号合并：from 默认库内容并入 to 默认库、非默认库改归属、越权隔离仍生效、from 身份清理
     @Test
     void transferTo_mergesKbsIntoToUser() {

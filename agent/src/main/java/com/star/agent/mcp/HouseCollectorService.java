@@ -15,10 +15,16 @@ import java.util.Optional;
 
 // 房源采集入库服务（真实数据链路）：爬链家租房页 → 解析 → 写 rag_data/houses/{城市}.txt（数据源）→ 入库索引
 // 数据源 = 纯文本文件（用户可点开查看/直接编辑，参照夏令营 rag_data 模式）；rag.db 只是从文件生成的检索索引
-// 房源是通用公开数据（爬链家），岗位才是用户私有（liepin-mcp 用户 Token 查真实猎聘）——本服务只管房源
+// 房源是通用公开数据（爬链家）→ 固定写入【共享房源库 kb-shared-houses】（11-03 方案1：全用户只读可检索，
+// 归属 system）；岗位才是用户私有（liepin-mcp 用户 Token 查真实猎聘）——本服务只管房源
+// 重建走 rag_admin_delete_kb（管理工具删共享库）+ rag_upload(user_id=system)（共享库仅 system 可写）
 // mock 模式（无 MCP bean）→ Optional 空 → 调用方降级提示（R9 同款）
 @Component
 public class HouseCollectorService {
+
+    // 与 rag-mcp SQLiteVecStore 常量一致：共享房源库 + 归属身份
+    public static final String SHARED_HOUSES_KB = "kb-shared-houses";
+    public static final String SHARED_OWNER = "system";
 
     private final Optional<McpConnection> crawlMcp;
     private final Optional<McpConnection> ragMcp;
@@ -56,11 +62,12 @@ public class HouseCollectorService {
         } catch (IOException e) {
             return new CollectResult(0, "写入数据文件失败: " + e.getMessage());
         }
-        return new CollectResult(houses.size(), reindexAll(userId));
+        return new CollectResult(houses.size(), reindexAll(SHARED_OWNER));
     }
 
-    // 从全部城市数据文件重建索引：读 rag_data/houses/*.txt → 删一次旧库 → 逐个上传
+    // 从全部城市数据文件重建索引：读 rag_data/houses/*.txt → 清空共享房源库 → 逐个上传（system 身份）
     // （用户手动编辑任一城市文件后调用，全部城市一起重建，不重新爬）
+    // 注意：共享库只读保护仅拦普通用户（userId≠system）；这里是管理员通道，走 system 身份写入
     public String reindexAll(String userId) {
         if (ragMcp.isEmpty()) {
             return "真实 MCP 未连接（当前是 mock 模式，无法重建索引）";
@@ -76,8 +83,9 @@ public class HouseCollectorService {
         if (files.isEmpty()) {
             return "数据目录没有房源文件: " + dataDir;
         }
-        String kbId = userId + "-default";
-        ragMcp.get().callTool("rag_delete_kb", Map.of("user_id", userId, "kb_id", kbId));   // 覆盖：先清旧库防重复
+        // 覆盖语义：先清共享库（rag_admin_delete_kb 是管理工具，可删共享库），再逐个上传（system 身份放行只读保护）
+        ragMcp.get().callTool("rag_admin_delete_kb",
+                Map.of("user_id", SHARED_OWNER, "kb_id", SHARED_HOUSES_KB));
         int uploaded = 0;
         for (Path file : files) {
             String content;
@@ -88,8 +96,8 @@ public class HouseCollectorService {
             }
             String city = file.getFileName().toString().replace(".txt", "");
             String ret = ragMcp.get().callTool("rag_upload", Map.of(
-                    "user_id", userId,
-                    "kb_id", kbId,
+                    "user_id", SHARED_OWNER,
+                    "kb_id", SHARED_HOUSES_KB,
                     "filename", city + "链家房源.txt",
                     "content", content));
             try {

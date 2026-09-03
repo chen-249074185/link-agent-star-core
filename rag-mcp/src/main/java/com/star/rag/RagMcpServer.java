@@ -116,6 +116,9 @@ McpServer.sync(transport)
                     )
                     .build();
             System.err.println("rag-mcp-server 就绪，等待客户端...");
+            // 共享房源库（11-03 方案1）：启动时若为空，后台从 rag_data/houses/*.txt 灌入
+            // 房源=通用公开数据，所有用户可检索；不阻塞握手（灌 34 城需几十秒真实 embedding）
+            new Thread(() -> ensureSharedHouses(store, dataDir, uploader), "shared-houses-init").start();
         } catch (Exception e) {
             System.err.println("启动失败: " + e.getMessage());
             System.exit(1);
@@ -152,6 +155,9 @@ McpServer.sync(transport)
                     String denied = guard.checkAccess(userId, kbId);   // 归属校验（R10）
                     if (denied != null) {
                         return errorResult(denied);
+                    }
+                    if (SQLiteVecStore.isSharedKb(kbId) && !userId.equals(SQLiteVecStore.SHARED_OWNER)) {
+                        return errorResult("共享房源库只读：普通用户请上传到自己的私有知识库（房源由采集/管理端维护）");
                     }
                     String filename = String.valueOf(args.get("filename"));
                     String rawContent = String.valueOf(args.get("content"));
@@ -300,6 +306,9 @@ McpServer.sync(transport)
                     if (denied != null) {
                         return errorResult(denied);
                     }
+                    if (SQLiteVecStore.isSharedKb(kbId)) {
+                        return errorResult("共享房源库只读：普通用户不能删除共享库文件（由采集/管理端维护）");
+                    }
                     int deleted = store.deleteFile(userId, kbId, filename);
                     return McpSchema.CallToolResult.builder()
                             .content(List.of(new McpSchema.TextContent(
@@ -333,6 +342,9 @@ McpServer.sync(transport)
                     String denied = guard.checkAccess(userId, kbId);
                     if (denied != null) {
                         return errorResult(denied);
+                    }
+                    if (SQLiteVecStore.isSharedKb(kbId)) {
+                        return errorResult("共享房源库只读：普通用户不能删除共享库（由采集/管理端维护）");
                     }
                     kbRepo.deleteKb(userId, kbId);   // 删库 + 库内全部切片
                     return McpSchema.CallToolResult.builder()
@@ -495,6 +507,44 @@ McpServer.sync(transport)
         return McpSchema.CallToolResult.builder()
                 .content(List.of(new McpSchema.TextContent(msg)))
                 .build();
+    }
+
+    // 共享房源库初始化：空库时把 rag_data/houses/*.txt 全量向量化入库（system 身份）
+    // 幂等：已有内容跳过（防重启重复灌入）；单个城市失败跳过不中断
+    private static void ensureSharedHouses(SQLiteVecStore store, Path dataDir, UploadService uploader) {
+        try {
+            if (!store.listFiles(SQLiteVecStore.SHARED_OWNER, SQLiteVecStore.SHARED_KB_ID).isEmpty()) {
+                System.err.println("共享房源库已有内容，跳过自动灌入");
+                return;
+            }
+            Path housesDir = dataDir.resolve("houses");
+            if (!Files.isDirectory(housesDir)) {
+                System.err.println("共享房源库：未找到 rag_data/houses 目录，跳过自动灌入");
+                return;
+            }
+            List<Path> files;
+            try (var s = Files.list(housesDir)) {
+                files = s.filter(p -> p.getFileName().toString().endsWith(".txt")).sorted().toList();
+            }
+            if (files.isEmpty()) {
+                System.err.println("共享房源库：rag_data/houses 无 txt 文件，跳过自动灌入");
+                return;
+            }
+            int total = 0;
+            for (Path f : files) {
+                try {
+                    UploadService.UploadResult r = uploader.upload(
+                            SQLiteVecStore.SHARED_OWNER, SQLiteVecStore.SHARED_KB_ID,
+                            f.getFileName().toString(), Files.readAllBytes(f));
+                    total += r.chunkCount();
+                } catch (Exception e) {
+                    System.err.println("共享房源库灌入失败（跳过）: " + f.getFileName() + " " + e.getMessage());
+                }
+            }
+            System.err.println("共享房源库就绪: " + files.size() + " 个城市 " + total + " 块");
+        } catch (Exception e) {
+            System.err.println("共享房源库初始化失败: " + e.getMessage());
+        }
     }
 
     // EOF 感知流（坑21 的解法，和 DemoEchoServer 一致）：客户端断开 → 主线程退出，不残留僵尸进程

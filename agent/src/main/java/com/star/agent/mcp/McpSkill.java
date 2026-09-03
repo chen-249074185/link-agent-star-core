@@ -25,8 +25,12 @@ public class McpSkill implements Skill {
 
     // 身份/内部字段白名单外的黑名单：只允许代码注入，绝不被 LLM 参数覆盖（防伪造他人身份访问，R10）
     // mergeLlmArgs 遇到这些 key 直接跳过；execute() 里已用 ctx.userId() 注入正确值
+    // 例外：kb_id 若显式指定"共享房源库"则放行——它是全局只读库（人人可查、写操作被 rag-mcp 拒），
+    // 无隐私风险，Workflow 房源检索靠它指向共享库（11-03 方案1）
     private static final List<String> PROTECTED_ARGS = List.of(
             "user_id", "kb_id", "is_base64", "user_token");
+
+    private static final String SHARED_HOUSES_KB = "kb-shared-houses";   // 与 rag-mcp SQLiteVecStore 常量一致
 
     private final McpSchema.Tool tool;                        // 原始 MCP 工具说明（名字/描述/Schema）
     private final McpConnection connection;                   // 调子进程的唯一通道
@@ -119,7 +123,11 @@ public class McpSkill implements Skill {
         while (it.hasNext()) {
             Map.Entry<String, JsonNode> e = it.next();
             if (PROTECTED_ARGS.contains(e.getKey())) {
-                continue;   // 身份/内部字段不采信 LLM 值，保持 execute() 注入的 ctx.userId() 身份
+                // 唯一例外：kb_id=共享房源库（只读全局库，人人可查，Workflow 靠它检索公开房源）
+                if ("kb_id".equals(e.getKey()) && SHARED_HOUSES_KB.equals(e.getValue().asText())) {
+                    args.put("kb_id", SHARED_HOUSES_KB);
+                }
+                continue;   // 其余身份/内部字段不采信 LLM 值，保持 execute() 注入的 ctx.userId() 身份
             }
             args.put(e.getKey(), toPlainValue(e.getValue()));
         }

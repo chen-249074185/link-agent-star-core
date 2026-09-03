@@ -117,6 +117,23 @@ class McpSkillTest {
                                 && args.get("top_k").equals(3)));
     }
 
+    // 共享房源库白名单（11-03 方案1）：kb_id=kb-shared-houses 是全局只读库（人人可查、写被 rag-mcp 拒），
+    // Workflow 房源检索靠它指向共享库 → 允许采用该值；其他伪造 kb_id 仍一律忽略
+    @Test
+    void execute_kbIdSharedHouses_whitelisted() {
+        when(connection.callTool(eq("rag_search"), org.mockito.ArgumentMatchers.anyMap()))
+                .thenReturn("北京房源");
+
+        SkillResult result = skill.execute(
+                new SkillContext("u1", "{\"query\":\"北京\",\"kb_id\":\"kb-shared-houses\"}", "t1"));
+
+        assertTrue(result.success());
+        verify(connection).callTool(eq("rag_search"),
+                org.mockito.ArgumentMatchers.argThat(args ->
+                        "u1".equals(args.get("user_id"))                   // 身份仍从工单来
+                                && "kb-shared-houses".equals(args.get("kb_id"))));  // 共享库被采用
+    }
+
     // 造一个 rag_search 工具的 MCP 说明（与 rag-mcp 服务端一致：含 user_id/kb_id/query/top_k）
     private McpSchema.Tool searchTool() {
         return McpSchema.Tool.builder()

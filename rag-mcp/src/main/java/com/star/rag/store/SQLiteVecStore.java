@@ -14,7 +14,12 @@ import java.util.UUID;
 
 // VectorStore 的 sqlite-vec 实现（D37 方案 A）+ KnowledgeBaseRepository（user/知识库显式归属）
 // 三块数据：vec_chunks 虚拟表（向量 KNN）+ chunks 普通表（正文/元数据）+ users/knowledge_base（归属管理）
+// 共享房源库（11-03 用户拍板方案1）：房源=通用公开数据（爬链家），kb-shared-houses 全用户只读可检索，
+// 归属 user_id=system；私有库（userId-default）仍是每用户私有
 public class SQLiteVecStore implements VectorStore, KnowledgeBaseRepository {
+
+    public static final String SHARED_KB_ID = "kb-shared-houses";   // 共享房源库（全局固定名）
+    public static final String SHARED_OWNER = "system";             // 共享库的归属身份（数据由采集/管理端维护）
 
     private final Connection conn;
 
@@ -58,6 +63,9 @@ public class SQLiteVecStore implements VectorStore, KnowledgeBaseRepository {
                     "user_id TEXT NOT NULL," +
                     "name TEXT NOT NULL," +
                     "created_at TEXT NOT NULL DEFAULT (datetime('now','localtime')))");
+            // 共享房源库归属行（幂等）：房源是通用公开数据，system 名下，全用户只读可检索
+            st.execute("INSERT OR IGNORE INTO knowledge_base (kb_id, user_id, name) " +
+                    "VALUES ('" + SHARED_KB_ID + "', '" + SHARED_OWNER + "', '共享房源库')");
         }
     }
 
@@ -130,6 +138,7 @@ public class SQLiteVecStore implements VectorStore, KnowledgeBaseRepository {
     // 再截断回 topK（KNN 按距离升序返回，首次见到的内容即最低距离那条）
     @Override
     public List<SearchHit> search(String userId, String kbId, float[] queryEmbedding, int topK, double threshold) {
+        String owner = resolveOwner(userId, kbId);   // 共享库 → system 身份查（partition key 对齐）
         int fetchK = Math.min(Math.max(topK * 3, topK), 100);
         List<SearchHit> hits = new ArrayList<>();
         Set<String> seen = new HashSet<>();
@@ -140,7 +149,7 @@ public class SQLiteVecStore implements VectorStore, KnowledgeBaseRepository {
                     "AND k = ?";
             PreparedStatement ps = conn.prepareStatement(sql);
             ps.setString(1, toJson(queryEmbedding));
-            ps.setString(2, userId);
+            ps.setString(2, owner);
             ps.setString(3, kbId);
             ps.setInt(4, fetchK);
             ResultSet rs = ps.executeQuery();
@@ -162,17 +171,18 @@ public class SQLiteVecStore implements VectorStore, KnowledgeBaseRepository {
 
     @Override
     public int deleteByKb(String userId, String kbId) {
+        String owner = resolveOwner(userId, kbId);
         try {
             // 先按 kb_id 找出该库的 rowid 列表，再删虚拟表（vec0 支持 DELETE WHERE）
             PreparedStatement ps = conn.prepareStatement(
                     "DELETE FROM vec_chunks WHERE user_id = ? AND kb_id = ?");
-            ps.setString(1, userId);
+            ps.setString(1, owner);
             ps.setString(2, kbId);
             int vecDeleted = ps.executeUpdate();
             ps.close();
             PreparedStatement ps2 = conn.prepareStatement(
                     "DELETE FROM chunks WHERE user_id = ? AND kb_id = ?");
-            ps2.setString(1, userId);
+            ps2.setString(1, owner);
             ps2.setString(2, kbId);
             int deleted = ps2.executeUpdate();
             ps2.close();
@@ -185,11 +195,12 @@ public class SQLiteVecStore implements VectorStore, KnowledgeBaseRepository {
     // 列出库内文件：按 filename 分组（块数 + 最后入库时间），老数据 filename 为 null 归 "(未知文件)"
     @Override
     public List<FileInfo> listFiles(String userId, String kbId) {
+        String owner = resolveOwner(userId, kbId);
         try (PreparedStatement ps = conn.prepareStatement(
                 "SELECT filename, COUNT(*) AS cnt, MAX(created_at) AS last_at " +
                         "FROM chunks WHERE user_id = ? AND kb_id = ? " +
                         "GROUP BY filename ORDER BY last_at DESC")) {
-            ps.setString(1, userId);
+            ps.setString(1, owner);
             ps.setString(2, kbId);
             List<FileInfo> list = new ArrayList<>();
             try (ResultSet rs = ps.executeQuery()) {
@@ -210,11 +221,12 @@ public class SQLiteVecStore implements VectorStore, KnowledgeBaseRepository {
     // 按文件名删库内全部切片：先查该文件的 rowid 列表，再 vec/chunks 双删
     @Override
     public int deleteFile(String userId, String kbId, String filename) {
+        String owner = resolveOwner(userId, kbId);
         try {
             List<Integer> rowIds = new ArrayList<>();
             try (PreparedStatement ps = conn.prepareStatement(
                     "SELECT id FROM chunks WHERE user_id = ? AND kb_id = ? AND filename = ?")) {
-                ps.setString(1, userId);
+                ps.setString(1, owner);
                 ps.setString(2, kbId);
                 ps.setString(3, filename);
                 try (ResultSet rs = ps.executeQuery()) {
@@ -447,6 +459,16 @@ public class SQLiteVecStore implements VectorStore, KnowledgeBaseRepository {
             }
         }
         return false;
+    }
+
+    // 是否是共享房源库（全局只读库：所有用户可检索，归属 system）
+    public static boolean isSharedKb(String kbId) {
+        return SHARED_KB_ID.equals(kbId);
+    }
+
+    // 查询身份解析：共享库 → system（vec_chunks partition key 对齐）；私有库 → 调用者自己
+    private String resolveOwner(String userId, String kbId) {
+        return isSharedKb(kbId) ? SHARED_OWNER : userId;
     }
 
     public void close() throws Exception {

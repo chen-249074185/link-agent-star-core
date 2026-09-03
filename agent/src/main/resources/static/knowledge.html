@@ -27,6 +27,8 @@ body{min-height:100vh;background:var(--bg);font-family:-apple-system,BlinkMacSys
 .mini:hover{color:var(--red);border-color:var(--red)}
 .mini.primary{color:var(--pink-deep);border-color:var(--pink-deep)}
 .mini.primary:hover{color:#fff;background:var(--pink-deep)}
+.share-tag{display:inline-block;font-size:11px;font-weight:600;color:var(--pink-deep);background:rgba(224,120,120,.1);border-radius:10px;padding:2px 10px;margin-left:6px;vertical-align:middle}
+.box.shared{background:linear-gradient(160deg,#fffdf9,#f6f1ff)}
 .field{margin-bottom:12px}
 .field input{width:100%;padding:12px 13px;background:#fff;border:2px solid rgba(74,43,43,.1);border-radius:10px;font-size:14px;outline:none;color:var(--ink);transition:all .25s}
 .field input:focus{border-color:var(--pink-deep);box-shadow:0 0 0 3px rgba(224,120,120,.1)}
@@ -70,13 +72,19 @@ body{min-height:100vh;background:var(--bg);font-family:-apple-system,BlinkMacSys
 
   <div class="box">
     <h2>上传资料</h2>
-    <p class="tip">支持 pdf / txt / md / docx / xlsx / pptx / csv，单文件 ≤ 50MB。上传后自动切片入库，可用作对话问答与租房决策的资料源。</p>
+    <p class="tip">私有资料（上传/删除仅自己可见）。支持 pdf / txt / md / docx / xlsx / pptx / csv，单文件 ≤ 50MB。</p>
     <div class="field"><input type="file" id="file" accept=".pdf,.txt,.md,.markdown,.docx,.xlsx,.pptx,.csv"></div>
-    <button class="btn" id="upBtn" onclick="upload()">上传到默认知识库</button>
+    <button class="btn" id="upBtn" onclick="upload()">上传到我的知识库</button>
+  </div>
+
+  <div class="box shared">
+    <h2>共享房源库 <span class="share-tag">公开 · 只读</span></h2>
+    <p class="tip">34 城链家公开房源，全用户可读，租房决策自动引用（数据由采集/管理端维护）。</p>
+    <div id="sharedList"><div class="empty">加载中…</div></div>
   </div>
 
   <div class="box">
-    <h2>知识库文件</h2>
+    <h2>我的文件</h2>
     <div id="kbList"><div class="empty">加载中…</div></div>
   </div>
 
@@ -138,6 +146,26 @@ async function loadKbs(){
   }catch(e){showToast('网络异常','error');$('kbList').innerHTML='<div class="empty">加载失败</div>';}
 }
 
+// 共享房源库（公开数据，只读）：kbId=kb-shared-houses
+async function loadShared(){
+  try{
+    const r=await fetch('/api/rag/files?userId='+encodeURIComponent(userId)+'&kbId=kb-shared-houses',{headers:{'Authorization':'Bearer '+token}});
+    const j=await r.json();
+    if(j.code!==0){$('sharedList').innerHTML='<div class="empty">暂不可用</div>';return;}
+    const lines=j.data.split('\n').map(s=>s.trim()).filter(Boolean);
+    if(!lines.length){$('sharedList').innerHTML='<div class="empty">共享房源库暂无数据</div>';return;}
+    $('sharedList').innerHTML=lines.map(line=>{
+      const parts=line.split('|').map(s=>s.trim());
+      const name=parts[0]||line;
+      const meta=[parts[1],parts[2]].filter(Boolean).join(' · ');
+      const d=document.createElement('div');
+      d.className='row';
+      d.innerHTML='<span class="k">'+escapeHtml(name)+'<br><small>'+escapeHtml(meta)+'</small></span><span class="mini" style="cursor:default;color:var(--ink-faint)">只读</span>';
+      return d.outerHTML;
+    }).join('');
+  }catch(e){$('sharedList').innerHTML='<div class="empty">加载失败</div>';}
+}
+
 // 上传
 async function upload(){
   const f=$('file').files[0];
@@ -195,6 +223,7 @@ async function search(){
 function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 
 loadKbs();
+loadShared();
 </script>
 </body>
 </html>
