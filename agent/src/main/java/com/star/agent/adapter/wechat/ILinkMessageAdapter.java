@@ -52,8 +52,14 @@ public class ILinkMessageAdapter implements MessageAdapter {
 
     @Override
     public void send(String userId, String text) throws Exception {
-        if (text == null || text.length() <= CHUNK_SIZE) {
-            client.sendText(userId, text == null ? "" : text);
+        if (text == null) {
+            return;
+        }
+        // markdown 超链接 [文字](url) → "文字：\nurl"：微信不渲染 markdown，URL 独立成行微信自动识别可点
+        text = mdLinkToPlain(text);
+        List<String> pieces = splitWithLinkProtection(text);
+        if (pieces.size() <= 1) {
+            client.sendText(userId, pieces.isEmpty() ? "" : pieces.get(0));
             return;
         }
         // 长回复分片模拟流式：微信 SDK 无"编辑已发消息"能力（无 updateText），
@@ -68,7 +74,7 @@ public class ILinkMessageAdapter implements MessageAdapter {
             logger.warn("startTyping 失败，降级为无打字提示分片发送: {}", e.getMessage());
         }
         try {
-            for (String chunk : split(text)) {
+            for (String chunk : pieces) {
                 client.sendText(userId, chunk);
                 Thread.sleep(CHUNK_INTERVAL_MS);
             }
@@ -153,7 +159,52 @@ public class ILinkMessageAdapter implements MessageAdapter {
         }
     }
 
-    // 长文本分片（边界感知）：每片尽量接近 CHUNK_SIZE，但优先在段落/句子边界断开，
+    // markdown 超链接 [文字](url) → "文字：\nurl"（微信端专用：微信不渲染 markdown，
+//     URL 独立成行后微信自动识别为可点击链接，且复制 URL 不被文字粘连）
+// 顺带：剥 markdown 粗体 **；剥离 URL 行尾括号说明（模型重写可能把说明贴回链接行尾，复制会粘连）
+static String mdLinkToPlain(String text) {
+    if (text == null) {
+        return null;
+    }
+    String t = text.replace("**", "");
+    t = t.replaceAll("(amapuri://\\S+?)（[^）]*）", "$1");
+    t = t.replaceAll("(https?://\\S+?)（[^）]*）", "$1");
+    if (t.indexOf('[') < 0) {
+        return t;
+    }
+    return t.replaceAll("\\[([^\\]]+)\\]\\(([^)]+)\\)", "$1：\n$2");
+}
+
+// 分片前按"独立链接行"保护：整行就是一个 URL（amapuri://、http(s):// 开头且不含空格）的
+// 行作为原子片单独发送，绝不被 200 字分片从中间切断（否则复制/点击都会坏）；
+// 其余普通文本继续走原分片逻辑
+static List<String> splitWithLinkProtection(String text) {
+    List<String> pieces = new LinkedList<>();
+    StringBuilder buf = new StringBuilder();
+    for (String line : text.split("\n", -1)) {
+        String trimmed = line.trim();
+        boolean linkLine = trimmed.startsWith("amapuri://")
+                || trimmed.startsWith("http://") || trimmed.startsWith("https://");
+        if (linkLine) {
+            if (buf.length() > 0) {
+                pieces.addAll(split(buf.toString()));
+                buf.setLength(0);
+            }
+            pieces.add(line);
+        } else {
+            if (buf.length() > 0) {
+                buf.append("\n");
+            }
+            buf.append(line);
+        }
+    }
+    if (buf.length() > 0) {
+        pieces.addAll(split(buf.toString()));
+    }
+    return pieces;
+}
+
+// 长文本分片（边界感知）：每片尽量接近 CHUNK_SIZE，但优先在段落/句子边界断开，
 // 避免把一句话从中间切断（硬切 200 字会让下一条开头是半句话，阅读很丑）
 // 边界优先级：换行 > 句子标点（。！？!）> 逗号/空格；无任何边界才硬切兜底
 // 超 MAX_CHUNKS 截断并追加提示（截断保护）

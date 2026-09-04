@@ -75,9 +75,10 @@ public class RentDecisionWorkflow {
                     "{\"city\":\"" + city + "\",\"maxPrice\":" + maxPrice
                             + ",\"query\":\"" + city + " 预算" + maxPrice + "元以内 房源 租房\""
                             + ",\"kb_id\":\"" + SHARED_HOUSES_KB + "\"}"),
-            // 工序3：通勤测算（mock 阶段固定示例坐标，真实房源带坐标后改动态）
+            // 工序3：通勤测算（目的地=目标城市；出发地缺省 → CommuteSkill 返回"请提供出发地"，
+            // 报告通勤段诚实提示用户提供位置/上班地点后即可测算，不编造坐标）
             new SkillNode("commutes", skill("commute_estimate"),
-                    "{\"origin\":\"116.481028,39.989643\",\"destination\":\"116.465302,40.004717\"}"),
+                    "{\"destination\":\"" + city + "\"}"),
             // 工序4：风险检测（动态参数：真实 RAG 自由文本 → HouseTextParser 结构化房源 JSON）
             new SkillNode("risks", skill("rent_risk"),
                     ctx2 -> "{\"houses\":" + HouseTextParser.toJson(((SkillResult) ctx2.get("houses")).content()) + "}"),

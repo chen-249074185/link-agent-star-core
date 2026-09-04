@@ -33,7 +33,7 @@ class CommuteSkillTest {
                     "{\"origin\":\"116.481028,39.989643\",\"destination\":\"116.465302,40.004717\"}", "");
             var result = skill.execute(ctx);
             assertTrue(result.success());
-            assertTrue(result.content().contains("30分钟"));
+            assertTrue(result.content().contains("预计驾车 30 分钟"));
         } finally {
             server.stop(0);
         }

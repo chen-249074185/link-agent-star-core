@@ -66,12 +66,18 @@ public class SQLiteVecStore implements VectorStore, KnowledgeBaseRepository {
             // 共享房源库归属行（幂等）：房源是通用公开数据，system 名下，全用户只读可检索
             st.execute("INSERT OR IGNORE INTO knowledge_base (kb_id, user_id, name) " +
                     "VALUES ('" + SHARED_KB_ID + "', '" + SHARED_OWNER + "', '共享房源库')");
+            // 地址→经纬度缓存（地理编码结果，避免每次通勤测算都调高德 geocode）
+            st.execute("CREATE TABLE IF NOT EXISTS geo_cache (" +
+                    "address TEXT PRIMARY KEY," +
+                    "location TEXT NOT NULL," +
+                    "created_at TEXT NOT NULL DEFAULT (datetime('now','localtime')))");
         }
     }
 
     // 存切片：正文/向量进 chunks 表，向量进 vec_chunks 虚拟表（rowid 对应）；返回新行号（回滚追踪用）
+    // synchronized：单连接（conn）被灌入线程与工具调用并发使用，JDBC 连接非线程安全（R13 教训）
     @Override
-    public int insertChunk(String userId, String kbId, String content, String filename, float[] embedding, String metadataJson) {
+    public synchronized int insertChunk(String userId, String kbId, String content, String filename, float[] embedding, String metadataJson) {
         try {
             String vecJson = toJson(embedding);
             // 先插普通表拿自增 id（rowid 就是 vec 表的 rowid）
@@ -104,7 +110,7 @@ public class SQLiteVecStore implements VectorStore, KnowledgeBaseRepository {
 
     // 按行号批量删切片（上传失败回滚）：正文表按 id、向量表按 rowid，两个表都要删
     @Override
-    public void deleteChunks(String userId, List<Integer> rowIds) {
+    public synchronized void deleteChunks(String userId, List<Integer> rowIds) {
         if (rowIds == null || rowIds.isEmpty()) {
             return;                                     // 没入库过任何块 → 无事可回滚
         }
@@ -137,7 +143,7 @@ public class SQLiteVecStore implements VectorStore, KnowledgeBaseRepository {
     // 可能全是同一内容 → 多取几倍候选（fetchK 上限 100），按内容去重保留最低距离，
     // 再截断回 topK（KNN 按距离升序返回，首次见到的内容即最低距离那条）
     @Override
-    public List<SearchHit> search(String userId, String kbId, float[] queryEmbedding, int topK, double threshold) {
+    public synchronized List<SearchHit> search(String userId, String kbId, float[] queryEmbedding, int topK, double threshold) {
         String owner = resolveOwner(userId, kbId);   // 共享库 → system 身份查（partition key 对齐）
         int fetchK = Math.min(Math.max(topK * 3, topK), 100);
         List<SearchHit> hits = new ArrayList<>();
@@ -170,7 +176,7 @@ public class SQLiteVecStore implements VectorStore, KnowledgeBaseRepository {
     }
 
     @Override
-    public int deleteByKb(String userId, String kbId) {
+    public synchronized int deleteByKb(String userId, String kbId) {
         String owner = resolveOwner(userId, kbId);
         try {
             // 先按 kb_id 找出该库的 rowid 列表，再删虚拟表（vec0 支持 DELETE WHERE）
@@ -194,7 +200,7 @@ public class SQLiteVecStore implements VectorStore, KnowledgeBaseRepository {
 
     // 列出库内文件：按 filename 分组（块数 + 最后入库时间），老数据 filename 为 null 归 "(未知文件)"
     @Override
-    public List<FileInfo> listFiles(String userId, String kbId) {
+    public synchronized List<FileInfo> listFiles(String userId, String kbId) {
         String owner = resolveOwner(userId, kbId);
         try (PreparedStatement ps = conn.prepareStatement(
                 "SELECT filename, COUNT(*) AS cnt, MAX(created_at) AS last_at " +
@@ -220,7 +226,7 @@ public class SQLiteVecStore implements VectorStore, KnowledgeBaseRepository {
 
     // 按文件名删库内全部切片：先查该文件的 rowid 列表，再 vec/chunks 双删
     @Override
-    public int deleteFile(String userId, String kbId, String filename) {
+    public synchronized int deleteFile(String userId, String kbId, String filename) {
         String owner = resolveOwner(userId, kbId);
         try {
             List<Integer> rowIds = new ArrayList<>();
@@ -244,7 +250,7 @@ public class SQLiteVecStore implements VectorStore, KnowledgeBaseRepository {
 
     // 归属校验（R10 显式版）：knowledge_base 表里有 (kb_id, user_id) 行才算拥有
     @Override
-    public boolean ownsKb(String userId, String kbId) {
+    public synchronized boolean ownsKb(String userId, String kbId) {
         try (PreparedStatement ps = conn.prepareStatement(
                 "SELECT EXISTS(SELECT 1 FROM knowledge_base WHERE kb_id = ? AND user_id = ?)")) {
             ps.setString(1, kbId);
@@ -261,7 +267,7 @@ public class SQLiteVecStore implements VectorStore, KnowledgeBaseRepository {
 
     // 新用户自动建默认库：INSERT OR IGNORE 幂等（已存在不报错），默认库 kb_id = userId + "-default"
     @Override
-    public KnowledgeBase ensureUserWithDefaultKb(String userId) {
+    public synchronized KnowledgeBase ensureUserWithDefaultKb(String userId) {
         try {
             try (PreparedStatement ps = conn.prepareStatement(
                     "INSERT OR IGNORE INTO users (user_id) VALUES (?)")) {
@@ -284,7 +290,7 @@ public class SQLiteVecStore implements VectorStore, KnowledgeBaseRepository {
 
     // 新建命名知识库：kb_id 用 UUID 短前缀（跨用户不撞名）
     @Override
-    public KnowledgeBase createKb(String userId, String name) {
+    public synchronized KnowledgeBase createKb(String userId, String name) {
         try {
             String kbId = "kb-" + UUID.randomUUID().toString().substring(0, 8);
             try (PreparedStatement ps = conn.prepareStatement(
@@ -302,7 +308,7 @@ public class SQLiteVecStore implements VectorStore, KnowledgeBaseRepository {
 
     // 列出用户全部知识库（含默认库）
     @Override
-    public List<KnowledgeBase> listByUser(String userId) {
+    public synchronized List<KnowledgeBase> listByUser(String userId) {
         try (PreparedStatement ps = conn.prepareStatement(
                 "SELECT kb_id, user_id, name FROM knowledge_base WHERE user_id = ? ORDER BY created_at")) {
             ps.setString(1, userId);
@@ -321,7 +327,7 @@ public class SQLiteVecStore implements VectorStore, KnowledgeBaseRepository {
 
     // 列出全部用户的知识库（管理端全库视角，不做归属过滤）
     @Override
-    public List<KnowledgeBase> listAll() {
+    public synchronized List<KnowledgeBase> listAll() {
         try (PreparedStatement ps = conn.prepareStatement(
                 "SELECT kb_id, user_id, name FROM knowledge_base ORDER BY user_id, created_at")) {
             List<KnowledgeBase> list = new ArrayList<>();
@@ -339,7 +345,7 @@ public class SQLiteVecStore implements VectorStore, KnowledgeBaseRepository {
 
     // 删库：先删库内全部切片，再删 knowledge_base 行（调用方已做归属校验）
     @Override
-    public void deleteKb(String userId, String kbId) {
+    public synchronized void deleteKb(String userId, String kbId) {
         try {
             deleteByKb(userId, kbId);
             try (PreparedStatement ps = conn.prepareStatement(
@@ -357,7 +363,7 @@ public class SQLiteVecStore implements VectorStore, KnowledgeBaseRepository {
     // 默认库内容并入 to 默认库（kb_id 冲突）；非默认库改归属保留 kb_id（全局唯一不撞名）
     // vec_chunks 是虚拟表分区列不可 UPDATE → 逐行 DELETE+INSERT（rowid 不变，embedding 从 chunks 表取回）
     @Override
-    public void transferTo(String fromUserId, String toUserId) {
+    public synchronized void transferTo(String fromUserId, String toUserId) {
         try {
             String fromDefault = fromUserId + "-default";
             String toDefault = toUserId + "-default";
@@ -469,6 +475,31 @@ public class SQLiteVecStore implements VectorStore, KnowledgeBaseRepository {
     // 查询身份解析：共享库 → system（vec_chunks partition key 对齐）；私有库 → 调用者自己
     private String resolveOwner(String userId, String kbId) {
         return isSharedKb(kbId) ? SHARED_OWNER : userId;
+    }
+
+    // 地理编码缓存：查（address → location 或 null）
+    public synchronized String getGeoCache(String address) {
+        try (PreparedStatement ps = conn.prepareStatement(
+                "SELECT location FROM geo_cache WHERE address = ?")) {
+            ps.setString(1, address);
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next() ? rs.getString("location") : null;
+            }
+        } catch (Exception e) {
+            throw new RuntimeException("读取地理编码缓存失败: " + e.getMessage(), e);
+        }
+    }
+
+    // 地理编码缓存：写（地址已存在则覆盖）
+    public synchronized void putGeoCache(String address, String location) {
+        try (PreparedStatement ps = conn.prepareStatement(
+                "INSERT OR REPLACE INTO geo_cache (address, location) VALUES (?,?)")) {
+            ps.setString(1, address);
+            ps.setString(2, location);
+            ps.executeUpdate();
+        } catch (Exception e) {
+            throw new RuntimeException("写入地理编码缓存失败: " + e.getMessage(), e);
+        }
     }
 
     public void close() throws Exception {

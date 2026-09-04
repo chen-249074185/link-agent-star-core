@@ -33,8 +33,10 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(Exception.class)
-    public Result<Void> other(Exception e) {
-        logger.error("未处理异常: {}", e.getMessage(), e);
+    public Result<Void> other(Exception e, jakarta.servlet.http.HttpServletRequest request) {
+        String qs = request.getQueryString();
+        logger.error("未处理异常: {} {}{}", request.getMethod(), request.getRequestURI(),
+                qs != null ? "?" + qs : "", e);
         return Result.fail(500, "服务器内部错误");
     }
 }

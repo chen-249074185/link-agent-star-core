@@ -37,6 +37,9 @@ public class RagMcpServer {
     private static final String DB_PATH = "rag.db";
     private static final String VEC_DLL = "vec0.dll";
 
+    // 地理编码 HTTP 客户端（共享，避免每次调用 new）
+    private static final java.net.http.HttpClient GEO_HTTP = java.net.http.HttpClient.newHttpClient();
+
     public static void main(String[] args) {
         String apiKey = System.getenv("DASHSCOPE_API_KEY");
         if (apiKey == null || apiKey.isBlank()) {
@@ -109,6 +112,7 @@ McpServer.sync(transport)
                             deleteFileTool(store, guard, kbRepo),
                             deleteTool(store, guard, kbRepo),
                             transferTool(store, guard, kbRepo),
+                            geocodeTool(store),
                             adminListAllTool(kbRepo),
                             adminListFilesTool(store, kbRepo),
                             adminDeleteFileTool(store, kbRepo),
@@ -386,7 +390,75 @@ McpServer.sync(transport)
                 .build();
     }
 
-    // 工具8（管理端）：列出全部用户的知识库——超管全库视角，不做归属过滤
+    // 工具8（内部）：地址→经纬度地理编码，带 geo_cache 缓存（避免每次通勤测算重复调高德）
+    // 前缀 rag_internal_：主程序 McpSkillRegistrar 识别跳过，不注册给 LLM（CommuteSkill 内部直连调用）
+    private static SyncToolSpecification geocodeTool(SQLiteVecStore store) {
+        McpSchema.Tool tool = McpSchema.Tool.builder()
+                .name("rag_internal_geocode")
+                .description("内部工具：地址转经纬度（查缓存→高德地理编码→写缓存）")
+                .inputSchema(new McpSchema.JsonSchema("object",
+                        Map.of("address", Map.of("type", "string")),
+                        List.of("address"), null, null, null))
+                .build();
+        return SyncToolSpecification.builder()
+                .tool(tool)
+                .callHandler((exchange, request) -> {
+                    String address = String.valueOf(request.arguments().get("address"));
+                    if (address.isBlank()) {
+                        return errorResult("请提供地址");
+                    }
+                    try {
+                        String cached = store.getGeoCache(address);
+                        if (cached != null) {
+                            return McpSchema.CallToolResult.builder()
+                                    .content(List.of(new McpSchema.TextContent(cached)))
+                                    .build();
+                        }
+                        String amapKey = System.getenv("AMAP_KEY");
+                        if (amapKey == null || amapKey.isBlank()) {
+                            return errorResult("高德 Key 未配置");
+                        }
+                        String location = geocode(address, amapKey);
+                        if (location == null) {
+                            return errorResult("未能定位地址: " + address);
+                        }
+                        store.putGeoCache(address, location);
+                        return McpSchema.CallToolResult.builder()
+                                .content(List.of(new McpSchema.TextContent(location)))
+                                .build();
+                    } catch (Exception e) {
+                        System.err.println("[rag_internal_geocode] 失败: " + e.getMessage());
+                        return errorResult("地理编码失败: " + e.getMessage());
+                    }
+                })
+                .build();
+    }
+
+    // 高德地理编码：v3/geocode/geo 地址→经纬度（返回 "经度,纬度"）
+    private static String geocode(String address, String amapKey) throws Exception {
+        String url = "https://restapi.amap.com/v3/geocode/geo?key=" + amapKey
+                + "&address=" + java.net.URLEncoder.encode(address, StandardCharsets.UTF_8);
+        var resp = GEO_HTTP.send(java.net.http.HttpRequest.newBuilder()
+                        .uri(java.net.URI.create(url))
+                        .GET()
+                        .build(),
+                java.net.http.HttpResponse.BodyHandlers.ofString());
+        if (resp.statusCode() != 200) {
+            return null;
+        }
+        tools.jackson.databind.JsonNode root = new tools.jackson.databind.ObjectMapper().readTree(resp.body());
+        if (!"1".equals(root.path("status").asText())) {
+            return null;
+        }
+        var geocodes = root.path("geocodes");
+        if (!geocodes.isArray() || geocodes.isEmpty()) {
+            return null;
+        }
+        String location = geocodes.path(0).path("location").asText();
+        return location.isEmpty() ? null : location;
+    }
+
+    // 工具9（管理端）：列出全部用户的知识库——超管全库视角，不做归属过滤
     // 命名约定 rag_admin_ 前缀：主程序 McpSkillRegistrar 识别并跳过，绝不注册给 LLM 当技能（防越权调用）
     private static SyncToolSpecification adminListAllTool(KnowledgeBaseRepository kbRepo) {
         McpSchema.Tool tool = McpSchema.Tool.builder()

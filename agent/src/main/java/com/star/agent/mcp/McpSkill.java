@@ -63,6 +63,12 @@ public class McpSkill implements Skill {
             // user_id/kb_id/is_base64/user_token 均由上下文/上层注入，不暴露给 LLM（防乱填他人身份）
             props.keySet().removeIf(k -> k.equals("user_id") || k.equals("kb_id")
                     || k.equals("is_base64") || k.equals("user_token"));
+            // required 必须同步清理：properties 已删的字段若仍留在 required，
+            // schema 畸形（required 引用不存在的属性）→ LLM 拒绝调用该工具（实测"杭州租房"不调工具直接空泛回复）
+            if (params.get("required") instanceof List<?> required) {
+                required.removeIf(k -> k.equals("user_id") || k.equals("kb_id")
+                        || k.equals("is_base64") || k.equals("user_token"));
+            }
         }
 
         // 群聊 GROUP 不在白名单 → 群聊场景自动禁用（风控）；
@@ -70,12 +76,24 @@ public class McpSkill implements Skill {
         List<String> scenes = "liepin-mcp".equals(connection.serverName())
                 ? List.of("CHAT", "DATA", "OFFICE")
                 : List.of("CHAT", "DATA");
+        String desc = tool.description();
+        if ("rag_search".equals(tool.name())) {
+            // 模型默认会查用户私有库（可能为空）→ 提示共享房源库的存在（kb_id 白名单放行，见 mergeLlmArgs）
+            // 并引导串联通勤：出发地必须先问用户（IP 定位不可靠，方案 A 用户拍板）
+            desc += "（默认查用户私有知识库；检索公开房源请传 kb_id=kb-shared-houses，内含全国 34 城链家房源。"
+                    + "检索到候选房源后，先询问用户出发位置，再用 commute_estimate 测算从出发地到房源的通勤并给出查看路线链接）";
+        }
+        // 高危判定：破坏性/花钱操作必须经治理内核"确认放行"闭环——
+        // delete（删库/删文件）、apply（猎聘投递）、下单类（瑞幸 createOrder 真实点单）
+        // 其余（查询/预览/算价）只读安全，直接放行
+        String n = tool.name().toLowerCase();
+        boolean highRisk = n.contains("delete") || n.contains("apply")
+                || n.contains("createorder") || n.contains("create_order") || n.contains("create-order");
         return new SkillMeta(
                 PREFIX + tool.name(),
-                tool.description() + "（由 MCP 子进程提供，回答请标注来源）",
+                desc + "（由 MCP 子进程提供，回答请标注来源）",
                 params,
-                tool.name().contains("delete") || tool.name().contains("apply")
-                        ? RiskLevel.HIGH_RISK : RiskLevel.LOW,   // 删库/投递=破坏性操作，治理内核确认放行
+                highRisk ? RiskLevel.HIGH_RISK : RiskLevel.LOW,   // 删库/投递/下单=真实花钱或破坏性操作，治理内核确认放行
                 scenes,
                 "MCP:" + connection.serverName(),   // 来源标注：MCP:rag-mcp / MCP:crawl-mcp
                 SkillType.MAIN

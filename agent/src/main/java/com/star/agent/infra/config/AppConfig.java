@@ -31,6 +31,8 @@ public class AppConfig {
 
     private final String liepinUserToken = firstOf("LIEPIN_USER_TOKEN");   // 猎聘授权 Token（.env 已 gitignore）
 
+    private final String luckinMcpToken = firstOf("LUCKIN_MCP_TOKEN");     // 瑞幸 MCP Token（.env 已 gitignore）
+
     private final String mailUser = firstOf("MAIL_USER");            // 发信 QQ 邮箱（需开启 SMTP 服务）
 
     private final String mailAuthCode = firstOf("MAIL_AUTH_CODE");   // QQ 邮箱授权码（非登录密码）
@@ -92,6 +94,8 @@ public class AppConfig {
     public String amapApiKey(){ return amapApiKey; }
 
     public String liepinUserToken(){ return liepinUserToken; }
+
+    public String luckinMcpToken(){ return luckinMcpToken; }
 
     public String mailUser(){ return mailUser; }
 

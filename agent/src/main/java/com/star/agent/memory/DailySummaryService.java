@@ -46,9 +46,14 @@ public class DailySummaryService {
             if (start.isAfter(end)) {
                 continue;   // 没缺口（昨天已压过），跳过
             }
+            int compressed = 0;
             for (LocalDate d = start; !d.isAfter(end); d = d.plusDays(1)) {
-                compressDay(userId, d);
+                if (compressDay(userId, d)) {
+                    compressed++;
+                }
             }
+            // 汇总一条（空日/无对话不逐天刷日志，避免每次对话前惰性补压刷屏）
+            logger.info("{} 每日摘要补压完成：{} 天有摘要（{} 至 {}）", userId, compressed, start, end);
         }
     }
 
@@ -58,17 +63,17 @@ public class DailySummaryService {
     }
 
     // 压一天：取流水 → LLM 提炼（含闲聊遗忘过滤）→ 存摘要；任何一步失败只记日志不崩
-    void compressDay(String userId, LocalDate date) {
+    // 返回 true=当天压出摘要入库；false=无对话/摘要为空/失败（调用方按天汇总，不逐天刷日志）
+    boolean compressDay(String userId, LocalDate date) {
         try {
             List<ConversationDo> day = conversationDao.findByUserIdAndDate(userId, date);
             if (day.isEmpty()) {
-                logger.info("{} 当天无对话，跳过压缩", date);
-                return;
+                return false;
             }
             String summary = summarize(day);
             if (summary == null || summary.isBlank()) {
                 logger.warn("{} 压缩摘要为空，跳过", date);
-                return;
+                return false;
             }
             DailySummaryDo s = new DailySummaryDo();
             s.setUserId(userId);
@@ -76,8 +81,10 @@ public class DailySummaryService {
             s.setContent(summary);
             summaryMapper.insert(s);
             logger.info("已压缩 {} 的 {} 条对话 → 摘要", date, day.size());
+            return true;
         } catch (Exception e) {
             logger.warn("压缩 {} 失败: {}", date, e.getMessage());
+            return false;
         }
     }
 

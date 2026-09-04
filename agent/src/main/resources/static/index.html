@@ -199,6 +199,90 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Micr
 .am-btn.ok{background:var(--accent-grad);color:#fff}
 .am-btn.danger{background:transparent;border:1px solid var(--line);color:var(--txt-3)}
 .am-btn.danger:hover{color:var(--red);border-color:var(--red)}
+
+/* ===== 更多弹窗（居中，含点单/人设入口） ===== */
+.more-modal{width:440px;max-width:100%;background:var(--bg-side);border:1px solid var(--line);border-radius:18px;padding:20px;box-shadow:var(--shadow)}
+.mm-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.mm-head h3{font-size:16px}
+.mm-list{display:flex;flex-direction:column;gap:10px}
+.mm-item{display:flex;align-items:center;gap:12px;padding:14px 16px;border-radius:12px;background:var(--bg-hover);cursor:pointer;transition:.15s}
+.mm-item:hover{background:var(--bg-active)}
+.mm-item .mm-ic{width:40px;height:40px;border-radius:10px;background:var(--accent-grad);color:#fff;display:flex;align-items:center;justify-content:center;flex:none}
+.mm-item .mm-ic svg{width:20px;height:20px}
+.mm-item .mm-t{font-size:14.5px;font-weight:600}
+.mm-item .mm-d{font-size:12px;color:var(--txt-3);margin-top:2px}
+
+/* ===== 点单弹窗（分步：先选饮品 → 再选规格） ===== */
+.order-modal{width:600px;max-width:100%;max-height:90vh;overflow-y:auto;background:var(--bg-side);border:1px solid var(--line);border-radius:18px;padding:20px;box-shadow:var(--shadow)}
+.om-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.om-head .om-title{display:flex;align-items:center;gap:8px}
+.om-head h3{font-size:16px}
+.om-head .om-sub{font-size:11.5px;color:var(--txt-3)}
+/* 步骤指示 */
+.om-steps{display:flex;align-items:center;gap:8px;margin-bottom:14px;font-size:12.5px}
+.om-steps .step{display:flex;align-items:center;gap:6px;color:var(--txt-3)}
+.om-steps .step .num{width:20px;height:20px;border-radius:50%;background:var(--bg-hover);display:flex;align-items:center;justify-content:center;font-size:11.5px;flex:none}
+.om-steps .step.on{color:var(--accent);font-weight:600}
+.om-steps .step.on .num{background:var(--accent-grad);color:#fff}
+.om-steps .step.done{color:var(--green)}
+.om-steps .step.done .num{background:rgba(52,211,153,.15);color:var(--green)}
+.om-steps .bar{flex:1;height:1px;background:var(--line)}
+/* 第一步：饮品列表（带官网图） */
+.om-drinks{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+.om-drink{display:flex;gap:10px;padding:10px;border-radius:12px;border:1px solid var(--line);background:var(--bg-input);cursor:pointer;transition:.15s;align-items:center}
+.om-drink:hover{border-color:var(--accent);transform:translateY(-1px)}
+.om-drink.on{border-color:var(--accent);background:var(--bg-active);box-shadow:0 0 0 2px rgba(56,198,238,.12)}
+.om-drink img{width:56px;height:56px;border-radius:10px;object-fit:cover;flex:none;background:var(--bg-hover)}
+.om-drink .d-info{min-width:0;flex:1}
+.om-drink .d-name{font-size:13px;color:var(--txt);font-weight:600;display:flex;justify-content:space-between;gap:6px}
+.om-drink .d-price{color:var(--accent);font-weight:700;font-size:12.5px;flex:none}
+.om-drink .d-note{font-size:11px;color:var(--txt-3);margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* 第二步：规格区（选中饮品后才显示） */
+.om-specs{display:none;margin-top:16px}
+.om-specs.show{display:block;animation:fadeIn .25s ease}
+@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.om-selected{display:flex;gap:12px;align-items:center;padding:10px 12px;border-radius:12px;background:var(--bg-active);margin-bottom:14px}
+.om-selected img{width:44px;height:44px;border-radius:10px;object-fit:cover;flex:none}
+.om-selected .sel-name{font-size:14px;font-weight:700}
+.om-selected .sel-sub{font-size:11.5px;color:var(--txt-3)}
+.om-selected .sel-price{margin-left:auto;font-size:15px;font-weight:800;color:var(--accent)}
+.om-rec{display:flex;align-items:center;gap:8px;padding:9px 12px;border-radius:10px;background:var(--bg-active);border:1px dashed var(--accent);margin-bottom:14px;font-size:12.5px;color:var(--txt-2)}
+.om-rec b{color:var(--accent)}
+.om-rec button{margin-left:auto;padding:4px 12px;border-radius:8px;border:none;background:var(--accent-grad);color:#fff;font-size:12px;font-weight:600;cursor:pointer}
+.om-sec{margin-bottom:14px}
+.om-sec .om-label{font-size:12.5px;color:var(--txt-2);margin-bottom:7px;display:flex;align-items:center;gap:6px}
+.om-sec .om-label::before{content:'';width:3px;height:11px;border-radius:2px;background:var(--accent-grad)}
+.om-options{display:flex;flex-wrap:wrap;gap:7px}
+.om-opt{padding:6px 13px;border-radius:9px;border:1px solid var(--line);background:var(--bg-input);color:var(--txt-2);font-size:12.5px;cursor:pointer;transition:.15s}
+.om-opt:hover{border-color:var(--accent);color:var(--accent)}
+.om-opt.on{border-color:var(--accent);background:var(--bg-active);color:var(--accent);font-weight:600}
+.om-opt .up{color:var(--pink);font-size:11px;margin-left:2px}
+.om-qty{display:inline-flex;align-items:center;gap:10px}
+.om-qty button{width:28px;height:28px;border-radius:8px;border:1px solid var(--line);background:var(--bg-input);color:var(--txt);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.om-qty button:hover{border-color:var(--accent);color:var(--accent)}
+.om-qty span{min-width:28px;text-align:center;font-size:15px;font-weight:600}
+.om-foot{display:flex;align-items:center;justify-content:space-between;gap:10px;padding-top:14px;border-top:1px solid var(--line);margin-top:16px}
+.om-tip{font-size:11.5px;color:var(--txt-3);line-height:1.7}
+.om-send{padding:10px 22px;border-radius:10px;border:none;background:var(--accent-grad);color:#fff;font-size:13.5px;font-weight:600;cursor:pointer;transition:.15s;flex:none}
+.om-send:hover{filter:brightness(1.06)}
+.om-foot .om-left{display:flex;align-items:center;gap:8px;flex:1;min-width:0}
+.om-back{display:none;padding:10px 14px;border-radius:10px;border:1px solid var(--line);background:var(--bg-input);color:var(--txt-2);font-size:13px;cursor:pointer;flex:none}
+.om-back:hover{border-color:var(--accent);color:var(--accent)}
+
+/* ===== 人设弹窗（对齐小程序） ===== */
+.persona-modal{width:480px;max-width:100%;background:var(--bg-side);border:1px solid var(--line);border-radius:18px;padding:20px;box-shadow:var(--shadow)}
+.pm-preset{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0 14px}
+.pm-chip{padding:7px 14px;border-radius:20px;border:1px solid var(--line);background:var(--bg-input);color:var(--txt-2);font-size:13px;cursor:pointer;transition:.15s}
+.pm-chip:hover{border-color:var(--accent);color:var(--accent)}
+.pm-chip.on{border-color:var(--accent);background:var(--bg-active);color:var(--accent);font-weight:600}
+.persona-modal textarea{width:100%;height:110px;border-radius:12px;border:1px solid var(--line);background:var(--bg-input);color:var(--txt);
+  padding:12px;font-size:13.5px;outline:none;resize:none;line-height:1.7}
+.persona-modal textarea:focus{border-color:var(--accent);box-shadow:0 0 0 2px rgba(56,198,238,.15)}
+.pm-cur{font-size:12.5px;color:var(--txt-2);margin-bottom:10px;line-height:1.7}
+.pm-cur b{color:var(--txt)}
+.pm-actions{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:14px}
+.pm-actions .pm-left{display:flex;gap:8px}
+.pm-err{font-size:12px;color:var(--red);margin-top:8px}
 @media (max-width:860px){
   .side{position:fixed;z-index:30;height:100%;box-shadow:0 0 40px rgba(0,0,0,.5)}
   .app.collapsed .side{box-shadow:none}
@@ -225,6 +309,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Micr
   <symbol id="i-moon" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></symbol>
   <symbol id="i-send" viewBox="0 0 24 24"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></symbol>
   <symbol id="i-stop" viewBox="0 0 24 24"><rect x="8" y="8" width="8" height="8" rx="1.5"/></symbol>
+  <symbol id="i-coffee" viewBox="0 0 24 24"><path d="M18 8h1a4 4 0 0 1 0 8h-1"/><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4z"/><line x1="6" y1="1" x2="6" y2="4"/><line x1="10" y1="1" x2="10" y2="4"/><line x1="14" y1="1" x2="14" y2="4"/></symbol>
+  <symbol id="i-user" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></symbol>
 </svg>
 
 <div class="app" id="app">
@@ -289,7 +375,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Micr
       <div class="nav-item" onclick="location.href='knowledge.html'"><svg class="ic"><use href="#i-book"/></svg><span class="txt">知识库</span></div>
       <div class="nav-item" onclick="location.href='config.html'"><svg class="ic"><use href="#i-gear"/></svg><span class="txt">我的配置</span></div>
       <div class="nav-item" onclick="location.href='profile.html'"><svg class="ic"><use href="#i-layers"/></svg><span class="txt">个人信息</span></div>
-      <div class="nav-item"><svg class="ic"><use href="#i-grid"/></svg><span class="txt">更多</span><span class="tail"><svg class="ic"><use href="#i-chev-r"/></svg></span></div>
+      <div class="nav-item" onclick="openMore()"><svg class="ic"><use href="#i-grid"/></svg><span class="txt">更多</span><span class="tail"><svg class="ic"><use href="#i-chev-r"/></svg></span></div>
     </nav>
 
     <div class="side-scroll">
@@ -348,7 +434,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Micr
         <div class="nav-item" onclick="location.href='knowledge.html'"><svg class="ic"><use href="#i-book"/></svg><span class="txt">知识库</span></div>
         <div class="nav-item" onclick="location.href='config.html'"><svg class="ic"><use href="#i-gear"/></svg><span class="txt">我的配置</span></div>
         <div class="nav-item" onclick="location.href='profile.html'"><svg class="ic"><use href="#i-layers"/></svg><span class="txt">个人信息</span></div>
-        <div class="nav-item"><svg class="ic"><use href="#i-grid"/></svg><span class="txt">更多</span></div>
+        <div class="nav-item" onclick="openMore()"><svg class="ic"><use href="#i-grid"/></svg><span class="txt">更多</span></div>
       </div>
     </header>
 
@@ -422,6 +508,106 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Micr
       <button class="am-btn pick" onclick="document.getElementById('avFile').click()">选择图片</button>
       <button class="am-btn ok" id="avSave" onclick="saveAvatar()" disabled>保存</button>
       <button class="am-btn danger" onclick="resetAvatar()">恢复默认</button>
+    </div>
+  </div>
+</div>
+
+<!-- 更多弹窗（居中：点单 / 人设入口） -->
+<div class="mask" id="moreMask">
+  <div class="more-modal">
+    <div class="mm-head">
+      <h3>更多</h3>
+      <button class="icon-btn" onclick="closeMore()" style="font-size:16px">✕</button>
+    </div>
+    <div class="mm-list">
+      <div class="mm-item" onclick="openOrder()">
+        <span class="mm-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8h1a4 4 0 0 1 0 8h-1"/><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4z"/><line x1="6" y1="1" x2="6" y2="4"/><line x1="10" y1="1" x2="10" y2="4"/><line x1="14" y1="1" x2="14" y2="4"/></svg></span>
+        <div><div class="mm-t">点单 · 瑞幸咖啡</div><div class="mm-d">19 款饮品 · 真实规格联动 · 选好直接下单</div></div>
+      </div>
+      <div class="mm-item" onclick="openPersona()">
+        <span class="mm-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span>
+        <div><div class="mm-t">助手人设</div><div class="mm-d">预设或自定义你的 AI 助手性格</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 点单弹窗（分步：先选饮品 → 再选规格） -->
+<div class="mask" id="orderMask">
+  <div class="order-modal">
+    <div class="om-head">
+      <div class="om-title">
+        <span class="sm-ic"><svg class="ic" style="width:16px;height:16px"><use href="#i-coffee"/></svg></span>
+        <div>
+          <h3>瑞幸咖啡 · 点单</h3>
+          <div class="om-sub">规格来自瑞幸门店实时数据 · 下单前会核对价格</div>
+        </div>
+      </div>
+      <button class="icon-btn" onclick="closeOrder()" style="font-size:16px">✕</button>
+    </div>
+
+    <div class="om-steps">
+      <span class="step on" id="stDrink"><span class="num">1</span>选饮品</span>
+      <span class="bar"></span>
+      <span class="step" id="stSpec"><span class="num">2</span>选规格</span>
+    </div>
+
+    <!-- 第一步：饮品种类（带官网图） -->
+    <div class="om-drinks" id="omDrinks"></div>
+
+    <!-- 第二步：规格区（选中饮品后才显示） -->
+    <div class="om-specs" id="omSpecs">
+      <div class="om-selected">
+        <img id="omSelImg" alt="">
+        <div>
+          <div class="sel-name" id="omSelName"></div>
+          <div class="sel-sub" id="omSelNote"></div>
+        </div>
+        <div class="sel-price" id="omSelPrice"></div>
+      </div>
+
+      <div class="om-rec" id="omRec"></div>
+
+      <div class="om-sec"><div class="om-label">冷热</div><div class="om-options" id="omTemp"></div></div>
+      <div class="om-sec"><div class="om-label">杯型</div><div class="om-options" id="omSize"></div></div>
+      <div class="om-sec"><div class="om-label">糖度</div><div class="om-options" id="omSugar"></div></div>
+      <div class="om-sec"><div class="om-label">浓度</div><div class="om-options" id="omConc"></div></div>
+      <div class="om-sec"><div class="om-label">奶基</div><div class="om-options" id="omMilk"></div></div>
+      <div class="om-sec" id="omExtraSec"><div class="om-label">特色选项</div><div class="om-options" id="omExtra"></div></div>
+      <div class="om-sec"><div class="om-label">数量</div>
+        <div class="om-qty">
+          <button onclick="omQty(-1)">−</button><span id="omQtyVal">1</span><button onclick="omQty(1)">+</button>
+        </div>
+      </div>
+
+      <div class="om-foot">
+        <button class="om-back" id="omBack" onclick="omBackToDrinks()">← 换一杯</button>
+        <span class="om-tip">下单前会先和你核对门店与价格，回复「确认」才真正下单</span>
+        <button class="om-send" onclick="omSend()">去下单</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 人设弹窗（对齐小程序） -->
+<div class="mask" id="personaMask">
+  <div class="persona-modal">
+    <div class="sm-head">
+      <div class="sm-title">
+        <span class="sm-ic"><svg class="ic" style="width:16px;height:16px"><use href="#i-user"/></svg></span>
+        <h3>助手人设</h3>
+      </div>
+      <button class="icon-btn" onclick="closePersona()" style="font-size:16px">✕</button>
+    </div>
+    <div class="pm-cur" id="pmCur">未设置 · 默认助手（可自定义人设或选预设）</div>
+    <div class="pm-preset" id="pmPresets"></div>
+    <textarea id="pmInput" placeholder="自定义人设，如：你是东北雨姐，说话豪爽" maxlength="200"></textarea>
+    <div class="pm-err" id="pmErr"></div>
+    <div class="pm-actions">
+      <div class="pm-left">
+        <button class="am-btn pick" onclick="pmClear()">恢复默认</button>
+      </div>
+      <button class="am-btn ok" onclick="pmSave()">保存生效</button>
     </div>
   </div>
 </div>
@@ -502,13 +688,23 @@ messages.addEventListener('scroll', () => {
 });
 
 /* ===== 消息渲染 ===== */
+// markdown 超链接 [文字](url) → 可点击 <a>（仅 http/https 白名单，其余文本转义防 XSS）
+// 顺带：剥粗体 **；剥离 URL 行尾括号说明（复制友好）
+function mdLinks(text){
+  const esc = s => s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  return esc(text)
+    .replace(/\*\*/g, '')
+    .replace(/(amapuri:\/\/\S+?)（[^）]*）/g, '$1')
+    .replace(/(https?:\/\/\S+?)（[^）]*）/g, '$1')
+    .replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+}
 function addMsg(role, text){
   const d = document.createElement('div');
   d.className = 'msg ' + role;
   const b = document.createElement('div');
   b.className = 'bubble' + (text === '' ? ' typing' : '');
   if (text === '') { b.innerHTML = '<i></i><i></i><i></i>'; }
-  else { b.textContent = text; }
+  else { b.innerHTML = mdLinks(text); }
   d.appendChild(b);
   thread.appendChild(d);
   scrollBottom();
@@ -732,6 +928,214 @@ function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;',
 
 $('send').onclick = () => { if (streaming) stopStream(); else send(); };
 input.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } });
+
+/* ===== 更多弹窗（居中） ===== */
+function openMore(){ $('moreMask').classList.add('show'); }
+function closeMore(){ $('moreMask').classList.remove('show'); }
+$('moreMask').addEventListener('click', e => { if (e.target === $('moreMask')) closeMore(); });
+
+/* ===== 点单弹窗（分步：瑞幸真实规格 + 官网图，19 款） ===== */
+const OM_MENU = [
+  { name: '生椰拿铁（首创）', price: 18, pic: 'https://img03.luckincoffeecdn.com/group6/M00/61/A5/Ct1qxWjZ_FGAFGvJAAXdMK7pFW4354.jpg', size: ['大杯', '超大杯+3'], temp: ['冰', '热'],
+    sugar: ['标准甜', '少甜', '少少甜', '微甜', '不另外加糖'], conc: ['默认浓度', '加单份浓缩+3'],
+    milk: ['生椰乳'], note: '经典款 · 无奶油选项', rec: '冰 · 大杯 · 不另外加糖' },
+  { name: '冰吸生椰拿铁（首创）', price: 19, pic: 'https://img03.luckincoffeecdn.com/group1/M00/ED/9D/CtwhA2Qve3CANJ70AAe4A2dPTW8092.jpg', size: ['大杯', '超大杯+3'], temp: ['冰'],
+    sugar: ['标准甜', '少甜', '少少甜', '微甜', '不另外加糖'], conc: ['默认浓度', '加单份浓缩+3'],
+    milk: ['生椰乳'], note: '仅冰饮 · 无奶油选项', rec: '冰 · 大杯 · 少甜' },
+  { name: '拿铁', price: 15, pic: 'https://img03.luckincoffeecdn.com/commodity-admin/2025/12/02/680c7f057c5348a8a72756b203b44796.png', size: ['大杯', '特大杯+3'], temp: ['冰', '热'],
+    sugar: ['标准甜', '少甜', '少少甜', '微甜', '不另外加糖'], conc: ['默认浓度', '加单份浓缩+3'],
+    milk: ['牛奶', '燕麦奶'], note: '奶基可换', rec: '热 · 大杯 · 标准甜' },
+  { name: '小黄油拿铁（首创）', price: 19, pic: 'https://img03.luckincoffeecdn.com/commodity-admin/2026/06/11/cf5deb13a4bd419b85964893a6e1accd.jpg', size: ['大杯', '超大杯+3'], temp: ['冰', '热'],
+    sugar: ['标准甜', '少甜', '少少甜', '微甜', '不另外加糖'], conc: ['默认浓度', '加单份浓缩+3'],
+    milk: ['牛奶'], note: '', rec: '冰 · 大杯 · 少甜' },
+  { name: '小黄油美式（首创）', price: 18, pic: 'https://img03.luckincoffeecdn.com/group2/M00/09/EE/CtwiPWd-ifiABJCEAAWVevoM5SY962.jpg', size: ['大杯', '超大杯+3'], temp: ['冰', '热', '全冰去水'],
+    sugar: ['标准甜', '少甜', '少少甜', '微甜', '不另外加糖'], conc: ['默认浓度', '加单份浓缩+3'],
+    milk: ['无奶'], note: '含全冰去水', rec: '冰 · 大杯 · 不另外加糖' },
+  { name: '标准美式', price: 13, pic: 'https://img03.luckincoffeecdn.com/group4/M00/33/62/CtwhNGeD4nCATtSgAAIIPlCqP2o030.jpg', size: ['大杯', '特大杯+3'], temp: ['冰', '热'],
+    sugar: ['标准甜', '少甜', '少少甜', '微甜', '不另外加糖', '香草+3'], conc: ['默认浓度', '加单份浓缩+3'],
+    milk: ['无奶', '单份奶', '双份奶'], note: '可加香草糖浆', rec: '冰 · 大杯 · 无奶 · 不另外加糖' },
+  { name: '加浓美式', price: 16, pic: 'https://img03.luckincoffeecdn.com/group4/M00/33/5F/CtxwDGeD4uSABNqzAALmD5JeDPU413.jpg', size: ['大杯', '特大杯+3'], temp: ['冰', '热'],
+    sugar: ['标准甜', '少甜', '少少甜', '微甜', '不另外加糖', '香草+3'], conc: ['默认浓度', '加单份浓缩+3'],
+    milk: ['无奶', '单份奶', '双份奶'], note: '咖啡因加倍', rec: '冰 · 大杯 · 无奶 · 不另外加糖' },
+  { name: '丝绒拿铁', price: 19, pic: 'https://img03.luckincoffeecdn.com/group2/M00/41/38/CtwiPWRYtt6AcV2yAAKwvtxLzRI168.jpg', size: ['大杯', '特大杯+3'], temp: ['冰', '热'],
+    sugar: ['标准甜', '少甜', '少少甜', '微甜', '不另外加糖'], conc: ['默认浓度', '加单份浓缩+3'],
+    milk: ['牛奶'], note: '', rec: '热 · 大杯 · 标准甜' },
+  { name: '生椰丝绒拿铁', price: 20, pic: 'https://img03.luckincoffeecdn.com/group1/M00/37/0D/CtwhAmF2K7yAPKLtAAIylEiCyBQ816.jpg', size: ['大杯', '特大杯+3'], temp: ['冰', '热'],
+    sugar: ['标准甜', '少甜', '少少甜', '微甜', '不另外加糖'], conc: ['默认浓度', '加单份浓缩+3'],
+    milk: ['生椰乳'], note: '无奶油选项', rec: '冰 · 大杯 · 不另外加糖' },
+  { name: '抹茶丝绒拿铁', price: 20, pic: 'https://img03.luckincoffeecdn.com/commodity-admin/2026/06/29/81d07cbdb1f141fc99856d3f4b891087.jpg', size: ['大杯'], temp: ['冰', '全冰去水', '热'],
+    sugar: ['标准甜', '少甜', '少少甜', '微甜', '不另外加糖'], conc: ['默认浓度'],
+    milk: ['牛奶'], note: '仅大杯', rec: '热 · 大杯 · 标准甜' },
+  { name: '茉莉花香拿铁', price: 16, pic: 'https://img03.luckincoffeecdn.com/commodity-admin/2025/12/02/4390378d22be482691a34903e7ffcfd5.jpg', size: ['大杯', '超大杯+3'], temp: ['冰', '热'],
+    sugar: ['标准甜', '少甜', '少少甜', '微甜', '不另外加糖'], conc: ['默认浓度', '加单份浓缩+3'],
+    milk: ['牛奶', '燕麦奶'], note: '奶基可换', rec: '冰 · 大杯 · 少甜' },
+  { name: '燕麦拿铁', price: 15, pic: 'https://img03.luckincoffeecdn.com/group2/M00/6A/F8/CtwiPWdb-4qAUQm6AAGO3AHecM8227.jpg', size: ['大杯', '超大杯+3'], temp: ['冰', '热'],
+    sugar: ['标准甜', '少甜', '少少甜', '微甜', '不另外加糖'], conc: ['默认浓度', '加单份浓缩+3'],
+    milk: ['燕麦奶'], note: '', rec: '热 · 大杯 · 标准甜' },
+  { name: '卡布奇诺', price: 17, pic: 'https://img03.luckincoffeecdn.com/group2/M00/34/F1/CtwiPWONiOKADKTtAAQSJNHGoNg398.jpg', size: ['大杯', '特大杯+3'], temp: ['热'],
+    sugar: ['标准甜', '少甜', '少少甜', '微甜', '不另外加糖', '香草+3'], conc: ['默认浓度', '加单份浓缩+3'],
+    milk: ['牛奶'], note: '仅热饮', rec: '热 · 大杯 · 标准甜' },
+  { name: '焦糖玛奇朵', price: 17, pic: 'https://img03.luckincoffeecdn.com/group4/M00/33/61/CtxwDGeD5T6AM0UTAAKRM69lPqw704.jpg', size: ['大杯', '特大杯+3'], temp: ['冰', '热'],
+    sugar: ['标准甜', '少甜', '少少甜'], conc: ['默认浓度', '加单份浓缩+3'],
+    milk: ['牛奶', '燕麦奶'], note: '糖度仅三档', rec: '冰 · 大杯 · 少甜' },
+  { name: '精萃澳瑞白', price: 17, pic: 'https://img03.luckincoffeecdn.com/commodity-admin/2025/12/02/4f00521971e0492c876e50fa1ec48ab9.jpg', size: ['大杯', '特大杯+3'], temp: ['冰', '热'],
+    sugar: ['标准甜', '少甜', '少少甜', '微甜', '不另外加糖', '香草+3'], conc: ['默认浓度', '加单份浓缩+3'],
+    milk: ['牛奶', '燕麦奶'], note: '', rec: '热 · 大杯 · 标准甜' },
+  { name: '耶加雪菲·澳瑞白', price: 21, pic: 'https://img03.luckincoffeecdn.com/group4/M00/98/38/CtxwDGfpbkaAP1ORAAJc9KsZm1c02.jpeg', size: ['小黑杯'], temp: ['冰', '热'],
+    sugar: ['标准甜', '少甜', '少少甜', '微甜', '不另外加糖'], conc: ['默认浓度'],
+    milk: ['牛奶'], note: '仅小黑杯', rec: '热 · 小黑杯 · 标准甜' },
+  { name: '鲜萃轻轻茉莉', price: 14, pic: 'https://img03.luckincoffeecdn.com/group4/M00/A3/D3/Ct1rW2hCk3iAIwYgAAgfbiXwgsY156.jpg', size: ['大杯', '特大杯+3'], temp: ['冰', '热'],
+    sugar: ['标准甜', '少甜', '少少甜', '不另外加糖'], conc: ['默认浓度'],
+    milk: ['牛奶'], extra: ['不含轻咖', '含轻咖'], note: '可加轻咖', rec: '冰 · 大杯 · 少甜 · 含轻咖' },
+  { name: '鲜萃轻轻茉莉（特大杯）', price: 17, pic: 'https://img03.luckincoffeecdn.com/group4/M00/9C/AF/CtxwDGfZUEuAWeKHAAjXsB1_Zmk902.jpg', size: ['特大杯'], temp: ['冰', '热'],
+    sugar: ['标准甜', '少甜', '少少甜', '不另外加糖'], conc: ['默认浓度'],
+    milk: ['牛奶'], extra: ['不含轻咖', '含轻咖'], note: '仅特大杯', rec: '冰 · 特大杯 · 少甜 · 含轻咖' },
+  { name: '柚C美式', price: 18, pic: 'https://img03.luckincoffeecdn.com/group1/M00/D4/15/CtwhA2dZQO6AAqliAAcAjzh-yuc177.jpg', size: ['大杯', '超大杯+3'], temp: ['冰'],
+    sugar: ['标准甜', '少甜', '少少甜', '微甜', '不另外加糖'], conc: ['默认浓度', '加单份浓缩+3'],
+    milk: ['无奶'], extra: ['气泡+2', '无气泡'], note: '仅冰饮 · 可选气泡', rec: '冰 · 大杯 · 无气泡 · 不另外加糖' },
+];
+// 选项解析：'超大杯+3' → {name:'超大杯', up:3}
+const omParse = o => { const m = /^(.+?)\+(\d+)$/.exec(o); return m ? { name: m[1], up: +m[2] } : { name: o, up: 0 }; };
+let omSel = { temp: 0, size: 0, sugar: 0, conc: 0, milk: 0, extra: 0 }, omQtyN = 1;
+
+function omOpts(id, opts, key){
+  $('om' + id).innerHTML = opts.map((o, i) => {
+    const p = omParse(o);
+    return '<span class="om-opt' + (omSel[key] === i ? ' on' : '') + '" data-i="' + i + '">' + escapeHtml(p.name) +
+      (p.up ? '<span class="up">+¥' + p.up + '</span>' : '') + '</span>';
+  }).join('');
+  $('om' + id).querySelectorAll('.om-opt').forEach(el => el.onclick = () => {
+    omSel[key] = +el.dataset.i;
+    el.parentElement.querySelectorAll('.om-opt').forEach(x => x.classList.remove('on'));
+    el.classList.add('on');
+  });
+}
+function omRenderSpecs(){
+  const d = omDrink;
+  omOpts('Temp', d.temp, 'temp');
+  omOpts('Size', d.size, 'size');
+  omOpts('Sugar', d.sugar, 'sugar');
+  omOpts('Conc', d.conc, 'conc');
+  omOpts('Milk', d.milk, 'milk');
+  if (d.extra) { $('omExtraSec').style.display = ''; omOpts('Extra', d.extra, 'extra'); }
+  else { $('omExtraSec').style.display = 'none'; }
+  $('omSelImg').src = d.pic;
+  $('omSelName').textContent = d.name;
+  $('omSelNote').textContent = d.note || '经典瑞幸';
+  $('omSelPrice').textContent = '¥' + d.price;
+  $('omRec').innerHTML = '🔥 常见搭配：<b>' + escapeHtml(d.rec) + '</b>' +
+    '<button onclick="omUseRec()">就用这个</button>';
+}
+function omUseRec(){
+  const d = omDrink;
+  const pick = (arr, key, name) => { const i = arr.findIndex(o => omParse(o).name === name); if (i >= 0) omSel[key] = i; };
+  const parts = d.rec.split(' · ');
+  pick(d.temp, 'temp', parts.find(p => ['冰','热','全冰去水'].includes(p)));
+  pick(d.size, 'size', parts.find(p => d.size.some(s => omParse(s).name === p)));
+  pick(d.sugar, 'sugar', parts.find(p => d.sugar.some(s => omParse(s).name === p)));
+  if (d.extra) pick(d.extra, 'extra', parts.find(p => d.extra.some(s => omParse(s).name === p)));
+  omRenderSpecs();
+}
+function omRenderDrinks(){
+  $('omDrinks').innerHTML = OM_MENU.map((d, i) =>
+    '<div class="om-drink" data-i="' + i + '">' +
+      '<img src="' + d.pic + '" alt="' + escapeHtml(d.name) + '" loading="lazy" onerror="this.style.opacity=.15">' +
+      '<div class="d-info"><div class="d-name"><span>' + escapeHtml(d.name) + '</span><span class="d-price">¥' + d.price + '</span></div>' +
+      '<div class="d-note">' + escapeHtml(d.note || '') + '</div></div></div>').join('');
+  $('omDrinks').querySelectorAll('.om-drink').forEach(el => el.onclick = () => omSelect(+el.dataset.i));
+}
+function omSelect(i){
+  omDrink = OM_MENU[i];
+  omSel = { temp: 0, size: 0, sugar: 0, conc: 0, milk: 0, extra: 0 };
+  omRenderSpecs();
+  // 分步切换：隐藏饮品列表，显示规格区
+  $('omDrinks').style.display = 'none';
+  $('omSpecs').classList.add('show');
+  $('stDrink').classList.remove('on'); $('stDrink').classList.add('done');
+  $('stSpec').classList.add('on');
+  $('omBack').style.display = 'inline-flex';
+  $('orderMask').querySelector('.order-modal').scrollTop = 0;
+}
+function omBackToDrinks(){
+  $('omSpecs').classList.remove('show');
+  $('omDrinks').style.display = '';
+  $('stDrink').classList.remove('done'); $('stDrink').classList.add('on');
+  $('stSpec').classList.remove('on');
+  $('omBack').style.display = 'none';
+}
+function omQty(d){ omQtyN = Math.min(9, Math.max(1, omQtyN + d)); $('omQtyVal').textContent = omQtyN; }
+function openOrder(){
+  omDrink = OM_MENU[0];
+  omSel = { temp: 0, size: 0, sugar: 0, conc: 0, milk: 0, extra: 0 }; omQtyN = 1;
+  $('omQtyVal').textContent = 1;
+  omRenderDrinks();
+  $('omDrinks').style.display = '';
+  $('omSpecs').classList.remove('show');
+  $('stDrink').classList.add('on'); $('stDrink').classList.remove('done');
+  $('stSpec').classList.remove('on');
+  $('omBack').style.display = 'none';
+  closeMore();
+  $('orderMask').classList.add('show');
+}
+function closeOrder(){ $('orderMask').classList.remove('show'); }
+function omSend(){
+  const d = omDrink;
+  const opts = [omParse(d.temp[omSel.temp]).name, omParse(d.size[omSel.size]).name,
+    omParse(d.sugar[omSel.sugar]).name, omParse(d.conc[omSel.conc]).name];
+  const milk = omParse(d.milk[omSel.milk]).name;
+  if (d.milk.length > 1 || (milk !== '牛奶' && milk !== '生椰乳')) opts.push(milk);
+  if (d.extra) opts.push(omParse(d.extra[omSel.extra]).name);
+  const head = omQtyN > 1 ? '帮我点' + omQtyN + '杯' + d.name : '帮我点一杯' + d.name;
+  closeOrder();
+  sendMsg(head + '，' + opts.join('，'));
+}
+$('orderMask').addEventListener('click', e => { if (e.target === $('orderMask')) closeOrder(); });
+
+/* ===== 人设弹窗（对齐小程序：预设 chips + 自定义 ≤200 字） ===== */
+let pmPresets = [], pmConfigured = false;
+function pmRenderPresets(){
+  $('pmPresets').innerHTML = pmPresets.map(p =>
+    '<span class="pm-chip" data-v="' + escapeHtml(p.name) + '">' + escapeHtml(p.name) + '</span>').join('');
+  $('pmPresets').querySelectorAll('.pm-chip').forEach(el => el.onclick = () => {
+    $('pmInput').value = el.dataset.v;
+    el.parentElement.querySelectorAll('.pm-chip').forEach(x => x.classList.remove('on'));
+    el.classList.add('on');
+  });
+}
+function openPersona(){
+  $('personaMask').classList.add('show');
+  $('pmErr').textContent = '';
+  fetch('/api/personas', { headers: { 'Authorization': 'Bearer ' + token } })
+    .then(r => r.json()).then(j => { if (j.code === 0) { pmPresets = j.data || []; pmRenderPresets(); } })
+    .catch(() => {});
+  fetch('/api/user/persona', { headers: { 'Authorization': 'Bearer ' + token } })
+    .then(r => r.json()).then(j => {
+      if (j.code !== 0) return;
+      pmConfigured = !!j.data.configured;
+      $('pmInput').value = j.data.persona || '';
+      $('pmCur').innerHTML = pmConfigured
+        ? '当前人设：<b>' + escapeHtml(j.data.persona) + '</b>'
+        : '未设置 · 默认助手（可自定义人设或选预设）';
+    })
+    .catch(() => {});
+}
+function closePersona(){ $('personaMask').classList.remove('show'); }
+function pmSave(){
+  const t = $('pmInput').value.trim();
+  if (!t) { $('pmErr').textContent = '请输入人设内容'; return; }
+  fetch('/api/user/persona?persona=' + encodeURIComponent(t), {
+    method: 'PUT', headers: { 'Authorization': 'Bearer ' + token }
+  }).then(r => r.json()).then(j => {
+    if (j.code !== 0) { $('pmErr').textContent = j.msg || '保存失败'; return; }
+    closePersona();
+  }).catch(() => $('pmErr').textContent = '网络异常，保存失败');
+}
+function pmClear(){
+  fetch('/api/user/persona', { method: 'DELETE', headers: { 'Authorization': 'Bearer ' + token } })
+    .then(r => r.json()).then(j => { if (j.code === 0) closePersona(); })
+    .catch(() => {});
+}
+$('personaMask').addEventListener('click', e => { if (e.target === $('personaMask')) closePersona(); });
 
 loadHistory();
 </script>
