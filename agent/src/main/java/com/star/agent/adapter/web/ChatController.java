@@ -8,6 +8,7 @@ import com.star.agent.service.ChatService;
 import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -85,39 +86,49 @@ public class ChatController {
         String scene = sceneDetector.detect(message).name();               // 三层识别定场景 → 决定走哪个模型
         String userId = AuthContext.userId(request);                       // JWT 里的身份（未登录=null）
         String session = chatService.resolveSessionId(userId, sessionId, newSession);  // 点历史=沿用旧会话，新对话=新 id
+        String traceId = MDC.get("traceId");                               // 请求线程的 traceId 传给后台线程（runAsync 不继承 MDC）
+        if (traceId == null || traceId.isBlank()) {                        // 切片测试无 TraceIdFilter 时自生成，行为一致
+            traceId = UUID.randomUUID().toString().substring(0, 8);
+        }
+        final String traceIdForThread = traceId;                           // lambda 只能捕获 effectively final
 
         CompletableFuture.runAsync(() -> {                                 // 后台线程跑"读流"，主线程立刻返回
+            MDC.put("traceId", traceIdForThread);
             try {
-                // 先推两条命名事件给前端：streamId（才能调 /stop）+ sessionId（继续对话要带回去）
-                emitter.send(SseEmitter.event().name("streamId").data(streamId));
-                if (session != null) {
-                    emitter.send(SseEmitter.event().name("sessionId").data(session));
+                try {
+                    // 先推两条命名事件给前端：streamId（才能调 /stop）+ sessionId（继续对话要带回去）
+                    emitter.send(SseEmitter.event().name("streamId").data(streamId));
+                    if (session != null) {
+                        emitter.send(SseEmitter.event().name("sessionId").data(session));
+                    }
+                    // 流式 + 工具循环合流：正文推 data 事件（打字机），工具执行前推 tool 事件（前端展示调用状态）
+                    chatService.streamWithTools(message, userId, session, scene,
+                            token -> {
+                                if (stopped.get()) {                                    // 已点停止：不再推，抛出信号让读流线程退出
+                                    throw new RuntimeException("stream stopped");
+                                }
+                                try {
+                                    emitter.send(SseEmitter.event().data(token));
+                                } catch (IOException e) {
+                                    throw new RuntimeException(e);                      // 浏览器关了/断线 → 也退出
+                                }
+                            },
+                            toolName -> {
+                                try {
+                                    emitter.send(SseEmitter.event().name("tool").data(toolName));
+                                } catch (IOException e) {
+                                    throw new RuntimeException(e);
+                                }
+                            });
+                    emitter.complete();                                         // 正常推完
+                } catch (Exception e) {
+                    // 只有"真报错"才 completeWithError；主动停止/断线不算错，静默结束即可
+                    if (!"stream stopped".equals(e.getMessage())) {
+                        emitter.completeWithError(e);
+                    }
                 }
-                // 流式 + 工具循环合流：正文推 data 事件（打字机），工具执行前推 tool 事件（前端展示调用状态）
-                chatService.streamWithTools(message, userId, session, scene,
-                        token -> {
-                            if (stopped.get()) {                                    // 已点停止：不再推，抛出信号让读流线程退出
-                                throw new RuntimeException("stream stopped");
-                            }
-                            try {
-                                emitter.send(SseEmitter.event().data(token));
-                            } catch (IOException e) {
-                                throw new RuntimeException(e);                      // 浏览器关了/断线 → 也退出
-                            }
-                        },
-                        toolName -> {
-                            try {
-                                emitter.send(SseEmitter.event().name("tool").data(toolName));
-                            } catch (IOException e) {
-                                throw new RuntimeException(e);
-                            }
-                        });
-                emitter.complete();                                         // 正常推完
-            } catch (Exception e) {
-                // 只有"真报错"才 completeWithError；主动停止/断线不算错，静默结束即可
-                if (!"stream stopped".equals(e.getMessage())) {
-                    emitter.completeWithError(e);
-                }
+            } finally {
+                MDC.remove("traceId");
             }
         });
 

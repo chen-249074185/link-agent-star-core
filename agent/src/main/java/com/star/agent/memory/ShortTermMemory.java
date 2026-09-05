@@ -4,6 +4,7 @@ import com.star.agent.memory.domain.ConversationDo;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -30,7 +31,11 @@ public class ShortTermMemory {
 
     // 异步落库（带会话归属：同一段对话复用同一 sessionId）
     public void saveAsync(String userId, String role, String content, String sessionId) {
+        String traceId = MDC.get("traceId");   // 调用线程的 traceId 传给异步线程（runAsync 不继承 MDC）
         CompletableFuture.runAsync(() -> {
+            if (traceId != null) {
+                MDC.put("traceId", traceId);
+            }
             try {
                 ConversationDo c = new ConversationDo();
                 c.setUserId(userId);
@@ -40,6 +45,10 @@ public class ShortTermMemory {
                 mapper.insert(c);
             } catch (Exception e) {
                 logger.warn("短期记忆落库失败: {}", e.getMessage());
+            } finally {
+                if (traceId != null) {
+                    MDC.remove("traceId");
+                }
             }
         });
     }
