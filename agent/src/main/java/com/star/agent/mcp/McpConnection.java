@@ -22,7 +22,7 @@ import java.util.Map;
 // MCP 连接管理（真实轨）：连接一个 MCP server → 握手 → 工具调用
 // 两种传输模式：
 //   stdio 模式：拉起 MCP server 子进程（java -jar，rag/crawl/liepin 本地 fat jar）
-//   http 模式：远程 Streamable HTTP（瑞幸/麦当劳官方 MCP，Bearer Token 认证，无子进程）
+//   http 模式：远程 Streamable HTTP（官方 MCP，Bearer Token 认证，无子进程）
 // 由 McpServerConfig 按 server 配置创建多个实例（各有 serverName）
 // R9：连接失败/失联 → 日志告警 + 返回空，主程序不崩（能力降级而非宕机）
 public class McpConnection {
@@ -54,7 +54,7 @@ public class McpConnection {
         this.warmUpTool = null;
     }
 
-    // http 模式：远程 Streamable HTTP MCP server（瑞幸/麦当劳官方 MCP）
+    // http 模式：远程 Streamable HTTP MCP server（官方 MCP）
     public McpConnection(String serverName, String httpUrl, String bearerToken, String warmUpTool) {
         this.serverName = serverName;
         this.jarPath = null;

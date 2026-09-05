@@ -11,7 +11,7 @@ import java.nio.file.Paths;
 import java.util.Map;
 
 // MCP server 装配：按 server 配置创建多个 McpConnection（rag-mcp / crawl-mcp / liepin-mcp / luckin-mcp）
-// stdio 模式（本地 jar）与 http 模式（远程 Streamable HTTP，瑞幸/麦当劳官方 MCP）并存
+// stdio 模式（本地 jar）与 http 模式（远程 Streamable HTTP，官方 MCP）并存
 // 仅 mock-enabled=false 时注册（true 时 Mock 占位技能在位，MCP 全部不拉起）
 @Configuration
 public class McpServerConfig {
