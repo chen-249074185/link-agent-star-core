@@ -10,6 +10,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -25,6 +26,9 @@ class AuthControllerTest {
 
     @MockBean
     AuthService authService;
+
+    @Autowired
+    JwtService jwtService;
 
     @Test
     void sendCode_mapsBody() throws Exception {
@@ -84,5 +88,26 @@ class AuthControllerTest {
                         .content("{\"type\":\"email\",\"email\":\"a@qq.com\",\"code\":\"123456\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.token").value("token-z"));
+    }
+
+    // 累计 token 用量端点：JWT 鉴权后按本人查询返回 totalTokens
+    @Test
+    void tokens_requiresJwt_returnsTotal() throws Exception {
+        when(authService.tokenUsage("u1")).thenReturn(1234L);
+
+        mvc.perform(get("/api/user/tokens")
+                        .header("Authorization", "Bearer " + jwtService.issue("u1")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(0))
+                .andExpect(jsonPath("$.data.totalTokens").value(1234));
+
+        verify(authService).tokenUsage("u1");
+    }
+
+    // 无 token → 401（用户端 JWT 拦截器拒绝）
+    @Test
+    void tokens_noToken_401() throws Exception {
+        mvc.perform(get("/api/user/tokens"))
+                .andExpect(status().isUnauthorized());
     }
 }

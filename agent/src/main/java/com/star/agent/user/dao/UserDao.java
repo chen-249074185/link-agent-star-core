@@ -31,6 +31,9 @@ public interface UserDao {
     // 更新人设（用户自定义，11-05 起；persona 为 null 视作清除）
     int updatePersona(String userId, String persona);
 
+    // 累计 token 用量（对话埋点调用，原子自增，幂等）
+    int addTokens(String userId, long delta);
+
     // 删除账号（测试清理/注销用）
     int deleteByUserId(String userId);
 }

@@ -100,6 +100,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Micr
 .topbar .title{font-size:14px;font-weight:600}
 .topbar .sub{font-size:11px;color:var(--txt-3)}
 .topbar .right{margin-left:auto;display:flex;align-items:center;gap:8px}
+.token-chip{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 12px;border-radius:8px;
+  background:var(--bg-input);border:1px solid var(--line);color:var(--txt-2);font-size:12.5px;white-space:nowrap;cursor:default}
 .theme-btn .moon{display:none}
 [data-theme="dark"] .theme-btn .moon{display:inline-flex}
 [data-theme="dark"] .theme-btn .sun{display:none}
@@ -423,6 +425,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Micr
         <div class="sub">AI 生成可能有误 注意核实</div>
       </div>
       <div class="right">
+        <span class="token-chip" id="tokenChip" title="累计 Token 用量（估算）">Token: --</span>
         <button class="icon-btn theme-btn" id="themeBtn" title="切换明暗主题">
           <svg class="ic sun"><use href="#i-sun"/></svg>
           <svg class="ic moon"><use href="#i-moon"/></svg>
@@ -460,13 +463,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Micr
         </div>
       </div>
       <div class="composer-box">
-        <textarea id="input" rows="1" placeholder="发消息或按住空格说话..."></textarea>
+        <textarea id="input" rows="1" placeholder="发消息..."></textarea>
         <div class="tools">
           <button class="tool" id="attachBtn" title="上传文件"><svg class="ic"><use href="#i-plus"/></svg></button>
           <span class="sep"></span>
           <button class="tool"><svg class="ic"><use href="#i-chat"/></svg>对话 <svg class="ic" style="width:14px;height:14px"><use href="#i-chev-r"/></svg></button>
           <button class="tool"><svg class="ic"><use href="#i-book"/></svg>知识库</button>
-          <button class="tool"><svg class="ic"><use href="#i-mic"/></svg>语音</button>
           <div class="right">
             <span class="mode">DeepSeek v4-flash</span>
             <button class="send" id="send" title="发送">
@@ -527,6 +529,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Micr
       <div class="mm-item" onclick="openPersona()">
         <span class="mm-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span>
         <div><div class="mm-t">助手人设</div><div class="mm-d">预设或自定义你的 AI 助手性格</div></div>
+      </div>
+      <div class="mm-item" onclick="location.href='travel.html'">
+        <span class="mm-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17.8 19.2L16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z"/></svg></span>
+        <div><div class="mm-t">旅游规划</div><div class="mm-d">行程规划 + 足迹地图 + 游记</div></div>
       </div>
     </div>
   </div>
@@ -631,6 +637,17 @@ fetch('/api/user/me', { headers: { 'Authorization': 'Bearer ' + token } })
   .then(r => r.json())
   .then(j => { if (j.code !== 0) { location.href = 'login.html'; return; } $('footName').textContent = j.data.username || '用户'; })
   .catch(() => {});
+
+/* ===== Token 用量 ===== */
+const tokenChip = $('tokenChip');
+const fmtTokens = n => n >= 10000 ? (n / 10000).toFixed(1).replace(/\.0$/, '') + ' 万' : String(n);
+function refreshTokens(){
+  fetch('/api/user/tokens', { headers: { 'Authorization': 'Bearer ' + token } })
+    .then(r => r.json())
+    .then(j => { if (j.code === 0) tokenChip.textContent = 'Token: ' + fmtTokens(j.data.totalTokens || 0); })
+    .catch(() => {});
+}
+refreshTokens();
 
 /* ===== 主题 ===== */
 const root = document.documentElement;
@@ -851,6 +868,7 @@ function sendMsg(text){
     sendBtn.classList.remove('stop');
     sendBtn.title = '发送';
     if (currentSessionId) loadHistory();
+    refreshTokens();   // 一轮对话结束，刷新累计 token
   };
 }
 

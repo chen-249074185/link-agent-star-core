@@ -25,6 +25,7 @@ import com.star.agent.skill.SkillContext;
 import com.star.agent.skill.SkillRegistry;
 import com.star.agent.skill.SkillResult;
 import com.star.agent.user.PersonaManager;
+import com.star.agent.user.UserRepository;
 import com.star.agent.workflow.RentDecisionWorkflow;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -56,6 +57,7 @@ public class ChatService {
     private final SensitiveToolGuard sensitiveToolGuard;    // 敏感工具意图守卫（简历等需用户明确要求）
     private final UsageStatsService usageStats;             // 调用统计埋点（管理端"调用统计"Tab，可空）
     private final PersonaManager personaManager;            // 人设：自定义文本 → system prompt 注入（11-05，可空）
+    private final UserRepository userRepository;            // 用户累计 token 用量落库（Web 端展示，可空=手动链路不记）
 
     public ChatService(@Qualifier("deepSeekLlmClient")LlmClient llmClient, ModelRouter modelRouter, SkillRegistry skillRegistry, GovernanceKernel governanceKernel,
                        RentRequestDetector rentRequestDetector, RentDecisionWorkflow workflow,
@@ -63,7 +65,7 @@ public class ChatService {
                        ShortTermMemory shortTermMemory, DailySummaryService dailySummaryService,
                        SensitiveToolGuard sensitiveToolGuard,
                        ChatHistoryService chatHistoryService, ConversationDao conversationDao,
-                       UsageStatsService usageStats, PersonaManager personaManager) {
+                       UsageStatsService usageStats, PersonaManager personaManager, UserRepository userRepository) {
         this.llmClient = llmClient;
         this.modelRouter = modelRouter;
         this.skillRegistry = skillRegistry;
@@ -79,6 +81,7 @@ public class ChatService {
         this.conversationDao = conversationDao;
         this.usageStats = usageStats;
         this.personaManager = personaManager;
+        this.userRepository = userRepository;
     }
 
     // 人设注入：用户设置了自定义人设 → 消息开头插一条 system prompt（未设置零影响）
@@ -138,7 +141,7 @@ public class ChatService {
 
         for (int round = 0; round < 5; round++) {
             ChatResponse resp = llmClient.chat(messages, tools);
-            if (usageStats != null) usageStats.recordTokens(llmClient.model(), inputChars(messages), resp.content().length());
+            recordTokens(userId, llmClient.model(), inputChars(messages), resp.content().length());
 
             if (resp.toolCalls().isEmpty()) {
                 logger.info("对话结束，共{}轮", round + 1);
@@ -197,6 +200,22 @@ public class ChatService {
             if (m.content() != null) sum += m.content().length();
         }
         return sum;
+    }
+
+    // 本轮 token 双记：管理端全局统计（usageStats）+ 用户端累计落库（userRepository）
+    // 估算公式共用 UsageStatsService.estimateTokens（单一来源，管理端/用户端口径一致）
+    private void recordTokens(String userId, String model, long inputChars, long outputChars) {
+        long est = UsageStatsService.estimateTokens(inputChars, outputChars);
+        if (usageStats != null) {
+            usageStats.recordTokens(model, inputChars, outputChars);
+        }
+        if (userRepository != null && userId != null) {
+            try {
+                userRepository.addTokens(userId, est);
+            } catch (Exception e) {
+                logger.warn("用户 token 用量落库失败: {}", e.getMessage());
+            }
+        }
     }
 
     // 该场景要不要记瞬时记忆：查 ScenePolicy 的 memory 列（ephemeral=记，none=不记如群聊）
@@ -258,8 +277,8 @@ public class ChatService {
         });
         if (usageStats != null) {
             usageStats.recordMessage(scene);
-            usageStats.recordTokens(client.model(), inputChars(messages), full.length());
         }
+        recordTokens(userId, client.model(), inputChars(messages), full.length());
         // 落记忆（与 chat() 同策略：memory=ephemeral 场景才记；失败只记日志）
         if (userId != null && memoryEnabled(scene) && shortTermMemory != null) {
             try {
@@ -360,7 +379,7 @@ public class ChatService {
                 full.append(token);
                 onToken.accept(token);
             });
-            if (usageStats != null) usageStats.recordTokens(llmClient.model(), inputChars(messages), resp.content().length());
+            recordTokens(userId, llmClient.model(), inputChars(messages), resp.content().length());
             if (resp.toolCalls().isEmpty()) {
                 logger.info("流式对话结束，共{}轮", round + 1);
                 break;

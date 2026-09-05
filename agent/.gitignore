@@ -46,6 +46,9 @@ sdk-src/
 rag_data/rag.db
 rag_data/vec0.dll
 
+# ��������ͼƬ������Ŀ¼��ͼƬ��Ϊ UUID ���������Ŀ¼����
+travel-images/
+
 # �ȶ��Լ�ز��GC��־/�Ѳ������������
 logs/
 rag_data/rag.db.*

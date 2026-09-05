@@ -204,6 +204,11 @@ public class AuthService {
         return data;
     }
 
+    // 累计 token 用量（对话页顶栏展示；估算值，量级参考）
+    public long tokenUsage(String userId) {
+        return userRepository.findTotalTokens(userId);
+    }
+
     // 绑定微信（登录页/个人信息页扫码确认后调用，JWT 鉴权）：
     //   ticket 必须已确认（CONFIRMED）→ 把"机器人宿主微信"身份写入账号 wechat_id
     //   → 微信侧旧数据并入账号（复用账号合并 MergeService：对话/摘要/知识库/猎聘 Token/Redis 记忆全迁）

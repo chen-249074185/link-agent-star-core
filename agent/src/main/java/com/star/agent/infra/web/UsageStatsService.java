@@ -34,8 +34,13 @@ public class UsageStatsService {
     }
 
     // 估算 token：中英文按 4 字符 ≈ 1 token 粗略折算（展示量级用，非精确计费）
+    // 静态方法 = 单一来源：管理端全局统计与用户端按人累计共用同一估算公式
+    public static long estimateTokens(long inputChars, long outputChars) {
+        return (inputChars + outputChars) / 4 + 1;
+    }
+
     public void recordTokens(String model, long inputChars, long outputChars) {
-        long est = (inputChars + outputChars) / 4 + 1;
+        long est = estimateTokens(inputChars, outputChars);
         tokensByModel.merge(model, est, Long::sum);
         totalTokens.addAndGet(est);
     }

@@ -12,6 +12,7 @@ public class UserDo {
     private String email;           // QQ 邮箱（可空=未绑定，唯一）
     private String wechatId;        // 绑定的微信身份（可空=未绑定，唯一；微信对话经它映射到本账号，10-31 起）
     private String persona;         // 自定义人设文本（可空=默认；用户自由定义，11-05 起）
+    private long totalTokens;       // 累计 token 用量（估算，对话埋点原子自增，Web 端展示）
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
@@ -61,6 +62,14 @@ public class UserDo {
 
     public void setPersona(String persona) {
         this.persona = persona;
+    }
+
+    public long getTotalTokens() {
+        return totalTokens;
+    }
+
+    public void setTotalTokens(long totalTokens) {
+        this.totalTokens = totalTokens;
     }
 
     public LocalDateTime getCreatedAt() {

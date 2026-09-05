@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>旅游规划 - 星链智核</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#f3f1ec;--ink:#4a2b2b;--ink-soft:#8a7070;--ink-faint:#c4b3b3;
+  --pink-deep:#e07878;--red:#d94f4f;--green:#5aa87a;--white:#fffdf9;
+  --line:rgba(74,43,43,.08);
+}
+body{min-height:100vh;background:var(--bg);font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Segoe UI',system-ui,sans-serif;color:var(--ink);display:flex;justify-content:center;padding:24px 16px}
+.card{width:900px;max-width:100%}
+.top{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
+.top h1{font-size:20px}
+.top .links{font-size:13px}
+.top .links a{color:var(--pink-deep);text-decoration:none;font-weight:600;margin-left:12px}
+.box{background:var(--white);border-radius:14px;padding:20px;box-shadow:0 6px 24px rgba(74,43,43,.06);margin-bottom:16px}
+.box h2{font-size:15px;margin-bottom:6px}
+.box .tip{font-size:11.5px;color:var(--ink-soft);line-height:1.6;margin-bottom:14px}
+.row{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--line);font-size:13.5px}
+.row:last-child{border-bottom:none}
+.row .k{color:var(--ink-soft);word-break:break-all}
+.row .v{font-weight:600;color:var(--ink)}
+.mini{background:transparent;border:1px solid rgba(74,43,43,.15);border-radius:8px;padding:5px 12px;font-size:12px;color:var(--ink-soft);cursor:pointer;transition:.2s}
+.mini:hover{color:var(--red);border-color:var(--red)}
+.mini.primary{color:var(--pink-deep);border-color:var(--pink-deep)}
+.mini.primary:hover{color:#fff;background:var(--pink-deep)}
+.mini.green{color:var(--green);border-color:var(--green)}
+.mini.green:hover{color:#fff;background:var(--green)}
+.field{margin-bottom:12px}
+.field input,.field select,.field textarea{width:100%;padding:12px 13px;background:#fff;border:2px solid rgba(74,43,43,.1);border-radius:10px;font-size:14px;outline:none;color:var(--ink);transition:all .25s;font-family:inherit}
+.field input:focus,.field select:focus,.field textarea:focus{border-color:var(--pink-deep);box-shadow:0 0 0 3px rgba(224,120,120,.1)}
+.field textarea{min-height:70px;resize:vertical}
+.frow{display:flex;gap:12px}
+.frow .field{flex:1}
+.btn{width:100%;padding:13px;margin-top:8px;background:var(--ink);color:#fff;border:none;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer;transition:all .25s;letter-spacing:1px}
+.btn:hover:not(:disabled){transform:translateY(-1px);background:var(--pink-deep)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn.ghost{background:transparent;border:2px solid rgba(74,43,43,.15);color:var(--ink-soft)}
+.btn.ghost:hover{background:rgba(74,43,43,.04)}
+.btn.sm{width:auto;padding:8px 20px;font-size:13px;letter-spacing:0;margin-top:0}
+.toast{width:100%;padding:10px 14px;border-radius:10px;font-size:12px;margin-bottom:14px;display:none;text-align:center}
+.toast.error{display:block;background:rgba(217,79,79,.08);color:var(--red);border:1px solid rgba(217,79,79,.2)}
+.toast.success{display:block;background:rgba(90,168,122,.08);color:var(--green);border:1px solid rgba(90,168,122,.2)}
+.sp{display:inline-block;width:13px;height:13px;border:2px solid transparent;border-top-color:currentColor;border-radius:50%;animation:spin .5s linear infinite;vertical-align:middle;margin-right:5px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.empty{text-align:center;color:var(--ink-faint);font-size:13px;padding:16px 0}
+
+/* ===== 点亮地图 ===== */
+.travel-map{height:340px;border-radius:12px;overflow:hidden;border:1px solid var(--line);position:relative}
+.travel-map-canvas{width:100%;height:100%}
+.travel-map-loading{display:flex;align-items:center;justify-content:center;height:100%;color:var(--ink-soft);font-size:13px}
+.travel-map-empty{display:flex;align-items:center;justify-content:center;height:100%;color:var(--ink-faint);font-size:13px;text-align:center;padding:0 20px}
+.travel-marker{width:18px;height:18px;border-radius:50%;border:2px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.25);cursor:pointer}
+.travel-popup{font-size:12.5px;max-width:220px}
+.travel-popup h4{margin-bottom:4px}
+.travel-popup .travel-popup-meta{color:#999;font-size:11px;margin:2px 0}
+.travel-popup p{color:#555;line-height:1.6;margin-top:4px}
+
+/* ===== 行程表 ===== */
+.plan-head{display:flex;align-items:baseline;gap:12px;margin-bottom:12px;flex-wrap:wrap}
+.plan-head h3{font-size:16px}
+.plan-head .w{font-size:12px;color:var(--ink-soft)}
+.day{margin-bottom:16px}
+.day h4{font-size:13.5px;color:var(--pink-deep);margin-bottom:8px}
+.sched{display:flex;gap:10px;align-items:flex-start;margin-bottom:8px}
+.sched .time{font-size:12px;font-weight:700;color:var(--ink-soft);min-width:44px;padding-top:2px}
+.sched .dot{width:10px;height:10px;border-radius:50%;background:var(--pink-deep);flex:none;margin-top:5px}
+.sched.lunch .dot{background:var(--green)}
+.sched .body{flex:1;font-size:13px;line-height:1.6}
+.sched .body .nm{font-weight:700}
+.sched .body .mt{font-size:11.5px;color:var(--ink-soft);margin-top:2px}
+.sched .body a{color:var(--pink-deep);text-decoration:none;font-size:12px;font-weight:600}
+.budget{background:rgba(224,120,120,.05);border:1px solid rgba(224,120,120,.15);border-radius:10px;padding:12px 14px;font-size:12.5px;line-height:1.9;color:var(--ink-soft)}
+.budget b{color:var(--ink)}
+.rest{margin-top:14px}
+.rest h4{font-size:13px;margin-bottom:8px}
+.rest-item{font-size:12.5px;padding:8px 0;border-bottom:1px dashed var(--line);display:flex;justify-content:space-between;gap:8px;align-items:center}
+.rest-item:last-child{border-bottom:none}
+.rest-item .nm{font-weight:600}
+.rest-item .mt{font-size:11px;color:var(--ink-soft)}
+.rest-item a{color:var(--pink-deep);text-decoration:none;font-size:11.5px;font-weight:600;white-space:nowrap}
+
+/* ===== 游记 ===== */
+.log-card{background:#fffdf9;border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin-bottom:12px}
+.log-card .lg-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+.log-card .lg-tag{font-size:11px;font-weight:700;color:var(--pink-deep);background:rgba(224,120,120,.1);padding:2px 10px;border-radius:10px}
+.log-card .lg-date{font-size:11px;color:var(--ink-faint)}
+.log-card .lg-name{font-size:14px;font-weight:700;margin-bottom:4px}
+.log-card .lg-content{font-size:13px;color:var(--ink-soft);line-height:1.7;white-space:pre-wrap;word-break:break-word}
+.log-card .lg-imgs{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+.log-card .lg-imgs img{width:80px;height:80px;object-fit:cover;border-radius:8px;cursor:pointer;transition:.2s}
+.log-card .lg-imgs img:hover{transform:scale(1.05)}
+.mask{position:fixed;inset:0;background:rgba(74,43,43,.35);display:none;align-items:center;justify-content:center;z-index:99;padding:20px}
+.mask.show{display:flex}
+.dlg{background:#fffdf9;border-radius:14px;padding:22px;max-width:360px;width:100%;text-align:center}
+.dlg h3{font-size:16px;margin-bottom:10px}
+.dlg p{font-size:12.5px;color:var(--ink-soft);line-height:1.7;margin-bottom:18px;text-align:left}
+.dlg .btns{display:flex;gap:10px}
+.dlg .btns button{flex:1;padding:11px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;border:none}
+.dlg .cancel{background:rgba(74,43,43,.08);color:var(--ink-soft)}
+.dlg .ok{background:var(--red);color:#fff}
+.pv{position:fixed;inset:0;background:rgba(10,10,20,.85);z-index:100;display:none;align-items:center;justify-content:center;cursor:zoom-out}
+.pv.show{display:flex}
+.pv img{max-width:92vw;max-height:88vh;border-radius:10px}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="top">
+    <h1>旅游规划 · 足迹</h1>
+    <div class="links">
+      <a href="index.html">对话</a>
+      <a href="knowledge.html">知识库</a>
+      <a href="profile.html">个人信息</a>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <!-- ① 点亮地图 -->
+  <div class="box">
+    <h2>我的足迹地图 <span style="font-size:11px;color:var(--ink-faint);font-weight:400">· 发布游记自动点亮</span></h2>
+    <p class="tip">去过的地方点亮为青绿色。足迹点来自你发布的游记（坐标缺失回退省级行政中心）。</p>
+    <div class="travel-map" id="travelMap"></div>
+  </div>
+
+  <!-- ② 旅游规划 -->
+  <div class="box">
+    <h2>行程规划</h2>
+    <p class="tip">输入目的地，自动规划 1~7 天行程：真实景点 + 午餐美食 + 天气 + 预算（每项可跳转高德导航）。</p>
+    <div class="frow">
+      <div class="field"><input type="text" id="pDest" placeholder="目的地（如：杭州、成都、大理）"></div>
+      <div class="field" style="max-width:140px"><select id="pDays">
+        <option value="1">1 天</option>
+        <option value="2">2 天</option>
+        <option value="3">3 天</option>
+        <option value="5">5 天</option>
+        <option value="7">7 天</option>
+      </select></div>
+    </div>
+    <div class="field"><input type="text" id="pKw" placeholder="景点关键词（默认「景点」，可填 博物馆 / 古镇 / 海边）"></div>
+    <button class="btn" id="pBtn" onclick="doPlan()">生成行程</button>
+    <div id="planResult" style="margin-top:16px"></div>
+  </div>
+
+  <!-- ③ 游记 -->
+  <div class="box">
+    <h2>我的游记</h2>
+    <p class="tip">发布游记点亮足迹地图（省份必填；可上传图片，jpg/png/webp/gif ≤10MB）。</p>
+    <div class="frow">
+      <div class="field"><input type="text" id="lProv" placeholder="省份（必填，如：浙江）"></div>
+      <div class="field"><input type="text" id="lCity" placeholder="城市（如：杭州）"></div>
+    </div>
+    <div class="frow">
+      <div class="field"><input type="text" id="lName" placeholder="地点名（如：西湖）"></div>
+      <div class="field" style="max-width:160px"><input type="date" id="lDate"></div>
+    </div>
+    <div class="field"><textarea id="lContent" placeholder="游记内容（必填）"></textarea></div>
+    <div class="field"><input type="file" id="lImgs" accept=".jpg,.jpeg,.png,.webp,.gif" multiple></div>
+    <div id="imgPreview" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px"></div>
+    <button class="btn" id="lBtn" onclick="publishLog()">发布游记</button>
+    <div id="logList" style="margin-top:16px"><div class="empty">加载中…</div></div>
+  </div>
+</div>
+
+<!-- 删除游记确认 -->
+<div class="mask" id="mask">
+  <div class="dlg">
+    <h3>删除游记</h3>
+    <p id="delDesc">删除后该游记将从足迹地图移除，不可恢复。</p>
+    <div class="btns">
+      <button class="cancel" onclick="closeMask()">取消</button>
+      <button class="ok" onclick="doDelete()">确认删除</button>
+    </div>
+  </div>
+</div>
+
+<!-- 图片查看 -->
+<div class="pv" id="pv" onclick="this.classList.remove('show')"><img id="pvImg" alt=""></div>
+
+<script src="map/js/travel-map.js"></script>
+<script>
+const $=id=>document.getElementById(id);
+const token=sessionStorage.getItem('token');
+const userId=sessionStorage.getItem('userId');
+if(!token){location.href='login.html';}
+
+function showToast(msg,type){const t=$('toast');t.textContent=msg;t.className='toast '+type;if(type==='error')setTimeout(()=>t.className='toast',4000);}
+function ld(btn,on,txt){btn.disabled=on;btn.innerHTML=on?'<span class="sp"></span>'+txt:txt;}
+function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+
+/* ===== 点亮地图 ===== */
+let mapLoaded=false;
+function initMap(){
+  if(mapLoaded)return;
+  mapLoaded=true;
+  window.TravelMap.bootstrap($('travelMap'), token);
+}
+
+/* ===== 旅游规划 ===== */
+function doPlan(){
+  const dest=$('pDest').value.trim();
+  if(!dest){showToast('请输入目的地','error');return;}
+  ld($('pBtn'),true,'规划中');
+  $('planResult').innerHTML='';
+  fetch('/api/travel/plan',{
+    method:'POST',
+    headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},
+    body:JSON.stringify({destination:dest,days:Number($('pDays').value),keyword:$('pKw').value.trim()})
+  })
+  .then(r=>r.json())
+  .then(j=>{
+    if(j.code!==0){showToast(j.msg||'规划失败','error');return;}
+    renderPlan(j.data);
+  })
+  .catch(()=>showToast('网络异常，请稍后重试','error'))
+  .finally(()=>ld($('pBtn'),false,'生成行程'));
+}
+
+function renderPlan(p){
+  const el=$('planResult');
+  let html='<div class="plan-head"><h3>'+escapeHtml(p.location)+' 行程</h3>';
+  if(p.weather)html+='<span class="w">'+escapeHtml(p.weather)+'</span>';
+  html+='</div>';
+  (p.dayPlan||[]).forEach(day=>{
+    html+='<div class="day"><h4>📅 第 '+day.day+' 天</h4>';
+    (day.schedule||[]).forEach(e=>{
+      const lunch=e.type==='lunch';
+      html+='<div class="sched'+(lunch?' lunch':'')+'"><span class="time">'+e.time+'</span><span class="dot"></span><div class="body">';
+      html+='<div class="nm">'+escapeHtml(e.name)+(lunch?'（午餐）':'')+'</div>';
+      const mt=[e.duration||'',lunch?(e.cost?('人均 ¥'+e.cost):''):e.distance,e.address].filter(Boolean).join(' · ');
+      if(mt)html+='<div class="mt">'+escapeHtml(mt)+'</div>';
+      if(e.navUrl)html+=' <a href="'+escapeHtml(e.navUrl)+'" target="_blank" rel="noopener">🚗 导航前往</a>';
+      html+='</div></div>';
+    });
+    html+='</div>';
+  });
+  const b=p.budget;
+  if(b)html+='<div class="budget"><b>💰 预算参考</b><br>'+
+    ['food','transport','ticket'].map(k=>b[k]?escapeHtml(b[k]):'').filter(Boolean).join('<br>')+'</div>';
+  const rests=(p.restaurants||[]).slice(0,5);
+  if(rests.length){
+    html+='<div class="rest"><h4>🍜 附近美食推荐</h4>';
+    rests.forEach(r=>{
+      html+='<div class="rest-item"><div><span class="nm">'+escapeHtml(r.name)+'</span> '+
+        '<span class="mt">'+(r.cost?('人均 ¥'+r.cost):'')+(r.distance?(' · '+r.distance):'')+'</span></div>'+
+        (r.navUrl?'<a href="'+escapeHtml(r.navUrl)+'" target="_blank" rel="noopener">导航</a>':'')+'</div>';
+    });
+    html+='</div>';
+  }
+  el.innerHTML=html;
+}
+
+/* ===== 游记 ===== */
+let uploadedImgs=[];
+$('lImgs').addEventListener('change',async e=>{
+  const files=[...e.target.files];
+  if(!files.length)return;
+  for(const f of files){
+    if(!/\.(jpg|jpeg|png|webp|gif)$/i.test(f.name)){showToast('仅支持 jpg/png/webp/gif','error');continue;}
+    const fd=new FormData();
+    fd.append('file',f);
+    try{
+      const r=await fetch('/api/travel/upload',{method:'POST',headers:{'Authorization':'Bearer '+token},body:fd});
+      const j=await r.json();
+      if(j.code===0&&j.data&&j.data.url){
+        uploadedImgs.push(j.data.url);
+        $('imgPreview').innerHTML=uploadedImgs.map(u=>'<img src="'+u+'" style="width:64px;height:64px;object-fit:cover;border-radius:8px" onclick="viewImg(\''+u+'\')">').join('');
+      }else{showToast(j.msg||'图片上传失败','error');}
+    }catch(err){showToast('图片上传失败','error');}
+  }
+  $('lImgs').value='';
+});
+function viewImg(url){$('pvImg').src=url;$('pv').classList.add('show');}
+
+function publishLog(){
+  const prov=$('lProv').value.trim();
+  const content=$('lContent').value.trim();
+  if(!prov){showToast('省份不能为空','error');return;}
+  if(!content){showToast('游记内容不能为空','error');return;}
+  ld($('lBtn'),true,'发布中');
+  const body={province:prov,city:$('lCity').value.trim(),locationName:$('lName').value.trim(),
+    content:content,travelDate:$('lDate').value||null,imgList:uploadedImgs.length?JSON.stringify(uploadedImgs):null};
+  fetch('/api/travel/log',{
+    method:'POST',
+    headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},
+    body:JSON.stringify(body)
+  })
+  .then(r=>r.json())
+  .then(j=>{
+    if(j.code!==0){showToast(j.msg||'发布失败','error');return;}
+    showToast('发布成功，足迹已点亮','success');
+    $('lProv').value='';$('lCity').value='';$('lName').value='';$('lDate').value='';$('lContent').value='';
+    uploadedImgs=[];$('imgPreview').innerHTML='';
+    loadLogs();
+    window.TravelMap.refresh($('travelMap'), token);
+  })
+  .catch(()=>showToast('网络异常，请稍后重试','error'))
+  .finally(()=>ld($('lBtn'),false,'发布游记'));
+}
+
+let delId=null;
+function openMask(){ $('mask').classList.add('show'); }
+function closeMask(){$('mask').classList.remove('show');delId=null;}
+async function doDelete(){
+  if(!delId)return;
+  closeMask();
+  try{
+    const r=await fetch('/api/travel/log/'+delId,{method:'DELETE',headers:{'Authorization':'Bearer '+token}});
+    const j=await r.json();
+    if(j.code!==0){showToast(j.msg||'删除失败','error');return;}
+    showToast('已删除','success');
+    loadLogs();
+    window.TravelMap.refresh($('travelMap'), token);
+  }catch(e){showToast('网络异常，请稍后重试','error');}
+}
+
+async function loadLogs(){
+  try{
+    const r=await fetch('/api/travel/logs',{headers:{'Authorization':'Bearer '+token}});
+    const j=await r.json();
+    if(j.code!==0){$('logList').innerHTML='<div class="empty">加载失败</div>';return;}
+    if(!j.data.length){$('logList').innerHTML='<div class="empty">还没有游记，发布一篇点亮你的足迹吧</div>';return;}
+    $('logList').innerHTML=j.data.map(l=>{
+      const imgs=(()=>{try{return JSON.parse(l.imgList||'[]')}catch(e){return []}})();
+      let html='<div class="log-card">';
+      html+='<div class="lg-top"><span class="lg-tag">'+escapeHtml(l.province)+'</span>'+
+        '<span class="lg-date">'+escapeHtml(l.travelDate||(l.createdAt||'').slice(0,10))+'</span></div>';
+      html+='<div class="lg-name">'+escapeHtml(l.locationName||(l.city?l.city+'(城市)' : l.province+'游记'))+'</div>';
+      html+='<div class="lg-content">'+escapeHtml(l.content)+'</div>';
+      if(imgs.length)html+='<div class="lg-imgs">'+imgs.map(u=>'<img src="'+u+'" onclick="viewImg(\''+u+'\')" alt="">').join('')+'</div>';
+      html+='<div style="margin-top:10px;text-align:right"><button class="mini" onclick="askDel('+l.id+')">删除</button></div>';
+      return html+'</div>';
+    }).join('');
+  }catch(e){$('logList').innerHTML='<div class="empty">加载失败</div>';}
+}
+function askDel(id){
+  delId=id;
+  $('delDesc').textContent='删除后该游记将从足迹地图移除，不可恢复。';
+  openMask();
+}
+
+loadLogs();
+</script>
+</body>
+</html>

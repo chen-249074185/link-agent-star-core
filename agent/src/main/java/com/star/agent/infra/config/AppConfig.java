@@ -29,6 +29,10 @@ public class AppConfig {
 
     private final String amapApiKey = firstOf("AMAP_KEY");
 
+    private final String amapJsKey = firstOf("AMAP_JS_KEY");                    // 高德 JS API key（前端地图，Web端(JS API)类型）
+
+    private final String amapJsSecurityCode = firstOf("AMAP_JS_SECURITY_CODE"); // 高德 JS API 安全密钥（2021 后新申请必填）
+
     private final String liepinUserToken = firstOf("LIEPIN_USER_TOKEN");   // 猎聘授权 Token（.env 已 gitignore）
 
     private final String luckinMcpToken = firstOf("LUCKIN_MCP_TOKEN");     // 瑞幸 MCP Token（.env 已 gitignore）
@@ -41,8 +45,9 @@ public class AppConfig {
 
     // 构造自检：各 key 是否就位 + 脱敏指纹（后4位，对比 .env/环境变量是否同 key；纯 main 扫码链路也走这个构造器）
     public AppConfig() {
-        logger.info("配置自检: DEEPSEEK={} SENIVERSE={} AMAP={} AMAP指纹={} (长度, 0=缺失, 来源={})",
+        logger.info("配置自检: DEEPSEEK={} SENIVERSE={} AMAP={} AMAP指纹={} AMAP_JS={} (长度, 0=缺失, 来源={})",
                 deepseekApiKey.length(), seniverseApiKey.length(), amapApiKey.length(), fingerprint(amapApiKey),
+                amapJsKey.length(),
                 DOTENV.isEmpty() ? "仅环境变量" : "环境变量+.env文件");
     }
 
@@ -92,6 +97,10 @@ public class AppConfig {
     public String seniverseApiKey(){return seniverseApiKey; }
 
     public String amapApiKey(){ return amapApiKey; }
+
+    public String amapJsKey(){ return amapJsKey; }
+
+    public String amapJsSecurityCode(){ return amapJsSecurityCode; }
 
     public String liepinUserToken(){ return liepinUserToken; }
 

@@ -62,7 +62,7 @@ class ChatServiceTest {
     private final DailySummaryService dailySummaryService = mock(DailySummaryService.class);
     // 真实 ScenePolicyConfig：CHAT 场景 memory=ephemeral（验证记忆接入）；GROUP 场景 memory=none（验证不记）
     private final ScenePolicyConfig scenePolicyConfig = new ScenePolicyConfig();
-    private final ChatService service = new ChatService(llmClient, router, registry, kernel, detector, workflow, memory, scenePolicyConfig, shortTermMemory, dailySummaryService, new com.star.agent.governance.SensitiveToolGuard(), null, null, null, null);
+    private final ChatService service = new ChatService(llmClient, router, registry, kernel, detector, workflow, memory, scenePolicyConfig, shortTermMemory, dailySummaryService, new com.star.agent.governance.SensitiveToolGuard(), null, null, null, null, null);
 
     public ChatServiceTest() {
         Map<Scene, ScenePolicy> policies = Map.of(
@@ -112,6 +112,32 @@ class ChatServiceTest {
         service.chat("你好", "user1", "CHAT");
 
         verify(workflow, never()).execute(any(), any(), any(), anyInt());
+    }
+
+    // 用户累计 token 埋点：对话后按 userId 原子自增（userRepository 非 null 才记）
+    @Test
+    void chat_recordsUserTokens() {
+        com.star.agent.user.UserRepository userRepo = mock(com.star.agent.user.UserRepository.class);
+        ChatService svc = new ChatService(llmClient, router, registry, kernel, detector, workflow,
+                memory, scenePolicyConfig, shortTermMemory, dailySummaryService,
+                new com.star.agent.governance.SensitiveToolGuard(), null, null, null, null, userRepo);
+        when(llmClient.chat(anyList(), anyList()))
+                .thenReturn(new ChatResponse("北京今天晴", List.of()));
+
+        svc.chat("北京天气", "user1", "CHAT");
+
+        verify(userRepo).addTokens(eq("user1"), org.mockito.ArgumentMatchers.longThat(v -> v > 0));
+    }
+
+    // userRepository 为 null（手动 main 链路）→ 不崩，跳过落库
+    @Test
+    void chat_userRepositoryNull_skipsSafely() {
+        when(llmClient.chat(anyList(), anyList()))
+                .thenReturn(new ChatResponse("你好！", List.of()));
+
+        String result = service.chat("你好", "user1", "CHAT");
+
+        assertEquals("你好！", result);
     }
 
     // 瞬时记忆：ephemeral 场景先读历史再对话（历史消息拼在用户消息前面）
@@ -203,7 +229,7 @@ class ChatServiceTest {
         SkillRegistry registry2 = new SkillRegistry(List.of(weather, highRisk));
         ChatService svc = new ChatService(llmClient, router, registry2, kernel, detector, workflow,
                 memory, scenePolicyConfig, shortTermMemory, dailySummaryService,
-                new com.star.agent.governance.SensitiveToolGuard(), null, null, null, null);
+                new com.star.agent.governance.SensitiveToolGuard(), null, null, null, null, null);
 
         // 第一轮：模型请求 liepin_apply → 治理内核拒绝 → 模型把拒绝转述给用户
         when(llmClient.chat(anyList(), anyList()))
@@ -234,7 +260,7 @@ class ChatServiceTest {
         GovernanceKernel kernel2 = new GovernanceKernel(registry2, confirmStore, new InMemoryRateLimiter());
         ChatService svc = new ChatService(llmClient, router, registry2, kernel2, detector, workflow,
                 memory, scenePolicyConfig, shortTermMemory, dailySummaryService,
-                new com.star.agent.governance.SensitiveToolGuard(), null, null, null, null);
+                new com.star.agent.governance.SensitiveToolGuard(), null, null, null, null, null);
 
         when(llmClient.chat(anyList(), anyList()))
                 .thenReturn(new ChatResponse("", List.of(new ToolCall("c1", "mcp_liepin_resume", "{}"))))
@@ -257,7 +283,7 @@ class ChatServiceTest {
         GovernanceKernel kernel2 = new GovernanceKernel(registry2, confirmStore, new InMemoryRateLimiter());
         ChatService svc = new ChatService(llmClient, router, registry2, kernel2, detector, workflow,
                 memory, scenePolicyConfig, shortTermMemory, dailySummaryService,
-                new com.star.agent.governance.SensitiveToolGuard(), null, null, null, null);
+                new com.star.agent.governance.SensitiveToolGuard(), null, null, null, null, null);
 
         when(llmClient.chat(anyList(), anyList()))
                 .thenReturn(new ChatResponse("", List.of(new ToolCall("c1", "mcp_liepin_resume", "{}"))))
@@ -282,7 +308,7 @@ class ChatServiceTest {
         GovernanceKernel kernel2 = new GovernanceKernel(reg2, confirmStore, new InMemoryRateLimiter());
         ChatService svc = new ChatService(llmClient, router, reg2, kernel2, detector, workflow,
                 memory, scenePolicyConfig, shortTermMemory, dailySummaryService,
-                new com.star.agent.governance.SensitiveToolGuard(), null, null, null, null);
+                new com.star.agent.governance.SensitiveToolGuard(), null, null, null, null, null);
 
         List<String> tokens = new java.util.ArrayList<>();
         List<String> statuses = new java.util.ArrayList<>();
@@ -331,7 +357,7 @@ class ChatServiceTest {
     private final ChatHistoryService chatHistory = mock(ChatHistoryService.class);
     private final ChatService sessionSvc = new ChatService(llmClient, router, registry, kernel, detector, workflow,
             memory, scenePolicyConfig, shortTermMemory, dailySummaryService,
-            new com.star.agent.governance.SensitiveToolGuard(), chatHistory, null, null, null);
+            new com.star.agent.governance.SensitiveToolGuard(), chatHistory, null, null, null, null);
 
     private static ConversationDo recentRow(String sessionId, LocalDateTime createdAt) {
         ConversationDo row = new ConversationDo();

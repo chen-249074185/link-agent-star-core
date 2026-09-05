@@ -2,18 +2,18 @@ package com.star.agent.infra.config;
 
 import com.star.agent.infra.web.AdminAuthFilter;
 import com.star.agent.infra.web.JwtAuthInterceptor;
-import com.star.agent.infra.web.AdminAuthFilter;
-import com.star.agent.infra.web.JwtAuthInterceptor;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
+import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 // Web 配置（鉴权双轨注册中心，W12 10-27）：
 //   用户轨：JwtAuthInterceptor（@Component）拦 /api/**，排除登录注册白名单 + 管理端路径
 //   管理轨：AdminAuthFilter 拦 /api/admin/*（X-Admin-Token 比对 ADMIN_TOKEN_WEB）
+//   静态资源：/travel-images/** → 本地 travel-images/ 目录（游记图片，仿 rag_data 模式）
 @Configuration
 public class WebConfig implements WebMvcConfigurer {
 
@@ -43,5 +43,13 @@ public class WebConfig implements WebMvcConfigurer {
         registry.addInterceptor(jwtAuthInterceptor)
                 .addPathPatterns("/api/**")
                 .excludePathPatterns(JWT_EXCLUDE);
+    }
+
+    // 游记图片静态映射：/travel-images/xxx.jpg → 运行目录 travel-images/xxx.jpg
+    // 图片不经 JWT（<img> 标签无法带请求头），URL 是 UUID 随机名不可枚举，可接受
+    @Override
+    public void addResourceHandlers(ResourceHandlerRegistry registry) {
+        registry.addResourceHandler("/travel-images/**")
+                .addResourceLocations("file:travel-images/");
     }
 }

@@ -59,6 +59,20 @@ public class UserRepository {
         return user == null ? null : user.getPersona();
     }
 
+    // 累计 token 用量（原子自增，对话埋点调用）
+    public void addTokens(String userId, long delta) {
+        if (userId == null || delta <= 0) {
+            return;
+        }
+        dao.addTokens(userId, delta);
+    }
+
+    // 当前累计 token 用量（无账号返回 0）
+    public long findTotalTokens(String userId) {
+        UserDo user = dao.findByUserId(userId);
+        return user == null ? 0 : user.getTotalTokens();
+    }
+
     public void deleteByUserId(String userId) {
         dao.deleteByUserId(userId);
     }

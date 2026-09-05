@@ -63,6 +63,17 @@ public class AuthController {
         return Result.ok(authService.profile(userId));
     }
 
+    // 累计 token 用量（对话页顶栏展示）；userId 从 JWT 取
+    @Operation(summary = "累计 token 用量", description = "估算值（4 字符≈1 token），对话埋点原子自增")
+    @GetMapping("/tokens")
+    public Result<Map<String, Object>> tokens(HttpServletRequest request) {
+        String userId = AuthContext.userId(request);
+        if (userId == null) {
+            return Result.fail(401, "未登录或登录已过期");
+        }
+        return Result.ok(Map.of("totalTokens", authService.tokenUsage(userId)));
+    }
+
     // 绑定/换绑邮箱：userId 从 JWT 取（AuthContext），不信任请求参数
     @PostMapping("/bind-email")
     public Result<BindResult> bindEmail(@RequestBody Map<String, String> body, HttpServletRequest request) {

@@ -52,6 +52,11 @@ public class MergeService {
         // ② 对话记录 + 每日摘要改归属（历史全保留）
         conversationDao.transferUserId(fromUserId, toUserId);
         dailySummaryDao.transferUserId(fromUserId, toUserId);
+        // ②⑤ 累计 token 用量并入（删源前先取，避免取不到）
+        long fromTokens = userRepository.findTotalTokens(fromUserId);
+        if (fromTokens > 0) {
+            userRepository.addTokens(toUserId, fromTokens);
+        }
         // ③ 猎聘 Token：目标已有则删源的，没有则迁源的（A 有留 A 无取 B）
         if (userConfigRepository.findByUserId(toUserId) != null) {
             userConfigRepository.deleteLiepinToken(fromUserId);
@@ -60,7 +65,7 @@ public class MergeService {
         }
         // ④ Redis 瞬时记忆并入（失败仅日志）
         ephemeralMemory.mergeFrom(fromUserId, toUserId);
-        // ⑤ 删被并入账号（users 表，最后一步）
+        // ⑥ 删被并入账号（users 表，最后一步）
         userRepository.deleteByUserId(fromUserId);
     }
 }

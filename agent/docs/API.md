@@ -14,6 +14,7 @@
 | POST | /api/user/register | `{"type":"username","username","password"}` 或 `{"type":"email","email","code"}` | 邮箱路径 `{token,userId}`（自动登录）；用户名路径 null（跳登录页） |
 | POST | /api/user/login | `{"type":"username","username","password"}` 或 `{"type":"email","email","code"}` | `{token,userId}` |
 | GET | /api/user/me | 无（JWT） | `{userId, username, email(脱敏), emailBound, wechatId(脱敏), wechatBound}` |
+| GET | /api/user/tokens | 无（JWT，11-14） | `{totalTokens}`（累计 token 用量，估算值：4 字符≈1 token，对话埋点原子自增，users.total_tokens 持久化） |
 | POST | /api/user/bind-email | `{"email","code"}`（JWT） | `{bound, merged?, mergeToken?}` |
 | POST | /api/user/confirm-merge | `{"mergeToken"}`（JWT） | `{bound, merged}` |
 | POST | /api/user/bind-wechat | `{"ticket"}`（JWT，10-31） | `{wechatBound, already}`；ticket 须已扫码确认（CONFIRMED） |
