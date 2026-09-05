@@ -32,3 +32,19 @@ linkagent.scene-policy:
       tools: []
       memory: none           # 群聊安全：不记记忆、不调工具
       reply-style: polite
+
+# W14 11-11 接口文档：SpringDoc OpenAPI 分组（浏览器打开 /swagger-ui.html 选择分组调试）
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+  group-configs:
+    - group: chat          # 对话/历史
+      paths-to-match: /api/chat/**
+    - group: admin         # 管理端（X-Admin-Token 凭证）
+      paths-to-match: /api/admin/**
+    - group: rag           # 私有知识库
+      paths-to-match: /api/rag/**
+    - group: user          # 登录注册/配置/人设/文件/采集
+      paths-to-match: /api/user/**, /api/config/**, /api/personas/**, /api/file/**, /api/collect/**, /api/reindex/**

@@ -2,6 +2,8 @@ package com.star.agent.user;
 
 import com.star.agent.infra.web.AuthContext;
 import com.star.agent.infra.web.Result;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -21,6 +23,7 @@ import java.util.Map;
 //   POST /api/user/confirm-merge {"mergeToken"}                   = 二次确认执行账号合并（JWT 鉴权）
 //   POST /api/user/bind-wechat {"ticket"}                         = 微信扫码绑定（JWT 鉴权，10-31）
 //     前置：/api/wechat/scan/start + /status 轮询到 CONFIRMED；绑定后微信与网页同一 userId 互通
+@Tag(name = "用户认证", description = "注册/登录/邮箱绑定/账号合并/微信绑定，契约冻结版（docs/API.md）")
 @RestController
 @RequestMapping("/api/user")
 public class AuthController {
@@ -31,17 +34,20 @@ public class AuthController {
         this.authService = authService;
     }
 
+    @Operation(summary = "发送邮箱验证码", description = "60s 限流；错 5 次锁 10 分钟")
     @PostMapping("/send-code")
     public Result<Void> sendCode(@RequestBody Map<String, String> body) {
         authService.sendCode(body.get("email"));
         return Result.ok(null);
     }
 
+    @Operation(summary = "注册", description = "type=username（用户名+密码）或 type=email（邮箱+验证码）")
     @PostMapping("/register")
     public Result<AuthResult> register(@RequestBody AuthRequest req) {
         return Result.ok(authService.register(req.type(), req.username(), req.password(), req.email(), req.code()));
     }
 
+    @Operation(summary = "登录", description = "返回 {token, userId}；邮箱路径未注册=自动注册（登录即注册）")
     @PostMapping("/login")
     public Result<AuthResult> login(@RequestBody AuthRequest req) {
         return Result.ok(authService.login(req.type(), req.username(), req.password(), req.email(), req.code()));
@@ -88,6 +94,7 @@ public class AuthController {
     }
 
     // 微信扫码免密登录（免 JWT，登录页未登录用）：已绑定 → 直接签发 JWT；未绑定 → data=null 走注册绑定
+    @Operation(summary = "微信扫码免密登录", description = "已绑定微信扫码 → 免密签发 JWT；未绑定返回 null 转表单")
     @PostMapping("/scan-login")
     public Result<AuthResult> scanLogin(@RequestBody Map<String, String> body) {
         return Result.ok(authService.scanLogin(body.get("ticket")));

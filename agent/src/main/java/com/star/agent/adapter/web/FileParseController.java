@@ -2,6 +2,8 @@ package com.star.agent.adapter.web;
 
 import com.star.agent.infra.web.Result;
 import com.star.agent.skill.impl.PoiDocParser;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -18,6 +20,7 @@ import java.util.Map;
 //   POST /api/file/parse (multipart: userId + file) = 解析文档 → 纯文本
 // txt/md 直读，docx/xlsx/pptx/pdf/csv 走 PoiDocParser（纯 Java，不依赖 anydoc 子进程）
 // 绑定 userId（JWT 拦截器校验一致，签名同 rag 接口）；失败返回友好话术不崩
+@Tag(name = "文件识别", description = "文档 → 纯文本（pdf/txt/md/docx/xlsx/pptx/csv），需 JWT")
 @RestController
 @RequestMapping("/api/file")
 public class FileParseController {
@@ -31,6 +34,7 @@ public class FileParseController {
         this.poiDocParser = poiDocParser;
     }
 
+    @Operation(summary = "解析文档为纯文本", description = "返回 {filename, size, text, chars}")
     @PostMapping("/parse")
     public Result<Map<String, Object>> parse(@RequestParam String userId,
                                              @RequestParam("file") MultipartFile file) throws IOException {

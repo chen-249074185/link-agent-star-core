@@ -2,6 +2,8 @@ package com.star.agent.user;
 
 import com.star.agent.infra.web.Result;
 import com.star.agent.user.domain.UserConfigDo;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -17,6 +19,7 @@ import java.util.Map;
 //   DELETE /api/config/liepin-token?userId         = 删除配置（不再使用猎聘）
 //   GET    /api/config/liepin-token?userId         = 配置状态（是否已配置+更新时间，不返回 Token 明文）
 // 全部绑定 userId（W12 换 JWT 后从会话取，签名不变）
+@Tag(name = "用户配置", description = "猎聘 Token 设置（每用户私有，不返回明文），需 JWT")
 @RestController
 @RequestMapping("/api/config")
 public class ConfigController {
@@ -27,6 +30,7 @@ public class ConfigController {
         this.repository = repository;
     }
 
+    @Operation(summary = "设置/更新猎聘 Token")
     @PostMapping("/liepin-token")
     public Result<Map<String, Object>> saveToken(@RequestParam("userId") String userId,
                                                  @RequestParam("token") String token) {
@@ -37,12 +41,14 @@ public class ConfigController {
         return Result.ok(Map.of("userId", userId, "configured", true));
     }
 
+    @Operation(summary = "删除猎聘配置")
     @DeleteMapping("/liepin-token")
     public Result<Map<String, Object>> deleteToken(@RequestParam("userId") String userId) {
         repository.deleteLiepinToken(userId);
         return Result.ok(Map.of("userId", userId, "configured", false));
     }
 
+    @Operation(summary = "猎聘配置状态", description = "是否已配置+更新时间，不返回 Token 明文")
     @GetMapping("/liepin-token")
     public Result<Map<String, Object>> status(@RequestParam("userId") String userId) {
         UserConfigDo config = repository.findByUserId(userId);

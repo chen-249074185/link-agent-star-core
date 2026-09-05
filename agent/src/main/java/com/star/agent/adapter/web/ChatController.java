@@ -5,6 +5,8 @@ import com.star.agent.infra.web.Result;
 import com.star.agent.memory.ChatHistoryService;
 import com.star.agent.scene.SceneDetector;
 import com.star.agent.service.ChatService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -25,6 +27,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+@Tag(name = "对话", description = "AI 对话（打字机流式/非流式/历史会话/清空记忆），需 JWT")
 @RestController
 @RequestMapping("/api/chat")
 public class ChatController {
@@ -47,6 +50,7 @@ public class ChatController {
     // 非流式对话（W13 小程序降级用）：一次性返回完整回复（内部走 chat() 工具循环 + 记忆双写）
     // 小程序模拟器/部分真机拿不到 SSE 流式响应（res.data 为空、onChunkReceived 不触发）→ 用这个端点
     // userId 从 JWT 取（AuthContext，与 /stream 一致）；sessionId 缺省=30 分钟内复用最近会话；newSession=强制新会话
+    @Operation(summary = "非流式对话", description = "一次返回完整回复（小程序用，内部走工具循环+记忆双写）；sessionId 缺省=30 分钟内复用最近会话")
     @GetMapping("/ask")
     public Result<Map<String, Object>> ask(@RequestParam String message,
                                            @RequestParam(required = false) String sessionId,
@@ -65,6 +69,7 @@ public class ChatController {
 
     // 打字机流：给每条流发"身份证"(streamId)并登记，支持 /stop 中途终止
     // userId 从 JWT 取（AuthContext）；sessionId 前端传（点历史继续聊=复用，留空=30 分钟内复用最近会话）；newSession=强制新会话
+    @Operation(summary = "打字机流式对话（SSE）", description = "事件流：先推 streamId/sessionId 命名事件，正文逐 token 推 data 事件，工具调用前推 tool 事件")
     @GetMapping(value = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter stream(@RequestParam String message,
                              @RequestParam(required = false) String sessionId,
@@ -136,6 +141,7 @@ public class ChatController {
     }
 
     // 流式中途终止：前端点"停止"按钮调这里，按 streamId 找到那条流并终止
+    @Operation(summary = "停止流式对话", description = "按 /stream 首推的 streamId 中途终止该条流")
     @GetMapping("/stop")
     public String stop(@RequestParam String streamId) {
         boolean stopped = streamRegistry.stop(streamId);
@@ -144,12 +150,14 @@ public class ChatController {
     }
 
     // 历史会话列表（最新在前）：{sessionId, title, time, count}；左侧"最近"栏数据源
+    @Operation(summary = "历史会话列表", description = "最新在前：{sessionId, title, time, count}")
     @GetMapping("/history")
     public Result<List<Map<String, Object>>> history(@RequestParam String userId) {
         return Result.ok(chatHistoryService.list(userId));
     }
 
     // 会话详情（点开某条历史）：{role, content, time} 列表
+    @Operation(summary = "会话详情", description = "某条会话的消息列表 {role, content, time}")
     @GetMapping("/history/{sessionId}")
     public Result<List<Map<String, Object>>> historyDetail(@PathVariable String sessionId,
                                                            @RequestParam String userId) {
@@ -157,6 +165,7 @@ public class ChatController {
     }
 
     // 删除会话（最近项 hover 删除）
+    @Operation(summary = "删除会话")
     @DeleteMapping("/history/{sessionId}")
     public Result<String> deleteHistory(@PathVariable String sessionId,
                                         @RequestParam String userId) {
@@ -167,6 +176,7 @@ public class ChatController {
     }
 
     // 清空全部记忆（小程序记忆页"清空全部"）：对话 + 每日摘要 + Redis 瞬时记忆三处全清
+    @Operation(summary = "清空全部记忆", description = "对话 + 每日摘要 + Redis 瞬时记忆三处全清")
     @DeleteMapping("/clear-all")
     public Result<String> clearAll(@RequestParam String userId) {
         int n = chatHistoryService.clearAll(userId);
@@ -174,6 +184,7 @@ public class ChatController {
     }
 
     // 历史搜索：按内容关键词，命中行归并成会话（最新在前）
+    @Operation(summary = "历史搜索", description = "按内容关键词，命中行归并成会话（最新在前）")
     @GetMapping("/search")
     public Result<List<Map<String, Object>>> searchHistory(@RequestParam String userId,
                                                            @RequestParam String q) {

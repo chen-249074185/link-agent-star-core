@@ -3,6 +3,8 @@ package com.star.agent.adapter.web;
 import com.star.agent.infra.web.Result;
 import com.star.agent.mcp.McpConnection;
 import com.star.agent.skill.impl.PoiDocParser;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -21,6 +23,7 @@ import java.util.Optional;
 // RAG 管理接口（面向用户的 HTTP 层）：upload|list|delete|search
 // 底层全部走 MCP 协议调 rag-mcp 子进程（与 McpSkill 同一通道）；mock 模式无 McpConnection → 503
 // 注：userId 暂由参数传入（用户体系 JWT 后改为从会话取，接口签名不变）
+@Tag(name = "知识库", description = "私有 RAG 知识库（上传/列表/搜索/删除），需 JWT")
 @RestController
 @RequestMapping("/api/rag")
 public class RagController {
@@ -39,6 +42,7 @@ public class RagController {
     // 上传文档（multipart 二进制文件）：绑定 userId；kbId 缺省 = 默认库
     // 二进制经 Base64 传 MCP（JSON 协议传不了裸二进制），rag-mcp 侧 is_base64 解码
     // docx/xlsx/pptx/csv 等 rag-mcp 不认识的格式：先转纯文本，再当 .md 文档入库（rag-mcp 零改动）
+    @Operation(summary = "上传文档", description = "multipart 文件（≤50MB，pdf/txt/md/docx/xlsx/pptx/csv）；kbId 缺省=默认库")
     @PostMapping("/upload")
     public Result<String> upload(@RequestParam String userId,
                                  @RequestParam(required = false) String kbId,
@@ -68,12 +72,14 @@ public class RagController {
     }
 
     // 列出我的知识库
+    @Operation(summary = "知识库列表")
     @GetMapping("/list")
     public Result<String> list(@RequestParam String userId) {
         return call("rag_list_kbs", Map.of("user_id", userId));
     }
 
     // 列出库内文件（分文件删除的列表：文件名 | 块数 | 最后入库时间；kbId 缺省 = 默认库）
+    @Operation(summary = "库内文件清单", description = "按文件分组：文件名/块数/最后时间")
     @GetMapping("/files")
     public Result<String> files(@RequestParam String userId,
                                 @RequestParam(required = false) String kbId) {
@@ -82,6 +88,7 @@ public class RagController {
     }
 
     // 删除库内单个文件（分文件删除；kbId 缺省 = 默认库）
+    @Operation(summary = "删除库内单个文件")
     @DeleteMapping("/delete-file")
     public Result<String> deleteFile(@RequestParam String userId,
                                      @RequestParam(required = false) String kbId,
@@ -91,12 +98,14 @@ public class RagController {
     }
 
     // 删除我的知识库（破坏性操作；用户体系后加二次确认）
+    @Operation(summary = "删除整个知识库")
     @DeleteMapping("/delete")
     public Result<String> delete(@RequestParam String userId, @RequestParam String kbId) {
         return call("rag_delete_kb", Map.of("user_id", userId, "kb_id", kbId));
     }
 
     // 检索我的知识库（kbId 缺省 = 默认库）
+    @Operation(summary = "语义检索", description = "topK 默认 5；kbId 缺省=默认库（可传 kb-shared-houses 检索共享房源库）")
     @GetMapping("/search")
     public Result<String> search(@RequestParam String userId,
                                  @RequestParam(required = false) String kbId,

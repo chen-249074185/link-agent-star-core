@@ -1,6 +1,8 @@
 package com.star.agent.user;
 
 import com.star.agent.infra.web.Result;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -12,6 +14,7 @@ import java.util.Map;
 //   GET /api/wechat/scan/start   → 发起扫码（未登录可用：JWT 白名单），返回 {ticket, imgContent}
 //   GET /api/wechat/scan/status  → 轮询状态（前端每 2s 调）：WAITING/SCANNED/CONFIRMED/EXPIRED
 // 确认（CONFIRMED）后由 /api/user/bind-wechat 完成绑定（该端点需登录）
+@Tag(name = "微信扫码", description = "登录页接入微信（未登录可用）")
 @RestController
 @RequestMapping("/api/wechat/scan")
 public class WechatScanController {
@@ -23,6 +26,7 @@ public class WechatScanController {
     }
 
     // 发起扫码：返回 ticket（轮询凭证）+ 本地生成的二维码图片（data URL，前端直接 <img src>，秒开）
+    @Operation(summary = "发起微信扫码", description = "返回 {ticket, img(二维码PNG data URL)}")
     @GetMapping("/start")
     public Result<Map<String, String>> start() {
         WechatScanService.ScanSession session = scanService.startScan();
