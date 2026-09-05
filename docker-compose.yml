@@ -1,0 +1,104 @@
+# ===== 星链智核 一键部署（W14 11-12）=====
+# 用法：docker compose up -d --build   （先在本目录 .env 填好密钥，模板见 .env.example）
+# 四服务：mysql（数据）+ redis（缓存）+ liepin-mcp（猎聘 CLI Python 环境）+ app（主程序）
+# app 以子进程拉起 rag/crawl/liepin 三个 MCP server（jar 已打进镜像，stdio 协议）
+# 密钥全部走 .env（gitignore，零明文入库）；微信 Bot 容器内关闭（无控制台扫码，Web/小程序照常）
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: linkagent-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_PASSWORD:?请在根目录 .env 配置 MYSQL_PASSWORD}
+      MYSQL_DATABASE: linkagent
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./deploy/mysql/init.sql:/docker-entrypoint-initdb.d/init.sql:ro   # 全新环境自动建表
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-p${MYSQL_PASSWORD}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: linkagent-redis
+    volumes:
+      - redis-data:/data
+    restart: unless-stopped
+
+  # 猎聘 CLI 环境提供者：首次启动把 vendored CLI 装入共享卷并建 venv，然后常驻
+  # app 挂载同一卷（路径一致 /cli，venv shebang 才有效），LIEPIN_CLI_PATH 指向它
+  liepin-mcp:
+    image: python:3.13-slim
+    container_name: linkagent-liepin
+    volumes:
+      - liepin-cli:/cli
+      - ./mcp/liepin-cli:/src/liepin-cli:ro
+    entrypoint: ["/bin/sh", "-c"]
+    command: >
+      if [ ! -f /cli/.venv/bin/python ]; then
+        cp -r /src/liepin-cli/. /cli/ &&
+        python3 -m venv /cli/.venv &&
+        /cli/.venv/bin/pip install --no-cache-dir -e /cli
+      fi &&
+      echo "猎聘 CLI 环境就绪" &&
+      while true; do sleep 3600; done
+    restart: unless-stopped
+
+  app:
+    build: .
+    container_name: linkagent-app
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      liepin-mcp:
+        condition: service_started
+    ports:
+      - "8080:8080"
+    volumes:
+      - app-logs:/app/logs
+      - rag-data:/app/rag_data
+      - liepin-cli:/cli
+    environment:
+      # Spring 数据源/Redis（compose 网络内用服务名访问）
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/linkagent?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai&characterEncoding=utf8
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_PASSWORD}
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+      # 真实模式（MCP 三轨）+ 微信 Bot 容器内关闭（无控制台扫码）
+      LINKAGENT_WORKFLOW_MOCK_ENABLED: "false"
+      LINKAGENT_WECHAT_BOT_ENABLED: "false"
+      # MCP 子进程路径（镜像内固定路径）
+      LINKAGENT_MCP_RAG_JAR: /app/rag-mcp.jar
+      LINKAGENT_MCP_CRAWL_JAR: /app/crawl-mcp.jar
+      LINKAGENT_MCP_LIEPIN_JAR: /app/liepin-mcp.jar
+      LINKAGENT_MCP_RAG_DATA_DIR: /app/rag_data
+      # vec0 扩展：Linux 用 .so（Windows 本机默认 vec0.dll 不受影响）
+      VEC0_EXT: vec0.so
+      # 猎聘 CLI（共享卷初始化好的 venv）
+      LIEPIN_CLI_PATH: /cli/.venv/bin/liepin-cli
+      # 密钥（根 .env，gitignore 零明文入库）
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY}
+      DASHSCOPE_API_KEY: ${DASHSCOPE_API_KEY}
+      SENIVERSE_API_KEY: ${SENIVERSE_API_KEY}
+      AMAP_KEY: ${AMAP_KEY}
+      JWT_SECRET: ${JWT_SECRET}
+      ADMIN_TOKEN_WEB: ${ADMIN_TOKEN_WEB}
+      MAIL_USER: ${MAIL_USER:-}
+      MAIL_AUTH_CODE: ${MAIL_AUTH_CODE:-}
+      MAIL_HOST: ${MAIL_HOST:-smtp.163.com}
+      MAIL_PORT: ${MAIL_PORT:-465}
+      LUCKIN_MCP_TOKEN: ${LUCKIN_MCP_TOKEN:-}
+      LIEPIN_USER_TOKEN: ${LIEPIN_USER_TOKEN:-}
+    restart: unless-stopped
+
+volumes:
+  mysql-data:
+  redis-data:
+  rag-data:
+  app-logs:
+  liepin-cli:

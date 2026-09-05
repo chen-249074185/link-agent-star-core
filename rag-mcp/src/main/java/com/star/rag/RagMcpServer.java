@@ -35,7 +35,8 @@ public class RagMcpServer {
 
     // 数据库文件 + vec0 扩展：默认放 jar 同目录（不依赖进程工作目录，java -jar 任何地方拉起都能找到）
     private static final String DB_PATH = "rag.db";
-    private static final String VEC_DLL = "vec0.dll";
+    // vec0 扩展文件名：Windows=vec0.dll，Linux 容器=vec0.so（Docker 部署用环境变量 VEC0_EXT 指定，本机默认不变）
+    private static final String VEC_DLL = System.getenv().getOrDefault("VEC0_EXT", "vec0.dll");
 
     // 地理编码 HTTP 客户端（共享，避免每次调用 new）
     private static final java.net.http.HttpClient GEO_HTTP = java.net.http.HttpClient.newHttpClient();

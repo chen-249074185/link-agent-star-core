@@ -1,4 +1,4 @@
-# rag-mcp 构建产物
+﻿# rag-mcp 构建产物
 rag-mcp/target/
 crawl-mcp/target/
 liepin-mcp/target/
@@ -17,3 +17,8 @@ agent/anydoc/
 
 # 运行时日志（logback FILE appender，管理端日志审计数据源）
 agent/logs/
+# ������Կ��docker-compose ͬĿ¼ .env�����������
+
+
+# 本地密钥（docker-compose 同目录 .env）零明文入库
+.env
