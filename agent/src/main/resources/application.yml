@@ -5,7 +5,15 @@ linkagent.scene-policy:
   policies:
     CHAT:            # 场景名必须与 Scene 枚举一字不差
       model: deepseek-v4-flash   # 闲聊→DeepSeek 新 ID（deepseek-chat 别名 2026-07 退役）
-      tools: []              # 工具白名单：空=该场景不调工具
+      tools:             # 瑞幸点单工具：非空=SSE 才进工具循环（空白名单会退回纯聊天流，模型拿不到工具）
+        - mcp_queryShopList
+        - mcp_searchProductForMcp
+        - mcp_switchProduct
+        - mcp_queryProductDetailInfo
+        - mcp_previewOrder
+        - mcp_createOrder
+        - mcp_queryOrderDetailInfo
+        - mcp_cancelOrder
       memory: ephemeral      # 记忆策略：ephemeral=瞬时 / none=不记（W6 才实现，先占位）
       reply-style: casual    # 回复风格（W5 后期生成回复用，先占位）
     CREATION:

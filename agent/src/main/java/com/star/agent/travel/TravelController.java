@@ -95,19 +95,30 @@ public class TravelController {
         this.appConfig = appConfig;
     }
 
-    // 旅游规划（页面调）：目的地 + 天数 + 关键词 → 结构化行程 JSON
-    @Operation(summary = "旅游规划", description = "目的地→行程 JSON（景点/午餐/美食/天气/预算，导航链接）")
+    // 旅游规划（页面调）：目的地 + 天数 + 关键词 + 预算（元/天，选填）→ 结构化行程 JSON
+    @Operation(summary = "旅游规划", description = "目的地→行程 JSON（景点/午餐/美食/天气/预算，导航链接；budget 选填，null=无上限）")
     @PostMapping("/plan")
     public Result<Map<String, Object>> plan(@RequestBody Map<String, Object> body) {
         String destination = body.get("destination") == null ? null : String.valueOf(body.get("destination"));
         String keyword = body.get("keyword") == null ? null : String.valueOf(body.get("keyword"));
         Integer days = body.get("days") == null ? null
                 : Integer.valueOf(String.valueOf(body.get("days")));
-        Map<String, Object> plan = planService.plan(destination, keyword, days);
+        Integer budget = body.get("budget") == null ? null : parsePositiveInt(String.valueOf(body.get("budget")));
+        Map<String, Object> plan = planService.plan(destination, keyword, days, budget);
         if (plan.containsKey("error")) {
             return Result.fail(400, String.valueOf(plan.get("error")));
         }
         return Result.ok(plan);
+    }
+
+    // 预算解析：正整数；非法/非正数 → null（=无上限）
+    private Integer parsePositiveInt(String s) {
+        try {
+            int v = Integer.parseInt(s.trim());
+            return v > 0 ? v : null;
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     // 图片上传：multipart → 本地存储 → {url}

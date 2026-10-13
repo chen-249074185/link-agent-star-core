@@ -62,6 +62,17 @@ class TravelControllerTest {
                 .andExpect(jsonPath("$.code").isNumber());
     }
 
+    // 带预算参数：端点接受 budget（选填），失败也回 400 话术不 500
+    @Test
+    void plan_withBudgetParam_returnsNumberCode() throws Exception {
+        mvc.perform(post("/api/travel/plan")
+                        .header("Authorization", "Bearer " + token("u1"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"destination\":\"__不存在的地点xyz__\",\"days\":1,\"budget\":500}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").isNumber());
+    }
+
     // map-config：JWT 放行 + 返回 amapKey 字段（值可能为空但结构在）
     @Test
     void mapConfig_requiresJwt_returnsFields() throws Exception {

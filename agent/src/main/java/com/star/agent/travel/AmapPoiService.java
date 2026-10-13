@@ -83,17 +83,18 @@ public class AmapPoiService {
         return parsePois(get(url), false);
     }
 
-    // 高德 URI 导航链接：to 放坐标，名字放 toName（callnative=1 唤起 App）
-    public String buildNavLink(String location, String name) {
-        if (location == null || location.isBlank()) {
+    // 高德 URI 导航链接：from 起点坐标 + to 终点坐标（不加中文地名参数，URL 短不易被浏览器拦截；callnative=1 唤起 App）
+    public String buildNavLink(String from, String to) {
+        if (from == null || to == null || from.isBlank() || to.isBlank()) {
             return "";
         }
-        String[] parts = location.split(",");
-        if (parts.length < 2) {
+        String[] f = from.split(",");
+        String[] t = to.split(",");
+        if (f.length < 2 || t.length < 2) {
             return "";
         }
-        return NAVI_URL + "?to=" + parts[0] + "," + parts[1]
-                + "&toName=" + encode(name)
+        return NAVI_URL + "?from=" + f[0] + "," + f[1]
+                + "&to=" + t[0] + "," + t[1]
                 + "&mode=car&callnative=1";
     }
 

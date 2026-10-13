@@ -55,6 +55,13 @@ public class ScenePolicyConfig {
             }
             for (String tool : p.tools()) {
                 if (skillRegistry.getSkill(tool) == null) {
+                    // MCP 工具（mcp_ 前缀）是条件注册的：luckin/rag/liepin 连接失败时不注册（R9 降级）。
+                    // 白名单里写 mcp_ 工具不该让整个应用启动即崩——跳过并告警，其余本地技能仍严格校验（防拼错）。
+                    if (tool.startsWith("mcp_")) {
+                        logger.warn("场景 {} 工具白名单含未注册的 MCP 工具（对应 server 可能未连接，降级跳过）: {}",
+                                scene, tool);
+                        continue;
+                    }
                     throw new IllegalStateException("场景 " + scene + " 的工具白名单含未知技能: " + tool);
                 }
             }

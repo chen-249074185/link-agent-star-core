@@ -64,7 +64,7 @@ class SceneEngineIntegrationTest {
         assertTrue(policy.tools().containsAll(java.util.List.of("commute_estimate", "house_score", "rent_risk")));
     }
 
-    // 闲聊：识别→CHAT→deepseek-v4-flash→casual→无工具
+    // 闲聊：识别→CHAT→deepseek-v4-flash→casual→瑞幸点单工具白名单（点单走 MCP 不纯聊天）
     @Test
     void chatMessageRoutesFullChain() {
         Scene scene = sceneDetector.detect("你好");
@@ -73,7 +73,7 @@ class SceneEngineIntegrationTest {
         ScenePolicy policy = policyConfig.getPolicies().get(scene);
         assertEquals("deepseek-v4-flash", policy.model());
         assertEquals("casual", policy.replyStyle());
-        assertTrue(policy.tools().isEmpty());
+        assertTrue(policy.tools().contains("mcp_createOrder"), "CHAT 白名单应含瑞幸点单工具，否则 SSE 退回纯聊天不调 MCP");
     }
 
     // 群聊：识别→GROUP→deepseek-v4-flash→polite→不记记忆

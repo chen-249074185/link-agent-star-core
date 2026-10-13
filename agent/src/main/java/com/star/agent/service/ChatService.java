@@ -139,7 +139,7 @@ public class ChatService {
         messages.add(new ChatMessage("user", userMessage));
         List<ToolSpec> tools = skillRegistry.getToolSpecs();
 
-        for (int round = 0; round < 5; round++) {
+        for (int round = 0; round < 20; round++) {
             ChatResponse resp = llmClient.chat(messages, tools);
             recordTokens(userId, llmClient.model(), inputChars(messages), resp.content().length());
 
@@ -164,7 +164,7 @@ public class ChatService {
                 messages.add(ChatMessage.fromToolResult(call.id(), result));
             }
         }
-        logger.warn("对话超出工具循环上限5轮");
+        logger.warn("对话超出工具循环上限20轮");
         return "工具调用次数过多，请换个问法";
     }
 
@@ -374,7 +374,7 @@ public class ChatService {
 
         StringBuilder full = new StringBuilder();
         boolean overLimit = false;
-        for (int round = 0; round < 5; round++) {
+        for (int round = 0; round < 20; round++) {
             ChatResponse resp = llmClient.streamWithTools(messages, tools, token -> {
                 full.append(token);
                 onToken.accept(token);
@@ -392,12 +392,12 @@ public class ChatService {
                 String result = executeTool(call.functionName(), call.arguments(), userId, scene, userMessage);
                 messages.add(ChatMessage.fromToolResult(call.id(), result));
             }
-            if (round == 4) {
+            if (round == 19) {
                 overLimit = true;
             }
         }
         if (overLimit) {
-            logger.warn("流式对话超出工具循环上限5轮");
+            logger.warn("流式对话超出工具循环上限20轮");
             onToken.accept("工具调用次数过多，请换个问法");
         }
 

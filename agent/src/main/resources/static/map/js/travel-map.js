@@ -122,9 +122,11 @@
     async load() {
       if (window.AMap) return;
       return new Promise((resolve, reject) => {
+        // 安全密钥必须在加载 JS API 之前设置（onload 里设置太晚，高德初始化时读不到）
+        if (this.securityCode) window._AMapSecurityConfig = { securityJsCode: this.securityCode };
         const s = document.createElement('script');
         s.src = 'https://webapi.amap.com/maps?v=2.0&key=' + this.apiKey;
-        s.onload = () => { window._AMapSecurityConfig = { securityJsCode: this.securityCode }; resolve(); };
+        s.onload = () => resolve();
         s.onerror = reject;
         document.head.appendChild(s);
       });

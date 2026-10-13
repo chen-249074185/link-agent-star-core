@@ -70,9 +70,9 @@ public class GovernanceKernel {
             confirmationStore.delete(key);  // 用完即弃，确认只生效一次
         }
 
-        // 关4：一轮工具调用不超过 5 次
+        // 关4：一轮工具调用不超过 20 次
         int count = roundCount.getOrDefault(userId, 0) + 1;
-        if (count > 5) {
+        if (count > 20) {
             return CheckResult.deny("本轮工具调用次数已达上限");
         }
         roundCount.put(userId, count);

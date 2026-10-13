@@ -76,6 +76,11 @@ body{min-height:100vh;background:var(--bg);font-family:-apple-system,BlinkMacSys
 .sched .body a{color:var(--pink-deep);text-decoration:none;font-size:12px;font-weight:600}
 .budget{background:rgba(224,120,120,.05);border:1px solid rgba(224,120,120,.15);border-radius:10px;padding:12px 14px;font-size:12.5px;line-height:1.9;color:var(--ink-soft)}
 .budget b{color:var(--ink)}
+.budget .bw{margin-top:8px;font-size:12px;color:var(--ink-soft)}
+.budget-chip{display:block;width:100%;text-align:left;background:#fff;border:1px solid rgba(224,120,120,.25);border-radius:10px;padding:9px 12px;margin-top:8px;font-size:12px;line-height:1.6;color:var(--ink);cursor:pointer;transition:.2s;font-family:inherit}
+.budget-chip b{color:var(--pink-deep)}
+.budget-chip span{display:block;color:var(--ink-soft);margin-top:2px}
+.budget-chip:hover{border-color:var(--pink-deep);background:rgba(224,120,120,.06)}
 .rest{margin-top:14px}
 .rest h4{font-size:13px;margin-bottom:8px}
 .rest-item{font-size:12.5px;padding:8px 0;border-bottom:1px dashed var(--line);display:flex;justify-content:space-between;gap:8px;align-items:center}
@@ -131,16 +136,17 @@ body{min-height:100vh;background:var(--bg);font-family:-apple-system,BlinkMacSys
   <!-- ② 旅游规划 -->
   <div class="box">
     <h2>行程规划</h2>
-    <p class="tip">输入目的地，自动规划 1~7 天行程：真实景点 + 午餐美食 + 天气 + 预算（每项可跳转高德导航）。</p>
+    <p class="tip">输入目的地，自动规划 1~7 天行程：真实景点 + 午餐美食 + 天气 + 预算（每项可跳转高德导航）。预算选填，不填默认无上限；预算不足时自动推荐常见预算档位。导航起点：浏览器定位授权后自动用你的实时位置，拒绝授权则用目的地市中心。</p>
     <div class="frow">
       <div class="field"><input type="text" id="pDest" placeholder="目的地（如：杭州、成都、大理）"></div>
-      <div class="field" style="max-width:140px"><select id="pDays">
+      <div class="field" style="max-width:130px"><select id="pDays">
         <option value="1">1 天</option>
         <option value="2">2 天</option>
         <option value="3">3 天</option>
         <option value="5">5 天</option>
         <option value="7">7 天</option>
       </select></div>
+      <div class="field" style="max-width:130px"><input type="number" id="pBudget" min="1" placeholder="预算 ¥/天（选填）"></div>
     </div>
     <div class="field"><input type="text" id="pKw" placeholder="景点关键词（默认「景点」，可填 博物馆 / 古镇 / 海边）"></div>
     <button class="btn" id="pBtn" onclick="doPlan()">生成行程</button>
@@ -193,6 +199,31 @@ function showToast(msg,type){const t=$('toast');t.textContent=msg;t.className='t
 function ld(btn,on,txt){btn.disabled=on;btn.innerHTML=on?'<span class="sp"></span>'+txt:txt;}
 function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 
+/* ===== 导航（起点 = 你的实时位置，需浏览器定位授权；拒绝授权回退后端给的市中心起点） ===== */
+let myPos=null;
+function navTo(url){
+  if(myPos){openNav(url,myPos);return;}
+  if(navigator.geolocation){
+    navigator.geolocation.getCurrentPosition(
+      p=>{myPos={lng:p.coords.longitude.toFixed(6),lat:p.coords.latitude.toFixed(6)};openNav(url,myPos);},
+      ()=>{openNav(url,null);},
+      {timeout:5000,maximumAge:60000}
+    );
+  }else{openNav(url,null);}
+}
+function openNav(url,pos){
+  if(pos){
+    try{
+      const i=url.indexOf('?');
+      const base=i>=0?url.slice(0,i):url;
+      const params=new URLSearchParams(i>=0?url.slice(i+1):'');
+      params.set('from',pos.lng+','+pos.lat);
+      url=base+'?'+params.toString();
+    }catch(e){}
+  }
+  window.open(url,'_blank','noopener');
+}
+
 /* ===== 点亮地图 ===== */
 let mapLoaded=false;
 function initMap(){
@@ -202,6 +233,12 @@ function initMap(){
 }
 
 /* ===== 旅游规划 ===== */
+// 常见预算档位点击：填入预算输入框并按该档位重新规划
+function useBudget(level){
+  $('pBudget').value=level;
+  doPlan();
+}
+
 function doPlan(){
   const dest=$('pDest').value.trim();
   if(!dest){showToast('请输入目的地','error');return;}
@@ -210,7 +247,8 @@ function doPlan(){
   fetch('/api/travel/plan',{
     method:'POST',
     headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},
-    body:JSON.stringify({destination:dest,days:Number($('pDays').value),keyword:$('pKw').value.trim()})
+    body:JSON.stringify({destination:dest,days:Number($('pDays').value),keyword:$('pKw').value.trim(),
+      budget:$('pBudget').value?Number($('pBudget').value):null})
   })
   .then(r=>r.json())
   .then(j=>{
@@ -234,21 +272,31 @@ function renderPlan(p){
       html+='<div class="nm">'+escapeHtml(e.name)+(lunch?'（午餐）':'')+'</div>';
       const mt=[e.duration||'',lunch?(e.cost?('人均 ¥'+e.cost):''):e.distance,e.address].filter(Boolean).join(' · ');
       if(mt)html+='<div class="mt">'+escapeHtml(mt)+'</div>';
-      if(e.navUrl)html+=' <a href="'+escapeHtml(e.navUrl)+'" target="_blank" rel="noopener">🚗 导航前往</a>';
+      if(e.navUrl)html+=' <a href="'+escapeHtml(e.navUrl)+'" onclick="navTo(this.href);return false;" target="_blank" rel="noopener">🚗 导航前往</a>';
       html+='</div></div>';
     });
     html+='</div>';
   });
   const b=p.budget;
-  if(b)html+='<div class="budget"><b>💰 预算参考</b><br>'+
-    ['food','transport','ticket'].map(k=>b[k]?escapeHtml(b[k]):'').filter(Boolean).join('<br>')+'</div>';
+  if(b){
+    html+='<div class="budget"><b>💰 预算参考</b><br>'+
+      ['limit','food','estimate','transport','ticket'].map(k=>b[k]?escapeHtml(b[k])+'<br>':'').join('');
+    if(b.suggestTip)html+='<div class="bw">'+escapeHtml(b.suggestTip)+'</div>';
+    if(Array.isArray(b.suggestions)){
+      b.suggestions.forEach(s=>{
+        const level=String(s.level).replace(/[^0-9]/g,'');
+        html+='<button class="budget-chip" onclick="useBudget('+level+')"><b>'+escapeHtml(s.level)+'</b><span>'+escapeHtml(s.plan)+'</span></button>';
+      });
+    }
+    html+='</div>';
+  }
   const rests=(p.restaurants||[]).slice(0,5);
   if(rests.length){
     html+='<div class="rest"><h4>🍜 附近美食推荐</h4>';
     rests.forEach(r=>{
       html+='<div class="rest-item"><div><span class="nm">'+escapeHtml(r.name)+'</span> '+
         '<span class="mt">'+(r.cost?('人均 ¥'+r.cost):'')+(r.distance?(' · '+r.distance):'')+'</span></div>'+
-        (r.navUrl?'<a href="'+escapeHtml(r.navUrl)+'" target="_blank" rel="noopener">导航</a>':'')+'</div>';
+        (r.navUrl?'<a href="'+escapeHtml(r.navUrl)+'" onclick="navTo(this.href);return false;" target="_blank" rel="noopener">导航</a>':'')+'</div>';
     });
     html+='</div>';
   }
@@ -345,6 +393,7 @@ function askDel(id){
 }
 
 loadLogs();
+initMap();
 </script>
 </body>
 </html>

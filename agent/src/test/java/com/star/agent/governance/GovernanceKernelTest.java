@@ -123,7 +123,7 @@ class GovernanceKernelTest {
 
         GovernanceKernel kernel = newKernel(registry, store, limiter);
 
-        for (int i = 0; i < 5; i++) {
+        for (int i = 0; i < 20; i++) {
             CheckResult r = kernel.check("get_weather", "user1", "{}", "CHAT");
             assertTrue(r.allowed());
         }
@@ -158,7 +158,7 @@ class GovernanceKernelTest {
 
         GovernanceKernel kernel = newKernel(registry, store, limiter);
 
-        for (int i = 0; i < 5; i++) {
+        for (int i = 0; i < 20; i++) {
             kernel.check("get_weather", "user1", "{}", "CHAT");
         }
         assertFalse(kernel.check("get_weather", "user1", "{}", "CHAT").allowed());
