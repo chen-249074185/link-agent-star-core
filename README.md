@@ -63,3 +63,10 @@ docker compose up -d   # 启动 MySQL + Redis + app + liepin-mcp 四服务
 ## 测试
 
 476 个测试用例全绿（单元 + 集成），覆盖消息适配、场景识别、工作流编排、治理内核、旅游规划、房源采集等核心链路。
+
+## 文档
+
+- `docs/ARCHITECTURE.md`：架构设计与技术决策（含技术选型取舍）
+- `docs/API.md`：REST API 文档
+- `docs/FRAMEWORK.md`：框架使用文档（双模式 / 技能三层 / Mock 切换）
+- `docs/ADAPTER.md`：通道适配层说明
