@@ -63,7 +63,3 @@ docker compose up -d   # 启动 MySQL + Redis + app + liepin-mcp 四服务
 ## 测试
 
 476 个测试用例全绿（单元 + 集成），覆盖消息适配、场景识别、工作流编排、治理内核、旅游规划、房源采集等核心链路。
-
-## 项目文档
-
-- 项目记忆（模块演进、架构决策、开发日志）：`agent/PROJECT_MEMORY.md`
