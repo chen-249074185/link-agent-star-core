@@ -122,7 +122,7 @@ public class BotWorker implements Runnable, ReconnectHandler {
                     // 顶掉新 client 会话 → sendText 报 missing latest context token / startTyping rpc failed）
                     closeClient();
                     this.client = resumeClient;
-                    adapter.attach(resumeClient);   // 恢复登录换了 client，必须重新绑定（坑7 同类）
+                    adapter.attach(resumeClient);   // 恢复登录换了 client，必须重新绑定
                     // 恢复成功=会话仍有效：重存一份刷新 saved_at 续期（否则 7 天清理会误删还在跑的 bot）
                     if (sessionRepository != null) {
                         sessionRepository.save(saved);

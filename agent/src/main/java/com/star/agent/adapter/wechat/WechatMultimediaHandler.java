@@ -73,7 +73,7 @@ public class WechatMultimediaHandler implements MultimediaHandler {
     private String handleTts(AgentMessage msg, MessageAdapter adapter) throws Exception {
         String content = msg.text().trim().substring("#tts ".length());
         if (content.isBlank()) {
-            return "用法：#tts 要合成的文字，例如 #tts 你好，欢迎使用星链智核";
+            return "用法：#tts 要合成的文字，例如 #tts 你好，欢迎使用LinkAgent";
         }
         adapter.send(msg.userId(), "已收到，正在合成语音，请稍候…");
         byte[] voice = ttsService.synthesize(content, null);

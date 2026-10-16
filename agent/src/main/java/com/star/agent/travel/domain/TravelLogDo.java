@@ -3,7 +3,7 @@ package com.star.agent.travel.domain;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
-// 游记：travel_log 表（W14 旅游功能，点亮地图的足迹数据源）
+// 游记：travel_log 表
 // 发布游记 → 足迹点入地图 → 该省点亮；删除 → 无该省游记则熄灭
 public class TravelLogDo {
 

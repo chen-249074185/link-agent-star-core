@@ -5,8 +5,8 @@ import org.springframework.stereotype.Component;
 import java.util.List;
 import java.util.Map;
 
-// 人设管理器（11-05，参考夏令营 PersonaManager 的模板注入思路，不搬代码）：
-// 用户自定义人设 = 自由文本，持久化在 users.persona 列（比夏令营内存 Map 强：重启不丢）
+// 人设管理器（11-05，模板注入思路）：
+// 用户自定义人设 = 自由文本，持久化在 users.persona 列（比内存 Map 强：重启不丢）
 // 生效机制：ChatService 组消息时开头插一条 system prompt——
 //   已设置 → "现在%s。\n\n【核心】完全以上述角色的身份说话…"（%s = 自定义文本）
 //   未设置 → 不插（默认助手，行为零变化）
@@ -26,7 +26,7 @@ public class PersonaManager {
                     "prompt", "你是严谨的数据分析师，擅长把问题拆成指标、用数据说话。回答结构化、有依据。")
     );
 
-    // 人设注入模板（%s = 用户自定义文本；参考夏令营 PERSONA_SYSTEM_PROMPT_TEMPLATE 的写法）
+    // 人设注入模板（%s = 用户自定义文本；模板写法）
     private static final String PERSONA_TEMPLATE = """
             现在%s。
 

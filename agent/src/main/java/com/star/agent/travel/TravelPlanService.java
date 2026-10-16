@@ -14,7 +14,7 @@ import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-// 旅行规划编排服务（借鉴 traces-in-the-clouds PlanController 纯算法思路，本项目模式改造）：
+// 旅行规划编排服务（按本项目模式实现）：
 // 目的地 → 高德地理编码 → 周边景点/美食搜索（真实数据）→ 分天排程（每天≤3、午餐保护）→ 天气 → 预算
 // 返回结构化 Map（页面渲染用），TripPlanSkill 包一层转可读文本（聊天用）
 @Component

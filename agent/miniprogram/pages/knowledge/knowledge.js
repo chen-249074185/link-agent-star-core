@@ -1,6 +1,6 @@
 // pages/knowledge/knowledge.js
 // 知识库管理：上传文档（wx.uploadFile multipart）/ 文件列表 / 按文件删除（二次确认）
-// 列表按文件粒度（对齐夏令营项目模式）：每个文件独立删除，不再整库笼统删除
+// 列表按文件粒度：每个文件独立删除，不再整库笼统删除
 // 后端 /api/rag/*：userId 从登录态取，JWT 由 request.js 自动注入（上传走 wx.uploadFile 单独带 header）
 const { get, delete: del } = require('../../utils/request')
 

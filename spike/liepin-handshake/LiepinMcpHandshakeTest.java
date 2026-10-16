@@ -24,7 +24,7 @@ public class LiepinMcpHandshakeTest {
 
         McpJsonMapper jsonMapper = new JacksonMcpJsonMapper(JsonMapper.builder().build());
         ServerParameters params = ServerParameters.builder("java")
-                .args("-jar", "D:/星链智核/agent/liepin-mcp/target/liepin-mcp-0.0.1-SNAPSHOT.jar")
+                .args("-jar", "liepin-mcp/target/liepin-mcp-0.0.1-SNAPSHOT.jar")
                 .env(Map.of("LIEPIN_USER_TOKEN", token))
                 .build();
         StdioClientTransport transport = new StdioClientTransport(params, jsonMapper);

@@ -39,7 +39,7 @@ class M3WorkflowAcceptanceTest {
         // 跑 Workflow：真实 MCP 技能（mcp_liepin_search_jobs / mcp_rag_search）+ 真实高德通勤
         String report = workflow.execute("u1", "m3accept", "北京", 6000);
 
-        System.out.println("================== M3 真实模式报告 ==================");
+        System.out.println("==================  真实模式报告 ==================");
         System.out.println(report);
         System.out.println("======================================================");
 

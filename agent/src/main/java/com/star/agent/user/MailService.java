@@ -34,7 +34,7 @@ public class MailService {
             MimeMessageHelper helper = new MimeMessageHelper(mailSender.createMimeMessage(), "UTF-8");
             helper.setTo(email);
             helper.setFrom(config.mailUser());
-            helper.setSubject("星链智核验证码");
+            helper.setSubject("LinkAgent验证码");
             helper.setText("你的验证码是：" + code + "，5 分钟内有效，请勿泄露给他人。", false);
             mailSender.send(helper.getMimeMessage());
         } catch (MessagingException | MailException e) {

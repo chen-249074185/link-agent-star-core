@@ -19,7 +19,7 @@ public class Vec0Spike {
 
             // 1. 加载 vec0 扩展（D37 的核心验证点：Windows 上能不能 load 成功）
             System.out.println("[1] 加载 vec0 扩展...");
-            st.execute("SELECT load_extension('D:/星链智核/agent/spike/sqlite-vec/vec0.dll')");
+            st.execute("SELECT load_extension('spike/sqlite-vec/vec0.dll')");
             System.out.println("    扩展加载成功!");
 
             // 2. 建 vec0 虚拟表（8 维 float 向量）

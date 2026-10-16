@@ -1,4 +1,4 @@
-# ===== 星链智核 一键部署（W14 11-12）=====
+# ===== LinkAgent 一键部署=====
 # 用法：docker compose up -d --build   （先在本目录 .env 填好密钥，模板见 .env.example）
 # 四服务：mysql（数据）+ redis（缓存）+ liepin-mcp（猎聘 CLI Python 环境）+ app（主程序）
 # app 以子进程拉起 rag/crawl/liepin 三个 MCP server（jar 已打进镜像，stdio 协议）

@@ -11,7 +11,7 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 
-// 日志审计数据源（管理端"日志审计"Tab，W12 10-30）：
+// 日志审计数据源（管理端"日志审计"Tab）：
 // 读 logback 文件 appender 落盘的 logs/agent.log，按关键词过滤返回最近 N 行
 // 日志里带 [%X{traceId}]，管理端可按 traceId 查询全链路日志
 @Component

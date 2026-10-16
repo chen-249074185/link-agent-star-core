@@ -7,7 +7,7 @@ import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerInterceptor;
 
-// 用户端 JWT 拦截器（鉴权双轨之用户轨，W12 10-27）：
+// 用户端 JWT 拦截器（鉴权双轨之用户轨）：
 //   /api/**（除登录注册白名单 + 管理端 /api/admin/**）必须先带有效 JWT——
 //   ① 无/无效 token → 401；② token 的 userId 与请求参数 userId 不一致 → 403（R10：A 不能碰 B 的数据）
 // token 来源：Authorization: Bearer <token> 优先，query 参数 token 兜底（SSE EventSource 不能自定义请求头）

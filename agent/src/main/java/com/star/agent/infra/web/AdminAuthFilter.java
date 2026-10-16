@@ -14,7 +14,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 
-// 管理端鉴权过滤器（鉴权双轨之管理轨，W12 10-27）：
+// 管理端鉴权过滤器（鉴权双轨之管理轨）：
 //   /api/admin/** 必须带 X-Admin-Token 且与 .env 的 ADMIN_TOKEN_WEB 一致（恒定时间比较防时序攻击），否则 401
 //   与用户端 JWT 完全隔离：管理端无用户概念，超管视角看全库
 public class AdminAuthFilter extends OncePerRequestFilter {

@@ -25,7 +25,7 @@ public class DashScopeVisionService {
     private final String apiKey;
     private final MultiModalConversation conv;
 
-    @Autowired   // 多构造器时 Spring 靠它挑（坑15）
+    @Autowired   // 多构造器时 Spring 靠它挑
     public DashScopeVisionService(AppConfig config) {
         this(config.dashScopeApiKey(), new MultiModalConversation());
     }

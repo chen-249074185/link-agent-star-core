@@ -15,7 +15,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.List;
 import java.util.Map;
 
-// 人设接口（11-05）：
+// 人设接口：
 //   GET    /api/personas             → 内置预设列表 [{id,name}]（快捷项）
 //   GET    /api/user/persona         → 当前人设文本（null=未设置，走默认助手）
 //   PUT    /api/user/persona?persona=xx → 设置/覆盖自定义人设（预设 id 也可直接传）

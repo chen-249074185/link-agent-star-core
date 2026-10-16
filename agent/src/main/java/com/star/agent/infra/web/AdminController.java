@@ -20,7 +20,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-// 管理端（鉴权双轨之管理轨，X-Admin-Token 保护，W12 10-30 四 Tab 落地）：
+// 管理端（鉴权双轨之管理轨，X-Admin-Token 保护， 四 Tab 落地）：
 //   GET  /api/admin/health                 → 连通性自检
 //   GET  /api/admin/skills                 → 技能清单（含停用状态）【技能开关 Tab】
 //   POST /api/admin/skills/{name}/toggle   → 停用/启用技能

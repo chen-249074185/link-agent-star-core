@@ -5,7 +5,7 @@ import com.star.rag.store.VectorStore;
 
 // 知识库归属校验层（R10 隔离）：接口入参 (userId,kbId)，归属不符直接拒绝 + 审计日志
 // 语义：kb_id 由第一个上传内容的用户"认领"，其他用户不可读写删
-// 注：W8（09-29）会建 knowledge_base 表做显式归属管理，本层保持接口不变只换实现
+// 注：W8会建 knowledge_base 表做显式归属管理，本层保持接口不变只换实现
 public class KnowledgeBaseGuard {
 
     private final VectorStore store;

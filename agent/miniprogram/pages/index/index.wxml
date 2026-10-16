@@ -4,7 +4,7 @@
     <view class="inner">
       <view class="welcome" wx:if="{{!messages.length}}">
         <view class="w-ico"></view>
-        <view class="w-t">你好，我是星链智核</view>
+        <view class="w-t">你好，我是LinkAgent</view>
         <view class="w-s">租房决策 · 知识库问答 · 求职猎聘 · 多模态对话</view>
         <view class="w-chip" bindtap="onQuick">试试："在北京租房，预算6000，通勤30分钟内"</view>
       </view>

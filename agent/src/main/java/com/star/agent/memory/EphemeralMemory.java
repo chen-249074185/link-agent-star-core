@@ -31,7 +31,7 @@ public class EphemeralMemory {
     private final ObjectMapper objectMapper;
     private final LlmClient llmClient;                 // 压缩摘要用（和对话同一个 DeepSeek 大脑）
 
-    // @Qualifier 点名 DeepSeek（坑28：同接口 3 个实现，不点名报歧义）
+    // @Qualifier 点名 DeepSeek
     public EphemeralMemory(StringRedisTemplate redis,
                            ObjectMapper objectMapper,
                            @Qualifier("deepSeekLlmClient") LlmClient llmClient) {

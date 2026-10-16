@@ -42,7 +42,7 @@ class DashScopeAsrServiceTest {
         assertEquals("", DashScopeAsrService.parseSentences("not json"));
     }
 
-    // 关键回归（参照 our-project）：RecognitionParam 必须带 format + sampleRate，
+    // 关键回归：RecognitionParam 必须带 format + sampleRate，
     // 临时文件扩展名按魔数检测（AMR 语音 → .amr）
     @Test
     void transcribe_setsFormatAndSampleRate() throws Exception {

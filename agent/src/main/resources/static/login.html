@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>星链智核</title>
+<title>LinkAgent</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 
@@ -880,7 +880,7 @@ body.reg-mode .foot a{color:var(--red)}
   .devil{zoom:.85}
   .mascot{zoom:.85}
 }
-/* ===== 微信扫码入口 + 弹窗（10-31） ===== */
+/* ===== 微信扫码入口 + 弹窗 ===== */
 .divider{display:flex;align-items:center;gap:12px;color:var(--ink-faint);font-size:11px;margin:16px 0 12px}
 .divider::before,.divider::after{content:"";flex:1;height:1px;background:var(--line)}
 .wx-entry{width:100%;padding:9px 0;border:1px solid var(--line);border-radius:10px;background:var(--white);color:var(--ink);font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:border-color .2s,background .2s}
@@ -1007,7 +1007,7 @@ body.reg-mode .foot a{color:var(--red)}
   <!-- 标题 -->
   <div class="title">
     <h1 id="titleText">欢迎回来</h1>
-    <p id="descText">登录星链智核</p>
+    <p id="descText">登录LinkAgent</p>
   </div>
 
   <div class="toast" id="toast"></div>
@@ -1188,11 +1188,11 @@ function switchMain(m){
 
   if(m==='login'){
     $('titleText').textContent='欢迎回来';
-    $('descText').textContent='登录星链智核';
+    $('descText').textContent='登录LinkAgent';
     $('foot').innerHTML='没有账号？<a onclick="switchMain(\'register\')">注册</a>';
   }else{
     $('titleText').textContent='创建账号';
-    $('descText').textContent='加入星链智核';
+    $('descText').textContent='加入LinkAgent';
     $('foot').innerHTML='已有账号？<a onclick="switchMain(\'login\')">登录</a>';
   }
   hideToast();
@@ -1257,7 +1257,7 @@ function saveAuth(auth){
   sessionStorage.setItem('userId', auth.userId);
 }
 
-/* ===== 微信扫码一站式（10-31）：扫码 → 身份确认 → 绑定 → 进入网页 ===== */
+/* ===== 微信扫码一站式：扫码 → 身份确认 → 绑定 → 进入网页 ===== */
 let wxTicket=null, wxTimer=null, wxAuthed=false;
 const token=sessionStorage.getItem('token');
 const wxMask=$('wxMask');

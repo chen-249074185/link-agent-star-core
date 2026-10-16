@@ -10,7 +10,7 @@ import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
-// Web 配置（鉴权双轨注册中心，W12 10-27）：
+// Web 配置（鉴权双轨注册中心）：
 //   用户轨：JwtAuthInterceptor（@Component）拦 /api/**，排除登录注册白名单 + 管理端路径
 //   管理轨：AdminAuthFilter 拦 /api/admin/*（X-Admin-Token 比对 ADMIN_TOKEN_WEB）
 //   静态资源：/travel-images/** → 本地 travel-images/ 目录（游记图片，仿 rag_data 模式）

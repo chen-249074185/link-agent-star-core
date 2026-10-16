@@ -92,7 +92,7 @@ Page({
     })
   },
 
-  // ===== 助手人设（11-05）：预设快捷 + 自定义自由文本，持久化 users.persona =====
+  // ===== 助手人设：预设快捷 + 自定义自由文本，持久化 users.persona =====
   loadPersona() {
     const app = getApp()
     get('/api/user/persona', { userId: app.globalData.userId })

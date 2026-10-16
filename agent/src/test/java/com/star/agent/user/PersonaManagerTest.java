@@ -27,7 +27,7 @@ class PersonaManagerTest {
         assertFalse(presets.stream().anyMatch(p -> p.containsKey("prompt")));
     }
 
-    // 设置了人设 → 模板注入（参考夏令营模板写法：%s = 自定义文本）
+    // 设置了人设 → 模板注入（%s = 自定义文本）
     @Test
     void systemPromptOf_wrapsCustomPersonaInTemplate() {
         when(repo.findPersona("u1")).thenReturn("你是东北雨姐，说话豪爽");

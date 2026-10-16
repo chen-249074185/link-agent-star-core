@@ -28,7 +28,7 @@ public class RagMcpHandshakeTest {
 
         // 1. 子进程参数：java -jar rag-mcp fat jar（vec0.dll 在 jar 同目录）
         ServerParameters params = ServerParameters.builder("java")
-                .args("-jar", "D:/星链智核/agent/rag-mcp/target/rag-mcp-0.0.1-SNAPSHOT.jar")
+                .args("-jar", "rag-mcp/target/rag-mcp-0.0.1-SNAPSHOT.jar")
                 .build();
         StdioClientTransport transport = new StdioClientTransport(params, jsonMapper);
         transport.setStdErrorHandler(System.err::println);   // 子进程日志转发出来

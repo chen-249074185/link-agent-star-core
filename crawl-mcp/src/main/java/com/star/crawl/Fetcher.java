@@ -12,7 +12,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
 // 网页抓取器：UA 池轮换（反反爬）+ 域名限速 300ms（礼貌爬取）+ 指数退避重试（健壮性）
-// 思路借鉴夏令营项目 HtmlFetcher 管线（附 C：只搬精华不搬巨型类），自研实现
+// 思路项目 HtmlFetcher 管线（附 C：只搬精华不搬巨型类），自研实现
 public class Fetcher {
 
     // ① UA 池：3 个真实浏览器 UA，轮流伪装成不同浏览器（同 UA 高频请求是反爬最强判定信号）

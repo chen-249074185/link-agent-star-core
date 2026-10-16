@@ -206,7 +206,7 @@ public class McpConnection {
         }
     }
 
-    // 应用退出时优雅关闭子进程（closeGracefully → 子进程 EOF 感知退出，零僵尸，坑21 解法）
+    // 应用退出时优雅关闭子进程（closeGracefully → 子进程 EOF 感知退出，零僵尸， 解法）
     @PreDestroy
     public void close() {
         if (client != null) {

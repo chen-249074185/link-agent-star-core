@@ -6,7 +6,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 
-// 调用统计（管理端"调用统计"Tab 数据源，W12 10-30）
+// 调用统计（管理端"调用统计"Tab 数据源）
 // 内存实现（重启清零，演示用途）：技能调用次数 / 各场景消息数 / 工作流执行次数 / 估算 token
 // 埋点位置 = ChatService（chat/streamWithTools 两路 + executeTool 工具执行）
 @Component

@@ -8,7 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 // Mock 房源资料库读文件测试：按城市路由 rag_data/houses，缺文件返回提示话术
-// 数据文件化（参照夏令营 rag_data 目录）：加城市=加文件，代码零改动
+// 数据文件化：加城市=加文件，代码零改动
 // 注意：job 是用户私有不建共享库（真实走猎聘 MCP），只有 houses 是通用数据文件化
 class MockDataFileTest {
 

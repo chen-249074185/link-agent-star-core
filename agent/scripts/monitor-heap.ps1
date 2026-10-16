@@ -7,7 +7,7 @@ $pidFile = "logs\app.pid"
 $outFile = "logs\heap-samples.log"
 if (!(Test-Path $pidFile)) { Write-Error "找不到 logs\app.pid（先跑 .\scripts\start-monitor.ps1）"; exit 1 }
 $appPid = (Get-Content $pidFile).Trim()
-$jcmd = "D:\Java\jdk-21\bin\jcmd.exe"
+$jcmd = "jcmd"
 
 function Sample {
     $stamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"

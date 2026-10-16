@@ -1,4 +1,4 @@
-# ===== 星链智核 主程序镜像（W14 11-12）=====
+# ===== LinkAgent 主程序镜像=====
 # 多阶段：Maven 统一构建 主程序 + 三个 MCP 模块 → JRE 运行（镜像自包含，docker-compose up 一键起）
 # 密钥不在此文件出现：全部由 docker-compose 从 .env 注入环境变量
 

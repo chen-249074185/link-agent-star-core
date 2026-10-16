@@ -23,7 +23,7 @@ public class MediaPreprocessor {
     }
 
     // 语音 → 文本：检测格式 → ffmpeg 转 16k WAV → 转写
-    // 转码失败（ffmpeg 缺失/格式不支持）→ 按参照（our-project）用原始字节兜底直调 ASR（AMR 等部分格式可直识别）
+    // 转码失败（ffmpeg 缺失/格式不支持）→ 按参照用原始字节兜底直调 ASR（AMR 等部分格式可直识别）
     // 转写失败 → 同样降级话术（不崩）
     public String voiceToText(byte[] voiceBytes) {
         AudioFormat format = detector.detect(voiceBytes);

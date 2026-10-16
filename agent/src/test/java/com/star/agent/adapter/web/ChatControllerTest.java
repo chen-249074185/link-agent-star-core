@@ -61,7 +61,7 @@ class ChatControllerTest {
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("event:streamId")));
     }
 
-    // 非流式对话（W13 小程序降级用）：JWT 身份在 request attribute 时正常返回回复；未登录 401
+    // 非流式对话：JWT 身份在 request attribute 时正常返回回复；未登录 401
     @Test
     void ask_returnsFullReply() throws Exception {
         when(sceneDetector.detect(anyString())).thenReturn(Scene.CHAT);

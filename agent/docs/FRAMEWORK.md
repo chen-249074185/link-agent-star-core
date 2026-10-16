@@ -1,6 +1,6 @@
-# 星链智核 · 框架使用文档（W4 阶段）
+# LinkAgent · 框架使用文档
 
-> 配套 M1 验收演示。面向开发者：如何新增技能、双模式怎么工作、Mock/真实如何切换。
+> 配套  验收演示。面向开发者：如何新增技能、双模式怎么工作、Mock/真实如何切换。
 
 ## 一、双运行模式
 
@@ -35,7 +35,7 @@
 
 - 配置项：`linkagent.workflow.mock-enabled`（application.properties）
 - `true`：4 个 Mock 占位技能生效（假数据），Workflow 全链路可跑（当前阶段默认）
-- `false`：Mock 自动退役，让位真实 MCP（W7~W9 落地后切换），**Workflow 编排逻辑零改动**
+- `false`：Mock 自动退役，让位真实 MCP，**Workflow 编排逻辑零改动**
 - 真实技能不受开关影响：天气（心知）、通勤（高德 AMAP_KEY）随时真实可用
 
 ## 五、双轨架构（本地 Skill + MCP）

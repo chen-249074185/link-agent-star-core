@@ -359,7 +359,7 @@ public class LiepinMcpServer {
                 .build();
     }
 
-    // EOF 感知流（坑21 同款）：客户端断开 → 主线程退出，零僵尸
+    // EOF 感知流：客户端断开 → 主线程退出，零僵尸
     private static class EofAwareInputStream extends FilterInputStream {
 
         private final CountDownLatch eofLatch = new CountDownLatch(1);

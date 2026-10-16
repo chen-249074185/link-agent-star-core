@@ -12,7 +12,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 // KnowledgeBaseRepository 集成测试：自动默认库/建库/列表/删库/显式归属隔离
 class KnowledgeBaseRepositoryTest {
 
-    private static final String VEC_DLL = "D:/星链智核/agent/spike/sqlite-vec/vec0.dll";
+    private static final String VEC_DLL = "spike/sqlite-vec/vec0.dll";
 
     private SQLiteVecStore store;
 

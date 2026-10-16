@@ -4,7 +4,7 @@ import com.star.agent.user.dao.UserDao;
 import com.star.agent.user.domain.UserDo;
 import org.springframework.stereotype.Component;
 
-// 用户账号仓库：users 表读写（W12 用户体系，注册/登录/查重共用）
+// 用户账号仓库：users 表读写
 @Component
 public class UserRepository {
 

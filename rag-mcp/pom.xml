@@ -25,7 +25,7 @@
             <artifactId>mcp</artifactId>
             <version>1.1.4</version>
         </dependency>
-        <!-- mcp-core 1.1.4 编译期依赖 jackson-annotations 2.20（坑19：显式声明防被压低） -->
+        <!-- mcp-core 1.1.4 编译期依赖 jackson-annotations 2.20 -->
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-annotations</artifactId>

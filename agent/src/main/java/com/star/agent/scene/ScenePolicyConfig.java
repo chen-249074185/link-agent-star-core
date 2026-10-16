@@ -17,7 +17,7 @@ public class ScenePolicyConfig {
 
     private static final Logger logger = LoggerFactory.getLogger(ScenePolicyConfig.class);
 
-    // 注意：不能用"唯一构造器注入"依赖（坑26）！
+    // 注意：不能用"唯一构造器注入"依赖！
     // @ConfigurationProperties 类只有一个构造器时，Spring 推断成"构造器绑定"模式，
     // 会把构造器参数当配置属性绑 → setPolicies() 永不执行 → 配置绑空。
     // 官方 corner case 解法：setter 注入。

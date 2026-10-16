@@ -2,7 +2,7 @@ package com.star.agent.user.domain;
 
 import java.time.LocalDateTime;
 
-// 用户账号：users 表（W12 用户体系，三端共用同一 userId 数据互通）
+// 用户账号：users 表
 // userId 为系统生成的唯一身份（贯穿对话/知识库/记忆），username/email 是登录名，至少一个
 public class UserDo {
 

@@ -9,7 +9,7 @@ import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
 
-// 全局异常处理（W12 起启用，W14 11-10 完善）：
+// 全局异常处理：
 //   BizException → 按其携带的 code/msg 返回（业务规则话术，如"用户名已被占用"）
 //   调用方问题（405 方法不支持/400 缺参数/上传超限）→ 友好话术，不打堆栈（不是服务端故障）
 //   静态资源不存在 → 抛回 Spring 默认 404（不能让 /xxx.html 404 变成 500 JSON）
@@ -48,7 +48,7 @@ public class GlobalExceptionHandler {
         return Result.fail(400, "请求体缺失或格式错误");
     }
 
-    // 上传超过 Tomcat multipart 上限（50MB）→ 友好话术，不是"服务器内部错误"（W13 上传 500 排查发现）
+    // 上传超过 Tomcat multipart 上限（50MB）→ 友好话术，不是"服务器内部错误"
     @ExceptionHandler(MaxUploadSizeExceededException.class)
     public Result<Void> uploadTooLarge(MaxUploadSizeExceededException e) {
         return Result.fail(400, "文件过大（超过 50MB 限制）");

@@ -7,6 +7,6 @@ import com.star.agent.infra.web.Result;
 //   POST /api/user/register   {"type":"username","username","password"} | {"type":"email","email","code"}
 //   POST /api/user/login      {"type":"username","username","password"} | {"type":"email","email","code"}
 //     成功 data = {token, userId}（邮箱路径未注册=自动注册，登录即注册）
-// W12 JWT 拦截器就绪后 userId 从 token 取，本接口签名不变
+//  JWT 拦截器就绪后 userId 从 token 取，本接口签名不变
 public record AuthRequest(String type, String username, String password, String email, String code) {
 }

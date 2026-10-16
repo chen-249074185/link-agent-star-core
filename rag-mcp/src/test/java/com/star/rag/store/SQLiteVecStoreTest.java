@@ -20,7 +20,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class SQLiteVecStoreTest {
 
     // 指向 spike 里已下载的 vec0.dll
-    private static final String VEC_DLL = "D:/星链智核/agent/spike/sqlite-vec/vec0.dll";
+    private static final String VEC_DLL = "spike/sqlite-vec/vec0.dll";
 
     private SQLiteVecStore store;
 
@@ -206,7 +206,7 @@ class SQLiteVecStoreTest {
         assertEquals("乙", hits.get(0).content());
     }
 
-    // 去重回归（10-10 M3 发现的 topK 重复块 bug）：同一文档重复上传（内容+向量全同）后，
+    // 去重回归（10-10  发现的 topK 重复块 bug）：同一文档重复上传（内容+向量全同）后，
     // 检索结果按内容去重只保留一条；重复块不再霸占 topK 名额
     @Test
     void search_dedupesDuplicateContent() {

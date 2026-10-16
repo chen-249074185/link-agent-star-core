@@ -8,7 +8,7 @@ import org.springframework.stereotype.Component;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
-// 技能开关（管理端"技能开关"Tab 数据源，W12 10-30）：
+// 技能开关（管理端"技能开关"Tab 数据源）：
 // 被停用的技能名存 Redis Set（key linkagent:admin:disabled-skills，重启不丢）；
 // Redis 不可用（测试/手动链路）→ 内存 Set 兜底，管理页不阻塞
 // 治理内核 check() 关1 后查它：停用的技能直接拒（"该技能已被管理员停用"）

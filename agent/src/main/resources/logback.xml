@@ -7,7 +7,7 @@
         </encoder>
     </appender>
 
-    <!-- 文件日志（W12 10-30 管理端"日志审计"Tab 数据源）：logs/agent.log，按天+大小滚动 -->
+    <!-- 文件日志：logs/agent.log，按天+大小滚动 -->
     <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
         <file>logs/agent.log</file>
         <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">

@@ -39,14 +39,14 @@
 			<artifactId>spring-boot-starter-web</artifactId>
 		</dependency>
 
-		<!-- W14 11-11 接口文档：SpringDoc OpenAPI（/swagger-ui.html 可调试，交付物"API 文档"） -->
+		<!--  接口文档：SpringDoc OpenAPI（/swagger-ui.html 可调试，交付物"API 文档"） -->
 		<dependency>
 			<groupId>org.springdoc</groupId>
 			<artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
 			<version>2.6.0</version>
 		</dependency>
 
-		<!-- W12 用户体系：QQ SMTP 发验证码邮件 -->
+		<!--  用户体系：QQ SMTP 发验证码邮件 -->
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-mail</artifactId>
@@ -81,7 +81,7 @@
 			<artifactId>poi-ooxml</artifactId>
 			<version>5.2.5</version>
 		</dependency>
-		<!-- PDFBox（11-02）：主程序 /api/file/parse 的 pdf 解析（rag-mcp 同款 2.0.31，anydoc 移除后补位） -->
+		<!-- PDFBox：主程序 /api/file/parse 的 pdf 解析（rag-mcp 同款 2.0.31，anydoc 移除后补位） -->
 		<dependency>
 			<groupId>org.apache.pdfbox</groupId>
 			<artifactId>pdfbox</artifactId>

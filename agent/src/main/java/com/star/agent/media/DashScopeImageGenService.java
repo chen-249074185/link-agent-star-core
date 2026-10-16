@@ -21,7 +21,7 @@ public class DashScopeImageGenService {
     private final String apiKey;
     private final ImageSynthesis imageSynthesis;
 
-    @Autowired   // 多构造器时 Spring 靠它挑（坑15）
+    @Autowired   // 多构造器时 Spring 靠它挑
     public DashScopeImageGenService(AppConfig config) {
         this(config.dashScopeApiKey(), new ImageSynthesis());
     }

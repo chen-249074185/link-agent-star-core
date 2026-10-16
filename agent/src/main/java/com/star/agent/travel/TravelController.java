@@ -26,7 +26,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-// 旅游功能（W14，规划 + 游记 + 点亮地图，全部绑定 userId JWT 校验）：
+// 旅游功能：
 //   POST /api/travel/plan      {"destination","days","keyword"} → 行程 JSON（TripPlanService 编排）
 //   POST /api/travel/upload    multipart file → {url} 图片上传（本地 travel-images/ 存储）
 //   POST /api/travel/log       {"province","city","locationName","lng","lat","content","imgList","travelDate"} → 发布游记
@@ -41,7 +41,7 @@ public class TravelController {
 
     private static final Logger logger = LoggerFactory.getLogger(TravelController.class);
 
-    // 省级行政中心坐标（游记无坐标时回退用，覆盖 34 省级行政区，借鉴 traces-in-the-clouds）
+    // 省级行政中心坐标（游记无坐标时回退用，覆盖 34 省级行政区）
     private static final Map<String, double[]> PROVINCE_COORDS = new LinkedHashMap<>();
 
     static {

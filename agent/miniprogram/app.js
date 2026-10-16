@@ -13,6 +13,6 @@ App({
     token: '',
     userId: '',
     // 后端地址：模拟器可用 http://localhost:8080；真机预览必须用电脑局域网 IP（手机和电脑同一 Wi-Fi）
-    baseUrl: 'http://10.69.172.10:8080'
+    baseUrl: 'http://localhost:8080'
   }
 })

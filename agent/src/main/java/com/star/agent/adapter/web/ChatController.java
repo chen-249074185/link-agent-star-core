@@ -47,7 +47,7 @@ public class ChatController {
         this.chatHistoryService = chatHistoryService;
     }
 
-    // 非流式对话（W13 小程序降级用）：一次性返回完整回复（内部走 chat() 工具循环 + 记忆双写）
+    // 非流式对话：一次性返回完整回复（内部走 chat() 工具循环 + 记忆双写）
     // 小程序模拟器/部分真机拿不到 SSE 流式响应（res.data 为空、onChunkReceived 不触发）→ 用这个端点
     // userId 从 JWT 取（AuthContext，与 /stream 一致）；sessionId 缺省=30 分钟内复用最近会话；newSession=强制新会话
     @Operation(summary = "非流式对话", description = "一次返回完整回复（小程序用，内部走工具循环+记忆双写）；sessionId 缺省=30 分钟内复用最近会话")

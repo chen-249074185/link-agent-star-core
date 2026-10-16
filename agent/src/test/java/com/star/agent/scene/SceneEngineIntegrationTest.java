@@ -88,7 +88,7 @@ class SceneEngineIntegrationTest {
         assertEquals("none", policy.memory());
     }
 
-    // 风格切换：5 个场景风格互不相同（答辩叙事：按场景切换回复风格）
+    // 风格切换：5 个场景风格互不相同（按场景切换回复风格）
     @Test
     void replyStylesDifferAcrossScenes() {
         for (Scene scene : Scene.values()) {

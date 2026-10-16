@@ -1,6 +1,6 @@
 # 场景策略表：5 个场景各配 模型/工具白名单/记忆策略/回复风格
 # 注意：policies 层不能省！@ConfigurationProperties 绑定 JavaBean 时，
-#       Map 字段名(policies) 是配置键的下一层（坑27：少了这层绑定静默失败）
+#       Map 字段名(policies) 是配置键的下一层
 linkagent.scene-policy:
   policies:
     CHAT:            # 场景名必须与 Scene 枚举一字不差
@@ -14,8 +14,8 @@ linkagent.scene-policy:
         - mcp_createOrder
         - mcp_queryOrderDetailInfo
         - mcp_cancelOrder
-      memory: ephemeral      # 记忆策略：ephemeral=瞬时 / none=不记（W6 才实现，先占位）
-      reply-style: casual    # 回复风格（W5 后期生成回复用，先占位）
+      memory: ephemeral      # 记忆策略：ephemeral=瞬时 / none=不记
+      reply-style: casual    # 回复风格
     CREATION:
       model: qwen-max        # 创作→阿里云最强模型
       tools: []
@@ -41,7 +41,7 @@ linkagent.scene-policy:
       memory: none           # 群聊安全：不记记忆、不调工具
       reply-style: polite
 
-# W14 11-11 接口文档：SpringDoc OpenAPI 分组（浏览器打开 /swagger-ui.html 选择分组调试）
+#  接口文档：SpringDoc OpenAPI 分组（浏览器打开 /swagger-ui.html 选择分组调试）
 springdoc:
   api-docs:
     path: /v3/api-docs

@@ -1,4 +1,4 @@
-# 星链智核（LinkAgent）
+# LinkAgent
 
 全域自适应多端 AI 智能助手：Java 单后端应用，微信 + 小程序 + Web 三端接入。
 

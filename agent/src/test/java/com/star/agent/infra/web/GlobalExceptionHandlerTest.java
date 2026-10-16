@@ -17,7 +17,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 // 全局异常处理：静态资源不存在必须 404（不是 500 JSON）、业务/降级异常走 Result JSON（HTTP 200 + code）、
-// 405/400 调用方问题友好话术不堆栈、响应体带 traceId（W14 11-10 完善）
+// 405/400 调用方问题友好话术不堆栈、响应体带 traceId
 @SpringBootTest(properties = {
         "linkagent.wechat.bot-enabled=false",
         "linkagent.workflow.mock-enabled=true"
@@ -65,7 +65,7 @@ class GlobalExceptionHandlerTest {
                 .andExpect(jsonPath("$.msg").value(org.hamcrest.Matchers.containsString("请求体")));
     }
 
-    // traceId 入响应体：与响应头 X-Trace-Id 一致（前端报错可凭它查日志，W14 11-10）
+    // traceId 入响应体：与响应头 X-Trace-Id 一致（前端报错可凭它查日志）
     @Test
     void errorResponse_carriesTraceId() throws Exception {
         MvcResult result = mvc.perform(get("/api/admin/health"))

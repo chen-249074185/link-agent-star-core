@@ -31,7 +31,7 @@ public class DashScopeTtsService {
     private final MultiModalConversation conv;
     private final HttpClient http;
 
-    @Autowired   // 多构造器时 Spring 靠它挑（坑15）
+    @Autowired   // 多构造器时 Spring 靠它挑
     public DashScopeTtsService(AppConfig config) {
         this(config.dashScopeApiKey(), new MultiModalConversation(), HttpClient.newHttpClient());
     }

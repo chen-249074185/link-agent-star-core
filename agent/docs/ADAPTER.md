@@ -1,6 +1,6 @@
 # 通道适配层（MessageAdapter）使用文档
 
-> W10（10-12 提前开工）引入：把"消息从哪来、回哪去"抽象成统一合同，业务层（BotWorker/未来的 MessageDispatcher）只认 `MessageAdapter`，不碰任何 SDK 类。
+> （10-12 提前开工）引入：把"消息从哪来、回哪去"抽象成统一合同，业务层（BotWorker/未来的 MessageDispatcher）只认 `MessageAdapter`，不碰任何 SDK 类。
 
 ## 一、接口合同（adapter/MessageAdapter.java）
 
@@ -13,7 +13,7 @@
 
 ## 二、微信实现（ILinkMessageAdapter）
 
-- 构造无参，登录完成后 `attach(ILinkClient)` 绑定（登录/恢复都可能换 client，**换后必须重新 attach**，见坑7）
+- 构造无参，登录完成后 `attach(ILinkClient)` 绑定（登录/恢复都可能换 client，**换后必须重新 attach**，见）
 - 收方向：`client.getUpdates()` 一次可能带回**一批**消息，内部 pending 队列缓冲逐条吐，不丢消息
 - 发方向：`send/sendImage/sendFile` 直通 SDK 同签名方法（SDK 还支持 sendVoice/sendTextWithTyping，需要时在此扩展）
 
@@ -37,4 +37,4 @@ fetcher 线程只管收（adapter.receive → BlockingQueue），processor 线�
 
 - **隔离 SDK**：微信 SDK 类（WeixinMessage 等）只出现在 adapter 包内，换通道/升级 SDK 业务层无感
 - **统一消息模型**：内部一律 `AgentMessage`（source/userId/text/mediaType/mediaBytes/timestamp），三端（微信/Web/小程序）最终汇成同一模型
-- **收发的缓冲语义**：receive 单条返回 + null 空转，天然适配"fetcher 拉批 + processor 逐条处理"的双线程管线（W10 第 2 天）
+- **收发的缓冲语义**：receive 单条返回 + null 空转，天然适配"fetcher 拉批 + processor 逐条处理"的双线程管线

@@ -1,4 +1,4 @@
-/* ===== 点亮地图核心（借鉴 traces-in-the-clouds footprintmap + plugin-visited，本项目精简版）=====
+/* ===== 点亮地图核心（本项目精简实现）=====
  * 依赖：高德 JS API（key/securityCode 从 /api/travel/map-config 下发，不写死在 HTML）
  * 数据：/api/travel/footprints（JWT 鉴权）→ 足迹点 → 射线法判定落在哪个省 → 该省点亮
  */

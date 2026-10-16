@@ -297,7 +297,7 @@ class AuthServiceTest {
 
     // ---------- 微信扫码绑定（10-31 三端互通） ----------
 
-    // 扫码确认后绑定：wechat_id 写入 + 微信旧数据并入账号 + 消费 ticket + 拉起 Bot（10-31）
+    // 扫码确认后绑定：wechat_id 写入 + 微信旧数据并入账号 + 消费 ticket + 拉起 Bot
     @Test
     void bindWechat_confirmed_bindsAndMerges() {
         UserDo me = new UserDo();

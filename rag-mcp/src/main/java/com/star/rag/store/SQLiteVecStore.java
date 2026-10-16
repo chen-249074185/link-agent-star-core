@@ -49,12 +49,12 @@ public class SQLiteVecStore implements VectorStore, KnowledgeBaseRepository {
                     "metadata_json TEXT," +
                     "created_at TEXT NOT NULL DEFAULT (datetime('now','localtime')))");
             st.execute("CREATE INDEX IF NOT EXISTS idx_chunks_user ON chunks (user_id, kb_id)");
-            // 分文件删除（11-03）：chunks 加 filename 列——老库没有该列，幂等补列（PRAGMA 检查）
+            // 分文件删除：chunks 加 filename 列——老库没有该列，幂等补列（PRAGMA 检查）
             if (!columnExists("chunks", "filename")) {
                 st.execute("ALTER TABLE chunks ADD COLUMN filename TEXT");
                 st.execute("CREATE INDEX IF NOT EXISTS idx_chunks_file ON chunks (user_id, kb_id, filename)");
             }
-            // W8(09-29)：user 表 + knowledge_base 表，知识库归属显式化（R10）
+            // (09-29)：user 表 + knowledge_base 表，知识库归属显式化（R10）
             st.execute("CREATE TABLE IF NOT EXISTS users (" +
                     "user_id TEXT PRIMARY KEY," +
                     "created_at TEXT NOT NULL DEFAULT (datetime('now','localtime')))");
@@ -263,7 +263,7 @@ public class SQLiteVecStore implements VectorStore, KnowledgeBaseRepository {
         }
     }
 
-    // ===== KnowledgeBaseRepository 实现（W8 09-29）=====
+    // ===== KnowledgeBaseRepository 实现=====
 
     // 新用户自动建默认库：INSERT OR IGNORE 幂等（已存在不报错），默认库 kb_id = userId + "-default"
     @Override

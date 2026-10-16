@@ -26,7 +26,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-// 高德 POI 服务（借鉴 traces-in-the-clouds AmapPoiService 结构，本项目模式改造）：
+// 高德 POI 服务（按本项目模式实现）：
 // 地理编码 / 周边搜索（带人均消费·评分）/ 关键词搜索 / 导航链接生成
 // 全程 Web 服务 key（AMAP_KEY）后端持有，不下发前端
 @Component

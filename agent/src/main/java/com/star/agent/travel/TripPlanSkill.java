@@ -16,8 +16,8 @@ import java.util.List;
 import java.util.Map;
 
 // 旅游规划技能（trip_plan，EXT 层，仅自由问答可用不参与租房 Workflow）：
-// 目的地 → 高德真实景点/美食 + 纯算法排程（借鉴 traces-in-the-clouds PlanController 思路，
-// 不搬 our-project 552 行巨型类）→ 结构化行程转可读文本（聊天直接输出）
+// 目的地 → 高德真实景点/美食 + 纯算法排程（
+// ）→ 结构化行程转可读文本（聊天直接输出）
 // 与 Web 规划页共用 TravelPlanService（页面要 JSON，聊天要人话，同一份编排两种出口）
 @Component
 public class TripPlanSkill implements Skill {

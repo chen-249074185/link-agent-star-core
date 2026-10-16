@@ -25,7 +25,7 @@
             <artifactId>mcp</artifactId>
             <version>1.1.4</version>
         </dependency>
-        <!-- 坑19：mcp-core 1.1.4 编译期依赖 jackson-annotations 2.20（用 isRequired() 新 API）；
+        <!-- ：mcp-core 1.1.4 编译期依赖 jackson-annotations 2.20（用 isRequired() 新 API）；
              显式声明防被压低，否则运行时 NoSuchMethodError -->
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>

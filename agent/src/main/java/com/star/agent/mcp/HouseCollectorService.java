@@ -14,7 +14,7 @@ import java.util.Map;
 import java.util.Optional;
 
 // 房源采集入库服务（真实数据链路）：爬链家租房页 → 解析 → 写 rag_data/houses/{城市}.txt（数据源）→ 入库索引
-// 数据源 = 纯文本文件（用户可点开查看/直接编辑，参照夏令营 rag_data 模式）；rag.db 只是从文件生成的检索索引
+// 数据源 = 纯文本文件（用户可点开查看/直接编辑，文件模式）；rag.db 只是从文件生成的检索索引
 // 房源是通用公开数据（爬链家）→ 固定写入【共享房源库 kb-shared-houses】（11-03 方案1：全用户只读可检索，
 // 归属 system）；岗位才是用户私有（liepin-mcp 用户 Token 查真实猎聘）——本服务只管房源
 // 重建走 rag_admin_delete_kb（管理工具删共享库）+ rag_upload(user_id=system)（共享库仅 system 可写）
@@ -30,7 +30,7 @@ public class HouseCollectorService {
     private final Optional<McpConnection> ragMcp;
     private final Path dataDir;   // 房源数据文件目录（缺省 rag_data/houses，测试可注入临时目录）
 
-    @Autowired   // 多构造器时 Spring 靠它挑（坑15 同类）
+    @Autowired   // 多构造器时 Spring 靠它挑
     public HouseCollectorService(@Qualifier("crawlMcpConnection") Optional<McpConnection> crawlMcp,
                                  @Qualifier("ragMcpConnection") Optional<McpConnection> ragMcp) {
         this(crawlMcp, ragMcp, Paths.get("rag_data", "houses"));

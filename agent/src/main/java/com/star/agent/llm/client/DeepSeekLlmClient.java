@@ -118,7 +118,7 @@ public class DeepSeekLlmClient implements LlmClient {
         streamWithTools(messages, tools, onToken);
     }
 
-    // ==================== 流式 + 工具循环合流（W12 10-30） ====================
+    // ==================== 流式 + 工具循环合流 ====================
     // 与 chat() 相同的工具循环语义，但响应走 SSE：content 增量逐 token 回调 onToken，
     // 工具订单藏在 delta.tool_calls 里（id/name 只在首块出现，arguments 逐块拼接），
     // 流结束后拼成完整订单随 ChatResponse 返回——调用方静默执行、回填、再请求

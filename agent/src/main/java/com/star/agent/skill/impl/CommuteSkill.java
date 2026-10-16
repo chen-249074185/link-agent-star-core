@@ -149,7 +149,7 @@ public class CommuteSkill implements Skill {
             }
 
             // 打车费用估算（本地计价规则：起步 3 公里 ¥10 + 超出约 ¥2.3/公里，实际以平台为准）——
-            // 答辩点"打车为何用估算计价"：不做真实订单/跳转依赖，先给用户量级参考
+            // 说明"打车为何用估算计价"：不做真实订单/跳转依赖，先给用户量级参考
             double km = distanceMeters / 1000.0;
             int taxiCost = 10 + (int) Math.round(Math.max(0, km - 3) * 2.3);
             sb.append("\n打车费用估算：约 ").append(taxiCost).append(" 元");

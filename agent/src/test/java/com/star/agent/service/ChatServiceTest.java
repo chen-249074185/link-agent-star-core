@@ -295,7 +295,7 @@ class ChatServiceTest {
         verify(resume).execute(any());   // 明确要求 → 正常执行
     }
 
-    // ==================== SSE 流式 + 工具循环合流（W12 10-30） ====================
+    // ==================== SSE 流式 + 工具循环合流 ====================
     // DATA 场景（有工具白名单）→ 走工具循环：工具订单静默执行 → 回调状态事件 → 正文流式输出
     @Test
     void streamWithTools_toolLoopExecutesSilently() {

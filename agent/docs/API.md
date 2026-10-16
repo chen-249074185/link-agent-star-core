@@ -1,12 +1,12 @@
-# 星链智核 REST API 文档（W12 统一梳理）
+# LinkAgent REST API 文档
 
 > 统一响应格式：`{code, msg, data}`，`code=0` 成功，非 0 失败（msg 可直接展示给用户）。
-> 鉴权（W12 10-27 已启用）：
+> 鉴权：
 > - 用户端：`/api/**`（除登录注册/采集白名单）必须带 `Authorization: Bearer <JWT>`，401 未登录；token 的 userId 与请求参数 userId 不一致 → 403（R10）
 > - SSE 特例：`EventSource` 不能带请求头，token 走 query 参数 `?token=xxx` 兜底
 > - 管理端：`/api/admin/**` 必须带 `X-Admin-Token: <ADMIN_TOKEN_WEB>`，不一致 401
 
-## 一、用户认证 `/api/user`（W12 新增）
+## 一、用户认证 `/api/user`
 
 | 方法 | 路径 | 入参 | 成功 data |
 |---|---|---|---|
@@ -43,7 +43,7 @@
 
 | 方法 | 路径 | 入参 | 说明 |
 |---|---|---|---|
-| GET | /api/chat/stream?message=&sessionId= | 消息文本 | SSE 打字机流；命名事件序列：`streamId`（拿它调 /stop）→ `sessionId`（继续对话带回）→ `tool`（工具执行状态，data=工具名）→ 默认 `data` 事件逐 token 正文；内部走三层场景识别；无工具场景按场景路由模型，有工具场景走 DeepSeek 流式工具循环合流（10-30） |
+| GET | /api/chat/stream?message=&sessionId= | 消息文本 | SSE 打字机流；命名事件序列：`streamId`（拿它调 /stop）→ `sessionId`（继续对话带回）→ `tool`（工具执行状态，data=工具名）→ 默认 `data` 事件逐 token 正文；内部走三层场景识别；无工具场景按场景路由模型，有工具场景走 DeepSeek 流式工具循环合流 |
 | GET | /api/chat/stop?streamId= | 流 ID | 置停止标记 + complete + 从登记处移除 |
 
 ## 三、知识库 `/api/rag`（已有）
@@ -89,12 +89,12 @@
 - 管理工具约定：rag-mcp 的 `rag_admin_*` 前缀工具只给 /api/admin 直连，McpSkillRegistrar 跳过不注册给 LLM（防越权）
 - 页面：`/manage.html`（四 Tab，凭证每次进入必输，仅存内存不落 localStorage）
 
-## 规划中（W12 后续）
+## 规划中
 
 - /api/user/me：个人信息（脱敏 email、用户名、绑定状态）
 - /api/user/bind-email：绑定/换绑邮箱（触发账号合并）
 - /api/skill/*：技能清单/开关（管理端用）
-- /api/memory/*：历史记录/清除（小程序记忆页 W13 用）
+- /api/memory/*：历史记录/清除（小程序记忆页  用）
 - /api/admin/*：管理端四 Tab
 
 ## 错误码约定

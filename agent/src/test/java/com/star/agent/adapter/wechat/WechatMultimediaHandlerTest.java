@@ -129,9 +129,9 @@ class WechatMultimediaHandlerTest {
     // #tts 内容 → 先回"已收到"即时反馈 → 合成语音发出（TTS 能力入口），返回空串表示已处理
     @Test
     void ttsCommand_synthesizesAndSendsVoice() throws Exception {
-        when(tts.synthesize("你好，欢迎使用星链智核", null)).thenReturn(new byte[]{7, 7, 7});
+        when(tts.synthesize("你好，欢迎使用LinkAgent", null)).thenReturn(new byte[]{7, 7, 7});
 
-        String reply = handler.handle(msg(MediaType.TEXT, "#tts 你好，欢迎使用星链智核", null), adapter);
+        String reply = handler.handle(msg(MediaType.TEXT, "#tts 你好，欢迎使用LinkAgent", null), adapter);
 
         assertEquals("", reply, "已发语音");
         verify(adapter).send("u1", "已收到，正在合成语音，请稍候…");

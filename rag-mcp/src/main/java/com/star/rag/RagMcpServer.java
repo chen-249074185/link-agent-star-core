@@ -620,7 +620,7 @@ McpServer.sync(transport)
         }
     }
 
-    // EOF 感知流（坑21 的解法，和 DemoEchoServer 一致）：客户端断开 → 主线程退出，不残留僵尸进程
+    // EOF 感知流：客户端断开 → 主线程退出，不残留僵尸进程
     private static class EofAwareInputStream extends FilterInputStream {
 
         private final CountDownLatch eofLatch = new CountDownLatch(1);

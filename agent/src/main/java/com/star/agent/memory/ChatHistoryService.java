@@ -36,7 +36,7 @@ public class ChatHistoryService {
     private final DailySummaryDao summaryDao;
     private final EphemeralMemory ephemeralMemory;
 
-    @Autowired   // 多构造器时 Spring 靠它挑（坑15 同类）
+    @Autowired   // 多构造器时 Spring 靠它挑
     public ChatHistoryService(ConversationDao dao, DailySummaryDao summaryDao, EphemeralMemory ephemeralMemory) {
         this.dao = dao;
         this.summaryDao = summaryDao;

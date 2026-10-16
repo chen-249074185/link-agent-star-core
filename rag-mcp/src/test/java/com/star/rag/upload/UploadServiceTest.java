@@ -28,7 +28,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class UploadServiceTest {
 
     // 指向 spike 里已下载的 vec0.dll（与 SQLiteVecStoreTest 一致）
-    private static final String VEC_DLL = "D:/星链智核/agent/spike/sqlite-vec/vec0.dll";
+    private static final String VEC_DLL = "spike/sqlite-vec/vec0.dll";
 
     private final ObjectMapper mapper = new ObjectMapper();
 

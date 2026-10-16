@@ -15,7 +15,7 @@ import java.nio.file.Path;
 
 // 语音转文字真实实现（paraformer-realtime-v2，DashScope 官方 SDK）：
 // 魔数检测格式 → 写临时文件（带正确扩展名）→ recognition.call → 解析 sentences 拼文本
-// 参照 our-project VoiceRecognitionService：RecognitionParam 必须带 format/sampleRate（否则 paraformer 拒收/识别差）
+// RecognitionParam 必须带 format/sampleRate（否则 paraformer 拒收/识别差）
 // 失败返回 null（VoiceTranscriber 合同：降级信号，调用方换话术，不崩）
 @Component
 public class DashScopeAsrService implements VoiceTranscriber {
@@ -53,7 +53,7 @@ public class DashScopeAsrService implements VoiceTranscriber {
             };
             tmp = Files.createTempFile("voice_", "." + ext);
             Files.write(tmp, audioBytes);
-            // 关键：format/sampleRate 必须声明（参照 our-project，缺了 paraformer 不知道音频格式）
+            // 关键：format/sampleRate 必须声明（缺了 paraformer 不知道音频格式）
             RecognitionParam param = RecognitionParam.builder()
                     .model(MODEL)
                     .format("wav".equals(ext) ? "wav" : ext)

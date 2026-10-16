@@ -23,7 +23,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
-// 微信扫码（W12 10-31）：Web 端展示"接入微信"二维码 + 状态轮询
+// 微信扫码：Web 端展示"接入微信"二维码 + 状态轮询
 // 直接调 SDK 反编译确认的官方 HTTP 接口（SDK 内部 LoginService 即这两个 URL，私有字段绕不过去）：
 //   GET https://ilinkai.weixin.qq.com/ilink/bot/get_bot_qrcode?bot_type=3   → {qrcode, qrcodeImgContent}
 //   GET https://ilinkai.weixin.qq.com/ilink/bot/get_qrcode_status?qrcode=xx → {status, botToken, botId, userId, baseUrl}

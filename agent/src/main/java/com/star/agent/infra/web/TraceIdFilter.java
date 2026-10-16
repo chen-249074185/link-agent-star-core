@@ -13,7 +13,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 import java.io.IOException;
 import java.util.UUID;
 
-// 请求级 traceId（W14 11-09）：每个 HTTP 请求一个 traceId 贯穿全链路日志
+// 请求级 traceId：每个 HTTP 请求一个 traceId 贯穿全链路日志
 //   - 请求头 X-Trace-Id 有值则沿用（排查问题时前端可带 id 关联后端日志），否则生成 UUID 前 8 位
 //   - 写入 MDC → logback 的 [%X{traceId}] 自动打出（与微信链路 MessageDispatcher 同格式同命名）
 //   - 响应头回传 X-Trace-Id 供调用方取用；finally 清理防线程池复用串号

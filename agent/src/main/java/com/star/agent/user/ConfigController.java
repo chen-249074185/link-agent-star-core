@@ -18,7 +18,7 @@ import java.util.Map;
 //   POST   /api/config/liepin-token?userId&token  = 设置/更新猎聘 Token（微信粘贴保存走同一仓库）
 //   DELETE /api/config/liepin-token?userId         = 删除配置（不再使用猎聘）
 //   GET    /api/config/liepin-token?userId         = 配置状态（是否已配置+更新时间，不返回 Token 明文）
-// 全部绑定 userId（W12 换 JWT 后从会话取，签名不变）
+// 全部绑定 userId
 @Tag(name = "用户配置", description = "猎聘 Token 设置（每用户私有，不返回明文），需 JWT")
 @RestController
 @RequestMapping("/api/config")

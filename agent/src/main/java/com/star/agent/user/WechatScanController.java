@@ -10,7 +10,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.Map;
 
-// 微信扫码（登录页"接入微信"弹窗数据源，W12 10-31）：
+// 微信扫码（登录页"接入微信"弹窗数据源）：
 //   GET /api/wechat/scan/start   → 发起扫码（未登录可用：JWT 白名单），返回 {ticket, imgContent}
 //   GET /api/wechat/scan/status  → 轮询状态（前端每 2s 调）：WAITING/SCANNED/CONFIRMED/EXPIRED
 // 确认（CONFIRMED）后由 /api/user/bind-wechat 完成绑定（该端点需登录）

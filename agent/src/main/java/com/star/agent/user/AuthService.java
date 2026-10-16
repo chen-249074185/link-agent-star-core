@@ -36,7 +36,7 @@ public class AuthService {
     private final StringRedisTemplate redis;
     private final MergeService mergeService;
     private final WechatScanService wechatScanService;   // 微信扫码：二维码/状态/确认（10-31 绑定用）
-    private final BotManager botManager;                 // 扫码确认后把 Bot 拉上线（10-31）
+    private final BotManager botManager;                 // 扫码确认后把 Bot 拉上线
     private final BCryptPasswordEncoder encoder = new BCryptPasswordEncoder();
 
     public AuthService(UserRepository userRepository, VerifyCodeService verifyCodeService, JwtService jwtService,

@@ -113,7 +113,7 @@ class ILinkMessageAdapterTest {
         verify(client).sendFile("u1", file, "a.pdf", "文档");
     }
 
-    // attach 换绑：恢复登录换了 client 后重新 attach 生效（坑7 同类场景）
+    // attach 换绑：恢复登录换了 client 后重新 attach 生效
     @Test
     void reattach_switchesClient() throws Exception {
         adapter.attach(client);

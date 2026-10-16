@@ -46,7 +46,7 @@ class MailServiceTest {
         verify(sender).send(captor.capture());
         MimeMessage msg = captor.getValue();
         assertEquals("to@qq.com", msg.getRecipients(MimeMessage.RecipientType.TO)[0].toString());
-        assertEquals("星链智核验证码", msg.getSubject());
+        assertEquals("LinkAgent验证码", msg.getSubject());
         assertTrue(msg.getContent().toString().contains("123456"), "正文应含验证码");
     }
 

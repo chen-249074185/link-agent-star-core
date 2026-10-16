@@ -2,7 +2,7 @@
   <!-- 顶部品牌区 -->
   <view class="hero">
     <view class="hero-ico"></view>
-    <view class="hero-title">星链智核</view>
+    <view class="hero-title">LinkAgent</view>
     <view class="hero-sub">全域自适应多端 AI 智能助手</view>
   </view>
 

@@ -17,7 +17,7 @@ import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 
 // Crawl MCP Server：抓取网页并结构化（crawl_fetch 工具，auto/json/static 三模式）
-// 传输 = stdio（主进程以子进程方式拉起，JSON-RPC 对话）；EOF 感知退出（坑21 同款，零僵尸进程）
+// 传输 = stdio（主进程以子进程方式拉起，JSON-RPC 对话）；EOF 感知退出
 public class CrawlMcpServer {
 
     // static 模式返回原始 HTML 的上限（默认 50k，防超大页面撑爆工具结果；采集列表页可传 maxChars 调大）
@@ -104,7 +104,7 @@ public class CrawlMcpServer {
                 .build();
     }
 
-    // EOF 感知流（坑21 的解法）：客户端断开 → 主线程退出，不残留僵尸进程
+    // EOF 感知流：客户端断开 → 主线程退出，不残留僵尸进程
     private static class EofAwareInputStream extends FilterInputStream {
 
         private final CountDownLatch eofLatch = new CountDownLatch(1);
